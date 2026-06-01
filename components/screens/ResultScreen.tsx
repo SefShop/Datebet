@@ -126,7 +126,7 @@ export default function ResultScreen() {
 
       {/* CTAs */}
       <div className="mt-auto flex flex-col gap-2.5" style={fadeUp(phase>=5,'120ms')}>
-        <button onClick={playAgain}
+        <button onClick={() => navigate('game_select')}
           className="w-full rounded-2xl py-[18px] text-[16px] font-bold active:scale-95 transition-transform cursor-pointer"
           style={{
             fontFamily:"'Plus Jakarta Sans',sans-serif",
@@ -134,20 +134,22 @@ export default function ResultScreen() {
             color:'white',
             boxShadow:'0 12px 40px rgba(253,41,123,0.35)',
           }}>
-          {t.result.playAgain}
+          {t.result.continue}
         </button>
-        <button onClick={() => navigate('bet')}
-          className="w-full rounded-2xl py-[15px] text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-          style={{
-            fontFamily:"'Plus Jakarta Sans',sans-serif",
-            background:'rgba(255,255,255,0.05)',
-            color:'rgba(255,255,255,0.7)',
-            border:'1px solid rgba(255,255,255,0.1)',
-          }}>
-          {copy.cta}
-        </button>
+        <div className="flex gap-2.5">
+          <button onClick={playAgain}
+            className="flex-1 rounded-2xl py-[14px] text-[13px] font-bold active:scale-95 transition-transform cursor-pointer"
+            style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.7)', border:'1px solid rgba(255,255,255,0.1)' }}>
+            {t.result.playAgain}
+          </button>
+          <button onClick={() => navigate('bet')}
+            className="flex-1 rounded-2xl py-[14px] text-[13px] font-bold active:scale-95 transition-transform cursor-pointer"
+            style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.7)', border:'1px solid rgba(255,255,255,0.1)' }}>
+            {copy.cta}
+          </button>
+        </div>
         <button onClick={() => navigate('home')}
-          className="w-full text-[13px] font-medium py-2 active:opacity-60 transition-opacity cursor-pointer"
+          className="w-full text-[13px] font-medium py-1.5 active:opacity-60 transition-opacity cursor-pointer"
           style={{ color:'rgba(255,255,255,0.22)' }}>
           {t.result.nextProfile}
         </button>
