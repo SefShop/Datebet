@@ -18,7 +18,7 @@ const URGENCY_GLOW: Record<ActivityEvent['urgency'], string> = {
 }
 
 export default function ActivityScreen() {
-  const { navigate, resetGame } = useApp()
+  const { navigate, resetGame, lang } = useApp()
   const [feed, setFeed] = useState(ACTIVITY_FEED)
   const [visible, setVisible] = useState(true)
 
@@ -67,7 +67,7 @@ export default function ActivityScreen() {
           <div className="text-[14px] mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
             {unseen > 0
               ? <>{unseen} things happened while you were gone.</>
-              : <>you're all caught up. for now.</>
+              : <>{lang==='gr' ? 'είσαι ενημερωμένος. προς το παρόν.' : "you're all caught up. for now."}</>
             }
           </div>
         </div>
@@ -90,7 +90,7 @@ export default function ActivityScreen() {
         {feed.some(e => e.seen) && (
           <>
             <div className="text-[10px] font-bold tracking-[2px] uppercase mb-3 mt-5"
-              style={{ color: 'rgba(255,255,255,0.12)' }}>earlier</div>
+              style={{ color: 'rgba(255,255,255,0.12)' }}>{lang==='gr' ? 'παλαιότερα' : 'earlier'}</div>
             {feed.filter(e => e.seen).map((event, i) => (
               <ActivityCard key={event.id} event={event} onTap={handleTap} delay={i * 40} dimmed />
             ))}
@@ -111,6 +111,7 @@ interface CardProps {
 }
 
 function ActivityCard({ event, onTap, delay = 0, dimmed = false }: CardProps) {
+  const { lang } = useApp()
   const [pressed, setPressed] = useState(false)
   const isActionable = ['waiting_to_play', 'incomplete_game', 'played_your_vibe', 'answered_question'].includes(event.type)
   const dotColor  = URGENCY_DOT[event.urgency]
@@ -161,18 +162,18 @@ function ActivityCard({ event, onTap, delay = 0, dimmed = false }: CardProps) {
             color: dimmed ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.92)',
             fontFamily: "'Plus Jakarta Sans', sans-serif",
           }}>
-          {event.headline}
+          {event.headline[lang]}
         </div>
         <div className="text-[12px] leading-snug"
           style={{ color: dimmed ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.38)' }}>
-          {event.sub}
+          {event.sub[lang]}
         </div>
       </div>
 
       {/* Right side */}
       <div className="flex flex-col items-end gap-2 flex-shrink-0">
         <div className="text-[11px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
-          {event.timestamp}
+          {event.timestamp[lang]}
         </div>
         {isActionable && !dimmed && (
           <div className="text-[10px] font-bold px-2 py-1 rounded-full"

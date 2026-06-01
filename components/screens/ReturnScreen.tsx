@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ReturnState } from '@/types'
 import { formatAbsence } from '@/lib/reengagement'
+import { useApp } from '@/lib/AppContext'
 
 interface ReturnScreenProps {
   returnState: ReturnState
@@ -10,6 +11,7 @@ interface ReturnScreenProps {
 }
 
 export default function ReturnScreen({ returnState, onContinue }: ReturnScreenProps) {
+  const { lang } = useApp()
   const [show, setShow]       = useState(false)
   const [eventShow, setEv]    = useState(false)
 
@@ -58,19 +60,19 @@ export default function ReturnScreen({ returnState, onContinue }: ReturnScreenPr
           <div className="w-1.5 h-1.5 rounded-full" style={{ background: accentColor }} />
           <span className="text-[11px] font-bold tracking-[1.5px] uppercase"
             style={{ color: accentColor }}>
-            away for {absenceLabel}
+            {lang==='gr' ? 'έλειψες για' : 'away for'} {absenceLabel}
           </span>
         </div>
 
         {/* Headline — large, stark */}
         <div className="text-[30px] font-extrabold text-white leading-[1.1] tracking-tight mb-4"
           style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-          {returnState.headline}
+          {returnState.headline[lang]}
         </div>
 
         <div className="text-[15px] leading-relaxed"
           style={{ color:'rgba(255,255,255,0.38)' }}>
-          {returnState.sub}
+          {returnState.sub[lang]}
         </div>
       </div>
 
@@ -100,10 +102,10 @@ export default function ReturnScreen({ returnState, onContinue }: ReturnScreenPr
           <div className="flex-1 min-w-0">
             <div className="text-[14px] font-bold text-white mb-1"
               style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-              {returnState.event}
+              {returnState.event[lang]}
             </div>
             <div className="text-[11px]" style={{ color:'rgba(255,255,255,0.3)' }}>
-              {absenceLabel} ago
+              {lang==='gr' ? `πριν ${absenceLabel}` : `${absenceLabel} ago`}
             </div>
           </div>
           {/* Unread dot */}
@@ -114,10 +116,10 @@ export default function ReturnScreen({ returnState, onContinue }: ReturnScreenPr
         {/* Tension line */}
         <div className="mt-4 text-center text-[12px] italic"
           style={{ color:'rgba(255,255,255,0.2)', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-          {returnState.absenceTier === 'very_long' && '"a day is long in this game."'}
-          {returnState.absenceTier === 'long'      && '"the longer you wait, the more changes."'}
-          {returnState.absenceTier === 'medium'    && '"a few hours changes the dynamic."'}
-          {returnState.absenceTier === 'short'     && '"even a few minutes matters here."'}
+          {returnState.absenceTier === 'very_long' && (lang==='gr' ? '"μια μέρα είναι πολλή σ' + "'" + 'αυτό το παιχνίδι."' : '"a day is long in this game."')}
+          {returnState.absenceTier === 'long'      && (lang==='gr' ? '"όσο περιμένεις, τόσο αλλάζουν."'  : '"the longer you wait, the more changes."')}
+          {returnState.absenceTier === 'medium'    && (lang==='gr' ? '"λίγες ώρες αλλάζουν τη δυναμική."' : '"a few hours changes the dynamic."')}
+          {returnState.absenceTier === 'short'     && (lang==='gr' ? '"ακόμα και λίγα λεπτά μετράνε εδώ."' : '"even a few minutes matters here."')}
         </div>
       </div>
 
@@ -137,7 +139,7 @@ export default function ReturnScreen({ returnState, onContinue }: ReturnScreenPr
             color: 'white',
             boxShadow: `0 12px 40px ${accentColor}40`,
           }}>
-          {returnState.cta}
+          {returnState.cta[lang]}
         </button>
 
         <button

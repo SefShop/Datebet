@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useApp } from '@/lib/AppContext'
 import {
   pickRandom, MATCH_HEADLINES, NO_MATCH_HEADLINES,
@@ -17,23 +17,23 @@ export default function ResultScreen() {
   const [showRealDuel, setShowRealDuel] = useState(false)
 
   // Social-presence / anticipation layer (computed once)
-  const [anticip] = useState(() => ({
+  const anticip = useMemo(() => ({
     memory:  getMemoryLine(session, lang),
     tension: getTensionLine(session, lang),
     almost:  getAlmostMatchLine(!!game.isMatch, game.compatibilityScore, lang),
     endHook: getEndHook(session, lang),
-  }))
+  }), [lang])  // re-derive when language switches
 
   useEffect(() => {
     [100,320,560,820,1050].forEach((ms,i) => setTimeout(()=>setPhase(i+1), ms))
   }, [])
 
-  const [copy] = useState(() => ({
+  const copy = useMemo(() => ({
     headline: pickRandom(game.isMatch ? MATCH_HEADLINES[lang] : NO_MATCH_HEADLINES[lang]),
     subtext:  pickRandom(game.isMatch ? MATCH_SUBTEXT[lang]   : NO_MATCH_SUBTEXT[lang]),
     compat:   getCompatLabel(game.compatibilityScore, lang),
     cta:      game.isMatch ? DUEL_CTA[lang].match : DUEL_CTA[lang].noMatch,
-  }))
+  }), [lang])  // re-derive when language switches
 
   const userOpt = question.options.find(o => o.id === game.userAnswer)
   const oppOpt  = question.options.find(o => o.id === game.opponentAnswer)

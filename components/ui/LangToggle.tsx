@@ -17,7 +17,7 @@ export default function LangToggle() {
       {(['en', 'gr'] as Lang[]).map(l => (
         <button
           key={l}
-          onClick={() => setLang(l)}
+          onClick={() => { setLang(l); console.log('LANG:', l) }}
           style={{
             padding: '5px 11px', borderRadius: 100, border: 'none',
             fontSize: 11, fontWeight: 700, letterSpacing: '0.5px',

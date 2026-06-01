@@ -28,6 +28,8 @@ export default function BetLockedScreen() {
   const [history, setHistory]           = useState<string[]>([])  // status log
   const scriptRef = useRef<ScriptEntry[]>([])
   const stepRef   = useRef(0)
+  const langRef   = useRef(lang)
+  useEffect(() => { langRef.current = lang }, [lang])
 
   // Countdown
   const [now, setNow] = useState(Date.now())
@@ -55,15 +57,15 @@ export default function BetLockedScreen() {
       const event: PresenceEvent = {
         id:           `${entry.status}-${idx}`,
         status:       entry.status,
-        headline:     entry.headline,
-        sub:          entry.sub,
+        headline:     entry.headline[langRef.current],
+        sub:          entry.sub[langRef.current],
         avatarPulse:  entry.avatarPulse,
         avatarGlow:   entry.avatarGlow,
         tone:         entry.tone,
       }
 
       setCurrentEvent(event)
-      setHistory(h => [...h.slice(-4), entry.headline])  // keep last 5
+      setHistory(h => [...h.slice(-4), entry.headline[langRef.current]])  // keep last 5
 
       if (entry.status === 'locked_in') {
         setLocked(true)
@@ -94,7 +96,7 @@ export default function BetLockedScreen() {
       {/* Header */}
       <div className="px-6 pt-5 flex-shrink-0">
         <div className="text-[11px] font-bold tracking-[2.5px] uppercase mb-2"
-          style={{ color:'rgba(253,41,123,0.6)' }}>bet placed</div>
+          style={{ color:'rgba(253,41,123,0.6)' }}>{lang==='gr' ? 'στοίχημα μπήκε' : 'bet placed'}</div>
         <div className="text-[28px] font-extrabold text-white leading-tight tracking-tight"
           style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
           duel active.
@@ -121,7 +123,7 @@ export default function BetLockedScreen() {
                 fontFamily:"'Plus Jakarta Sans',sans-serif",
                 animation:'fadeSlideIn 0.4s ease both',
               }}>
-              {currentEvent?.headline ?? 'waiting...'}
+              {currentEvent?.headline ?? (lang==='gr' ? 'αναμονή...' : 'waiting...')}
             </div>
             <div key={`sub-${currentEvent?.id}`}
               className="text-[12px] leading-snug"
@@ -130,7 +132,7 @@ export default function BetLockedScreen() {
                 animation:'fadeSlideIn 0.4s ease 0.05s both',
                 transition:'color 0.8s ease',
               }}>
-              {currentEvent?.sub ?? "she'll see it soon."}
+              {currentEvent?.sub ?? (lang==='gr' ? 'θα το δει σύντομα.' : "she'll see it soon.")}
             </div>
           </div>
         </div>
@@ -140,7 +142,7 @@ export default function BetLockedScreen() {
           <div className="px-5 pb-4 flex flex-col gap-1.5"
             style={{ borderTop:'1px solid rgba(255,255,255,0.05)', paddingTop:14 }}>
             <div className="text-[9px] font-bold tracking-[2px] uppercase mb-1"
-              style={{ color:'rgba(255,255,255,0.15)' }}>activity log</div>
+              style={{ color:'rgba(255,255,255,0.15)' }}>{lang==='gr' ? 'ιστορικό' : 'activity log'}</div>
             {history.slice(0,-1).reverse().map((h, i) => (
               <div key={i} className="flex items-center gap-2">
                 <div className="w-1 h-1 rounded-full flex-shrink-0"
@@ -161,7 +163,7 @@ export default function BetLockedScreen() {
         <div className="flex justify-between items-end mb-3">
           <div>
             <div className="text-[9px] font-bold tracking-[2px] uppercase mb-1"
-              style={{ color:'rgba(255,255,255,0.2)' }}>expires in</div>
+              style={{ color:'rgba(255,255,255,0.2)' }}>{lang==='gr' ? 'λήγει σε' : 'expires in'}</div>
             <div className="text-[32px] font-extrabold text-white tabular-nums leading-none"
               style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", letterSpacing:'-1px' }}>
               {formatCountdown(remaining)}
@@ -205,10 +207,10 @@ export default function BetLockedScreen() {
               animation:'fadeIn 0.6s ease both',
               fontFamily:"'Plus Jakarta Sans',sans-serif",
             }}>
-            {currentEvent.tone === 'tense'     && '"the silence says something."'}
-            {currentEvent.tone === 'uncertain' && '"could go either way."'}
-            {currentEvent.tone === 'hopeful'   && '"this is looking good."'}
-            {currentEvent.tone === 'relief'    && '"almost there."'}
+            {currentEvent.tone === 'tense'     && (lang==='gr' ? '"η σιωπή λέει κάτι."'      : '"the silence says something."')}
+            {currentEvent.tone === 'uncertain' && (lang==='gr' ? '"όλα ανοιχτά."'             : '"could go either way."')}
+            {currentEvent.tone === 'hopeful'   && (lang==='gr' ? '"αυτό δείχνει καλό."'       : '"this is looking good."')}
+            {currentEvent.tone === 'relief'    && (lang==='gr' ? '"σχεδόν φτάσαμε."'          : '"almost there."')}
           </div>
         </div>
       )}
@@ -253,8 +255,8 @@ function BothLockedScreen({ amount, onNext }: { amount: number; onNext: ()=>void
   // Fake locked-in event for avatar
   const lockedEvent = {
     id: 'locked', status: 'locked_in' as const,
-    headline: "she committed.",
-    sub: "you're both in.",
+    headline: lang==='gr' ? "δεσμεύτηκε." : "she committed.",
+    sub: lang==='gr' ? "είστε κι οι δύο μέσα." : "you're both in.",
     avatarPulse: 'strong' as const,
     avatarGlow: 'rgba(253,41,123,0.9)',
     tone: 'relief' as const,

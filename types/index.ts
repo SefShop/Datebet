@@ -35,7 +35,7 @@ export type ActivityType =
 
 export interface ActivityEvent {
   id: string; type: ActivityType; name: string; emoji: string
-  headline: string; sub: string; timestamp: string
+  headline: LangStr; sub: LangStr; timestamp: LangStr
   urgency: 'low' | 'mid' | 'high'; seen: boolean
 }
 
@@ -60,8 +60,8 @@ export interface ReturnState {
   isReturn: boolean
   absenceTier: AbsenceTier
   absenceMs: number
-  headline: string
-  sub: string
-  cta: string
-  event: string      // what "happened" while they were away
+  headline: LangStr
+  sub: LangStr
+  cta: LangStr
+  event: LangStr      // what "happened" while they were away
 }

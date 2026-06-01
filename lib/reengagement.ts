@@ -39,109 +39,33 @@ function fmt(ms: number): string {
 
 // ── Copy pools per tier ────────────────────────────────────────
 
-interface CopySet { headline: string; sub: string; cta: string; event: string }
+import type { LangStr } from '@/types'
+interface CopySet { headline: LangStr; sub: LangStr; cta: LangStr; event: LangStr }
 
 const COPY: Record<AbsenceTier, CopySet[]> = {
-  fresh: [
-    // Not shown — too soon, don't interrupt
-  ],
+  fresh: [],
   short: [
-    {
-      headline: "you left at an interesting moment.",
-      sub:      "things moved without you.",
-      cta:      "see what happened →",
-      event:    "Sofia checked her phone twice.",
-    },
-    {
-      headline: "she came back. you didn't.",
-      sub:      "for a few minutes, at least.",
-      cta:      "pick up where it left off →",
-      event:    "Sofia reopened the app.",
-    },
-    {
-      headline: "something shifted while you were gone.",
-      sub:      "brief absence. still noticed.",
-      cta:      "find out →",
-      event:    "A new match appeared in your queue.",
-    },
+    { headline:{en:"you left at an interesting moment.",gr:"έφυγες σε ενδιαφέρουσα στιγμή."}, sub:{en:"things moved without you.",gr:"τα πράγματα κινήθηκαν χωρίς εσένα."}, cta:{en:"see what happened →",gr:"δες τι έγινε →"}, event:{en:"Sofia checked her phone twice.",gr:"Η Sofia κοίταξε το κινητό της δύο φορές."} },
+    { headline:{en:"she came back. you didn't.",gr:"εκείνη γύρισε. εσύ όχι."}, sub:{en:"for a few minutes, at least.",gr:"για λίγα λεπτά, τουλάχιστον."}, cta:{en:"pick up where it left off →",gr:"συνέχισε από εκεί που έμεινες →"}, event:{en:"Sofia reopened the app.",gr:"Η Sofia ξανάνοιξε το app."} },
+    { headline:{en:"something shifted while you were gone.",gr:"κάτι άλλαξε όσο έλειπες."}, sub:{en:"brief absence. still noticed.",gr:"σύντομη απουσία. το πρόσεξε όμως."}, cta:{en:"find out →",gr:"μάθε →"}, event:{en:"A new match appeared in your queue.",gr:"Ένα νέο match εμφανίστηκε στη λίστα σου."} },
   ],
   medium: [
-    {
-      headline: "you've been gone a while.",
-      sub:      "she noticed. not in a bad way. maybe.",
-      cta:      "come back and find out →",
-      event:    "Sofia answered a question without you.",
-    },
-    {
-      headline: "things don't pause here.",
-      sub:      "a few hours is a long time.",
-      cta:      "see what you missed →",
-      event:    "Two people played your profile.",
-    },
-    {
-      headline: "the duel is still open.",
-      sub:      "it expires soon.",
-      cta:      "don't let it expire →",
-      event:    "Sofia committed. You haven't..",
-    },
-    {
-      headline: "your queue got busy while you were out.",
-      sub:      "that's either good news or pressure.",
-      cta:      "check it →",
-      event:    "3 people are ready to play.",
-    },
+    { headline:{en:"you've been gone a while.",gr:"έλειψες αρκετή ώρα."}, sub:{en:"she noticed. not in a bad way. maybe.",gr:"το πρόσεξε. όχι αρνητικά. ίσως."}, cta:{en:"come back and find out →",gr:"γύρνα και μάθε →"}, event:{en:"Sofia answered a question without you.",gr:"Η Sofia απάντησε μια ερώτηση χωρίς εσένα."} },
+    { headline:{en:"things don't pause here.",gr:"εδώ τίποτα δεν σταματάει."}, sub:{en:"a few hours is a long time.",gr:"λίγες ώρες είναι πολύς χρόνος."}, cta:{en:"see what you missed →",gr:"δες τι έχασες →"}, event:{en:"Two people played your profile.",gr:"Δύο άτομα έπαιξαν το προφίλ σου."} },
+    { headline:{en:"the duel is still open.",gr:"το duel είναι ακόμα ανοιχτό."}, sub:{en:"it expires soon.",gr:"λήγει σύντομα."}, cta:{en:"don't let it expire →",gr:"μην το αφήσεις να λήξει →"}, event:{en:"Sofia committed. You haven't.",gr:"Η Sofia δεσμεύτηκε. Εσύ όχι."} },
+    { headline:{en:"your queue got busy while you were out.",gr:"η λίστα σου γέμισε όσο έλειπες."}, sub:{en:"that's either good news or pressure.",gr:"ή καλά νέα ή πίεση."}, cta:{en:"check it →",gr:"δες την →"}, event:{en:"3 people are ready to play.",gr:"3 άτομα είναι έτοιμα να παίξουν."} },
   ],
   long: [
-    {
-      headline: "it's been a few hours.",
-      sub:      "she stopped waiting at some point.",
-      cta:      "see if it's too late →",
-      event:    "Sofia moved on to someone else.",
-    },
-    {
-      headline: "a lot can happen in a few hours.",
-      sub:      "most of it did.",
-      cta:      "pick up the pieces →",
-      event:    "Your stake expired. Hers didn't..",
-    },
-    {
-      headline: "you were gone longer than you think.",
-      sub:      "the app kept moving. so did she.",
-      cta:      "find out what you missed →",
-      event:    "Someone new matched with you.",
-    },
-    {
-      headline: "the match you left? still there.",
-      sub:      "for now.",
-      cta:      "don't waste it →",
-      event:    "Sofia is still in your queue.",
-    },
+    { headline:{en:"it's been a few hours.",gr:"πέρασαν κάποιες ώρες."}, sub:{en:"she stopped waiting at some point.",gr:"κάποια στιγμή σταμάτησε να περιμένει."}, cta:{en:"see if it's too late →",gr:"δες αν είναι αργά →"}, event:{en:"Sofia moved on to someone else.",gr:"Η Sofia προχώρησε με κάποιον άλλον."} },
+    { headline:{en:"a lot can happen in a few hours.",gr:"πολλά γίνονται σε λίγες ώρες."}, sub:{en:"most of it did.",gr:"τα περισσότερα έγιναν."}, cta:{en:"pick up the pieces →",gr:"μάζεψε τα κομμάτια →"}, event:{en:"Your stake expired. Hers didn't.",gr:"Το στοίχημά σου έληξε. Το δικό της όχι."} },
+    { headline:{en:"you were gone longer than you think.",gr:"έλειψες πιο πολύ απ' όσο νομίζεις."}, sub:{en:"the app kept moving. so did she.",gr:"το app συνέχισε. το ίδιο κι εκείνη."}, cta:{en:"find out what you missed →",gr:"μάθε τι έχασες →"}, event:{en:"Someone new matched with you.",gr:"Κάποιος νέος έκανε match μαζί σου."} },
+    { headline:{en:"the match you left? still there.",gr:"το match που άφησες; ακόμα εκεί."}, sub:{en:"for now.",gr:"προς το παρόν."}, cta:{en:"don't waste it →",gr:"μην το σπαταλήσεις →"}, event:{en:"Sofia is still in your queue.",gr:"Η Sofia είναι ακόμα στη λίστα σου."} },
   ],
   very_long: [
-    {
-      headline: "you were gone for a day.",
-      sub:      "the question is whether anything waited.",
-      cta:      "find out →",
-      event:    "Sofia matched with someone else.",
-    },
-    {
-      headline: "absence either builds tension or breaks it.",
-      sub:      "you're about to find out which.",
-      cta:      "see what's left →",
-      event:    "Your streak broke. Start a new one.",
-    },
-    {
-      headline: "a day is a long time here.",
-      sub:      "things expired. new things appeared.",
-      cta:      "see what survived →",
-      event:    "New profiles. New questions. New bets.",
-    },
-    {
-      headline: "you missed a full cycle.",
-      sub:      "the world didn't stop.",
-      cta:      "step back in →",
-      event:    "Someone is waiting on your answer.",
-    },
+    { headline:{en:"you were gone for a day.",gr:"έλειψες μια ολόκληρη μέρα."}, sub:{en:"the question is whether anything waited.",gr:"το θέμα είναι αν περίμενε κάτι."}, cta:{en:"find out →",gr:"μάθε →"}, event:{en:"Sofia matched with someone else.",gr:"Η Sofia έκανε match με κάποιον άλλον."} },
+    { headline:{en:"absence either builds tension or breaks it.",gr:"η απουσία ή χτίζει ένταση ή τη σπάει."}, sub:{en:"you're about to find out which.",gr:"σε λίγο θα μάθεις ποιο."}, cta:{en:"see what's left →",gr:"δες τι έμεινε →"}, event:{en:"Your streak broke. Start a new one.",gr:"Το σερί σου έσπασε. Ξεκίνα νέο."} },
+    { headline:{en:"a day is a long time here.",gr:"μια μέρα είναι πολλή εδώ."}, sub:{en:"things expired. new things appeared.",gr:"κάποια έληξαν. νέα εμφανίστηκαν."}, cta:{en:"see what survived →",gr:"δες τι επέζησε →"}, event:{en:"New profiles. New questions. New bets.",gr:"Νέα προφίλ. Νέες ερωτήσεις. Νέα duels."} },
+    { headline:{en:"you missed a full cycle.",gr:"έχασες έναν ολόκληρο κύκλο."}, sub:{en:"the world didn't stop.",gr:"ο κόσμος δεν σταμάτησε."}, cta:{en:"step back in →",gr:"ξαναμπές →"}, event:{en:"Someone is waiting on your answer.",gr:"Κάποιος περιμένει την απάντησή σου."} },
   ],
 }
 
@@ -188,10 +112,10 @@ export function loadReturn(): ReturnState | null {
 
     // Override with more specific copy if we know what they left mid-doing
     if (snapshot.hadActiveBet) {
-      const betSpecific = pool.find(c => c.event.toLowerCase().includes('bet'))
+      const betSpecific = pool.find(c => c.event.en.toLowerCase().includes('bet') || c.event.en.toLowerCase().includes('stake'))
       if (betSpecific) chosen = betSpecific
     } else if (snapshot.hadActiveGame) {
-      const gameSpecific = pool.find(c => c.event.toLowerCase().includes('answer'))
+      const gameSpecific = pool.find(c => c.event.en.toLowerCase().includes('answer'))
       if (gameSpecific) chosen = gameSpecific
     }
 

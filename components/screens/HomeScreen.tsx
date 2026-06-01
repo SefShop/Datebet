@@ -19,14 +19,14 @@ export default function HomeScreen() {
     const interval = setInterval(() => {
       setHookVisible(false)
       setTimeout(() => {
-        setHookIndex(i => (i + 1) % HOME_HOOKS.length)
+        setHookIndex(i => (i + 1) % HOME_HOOKS[lang].length)
         setHookVisible(true)
       }, 300)
     }, 4000)
     return () => clearInterval(interval)
   }, [])
 
-  const hook = HOME_HOOKS[hookIndex]
+  const hook = HOME_HOOKS[lang][hookIndex]
 
   const handlePlay = () => {
     resetGame()

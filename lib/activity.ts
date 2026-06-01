@@ -15,59 +15,59 @@ const CAST = [
 // ─────────────────────────────────────────────────────────────────
 // Timestamp pool — feels organic, not algorithmic
 // ─────────────────────────────────────────────────────────────────
-const TIMESTAMPS = [
-  'just now',
-  '1 min ago',
-  '2 min ago',
-  '4 min ago',
-  '11 min ago',
-  '23 min ago',
-  '47 min ago',
-  '1h ago',
-  '2h ago',
-  '3h ago',
-  '5h ago',
+const TIMESTAMPS: { en: string; gr: string }[] = [
+  { en: 'just now',    gr: 'μόλις τώρα' },
+  { en: '1 min ago',   gr: 'πριν 1 λεπτό' },
+  { en: '2 min ago',   gr: 'πριν 2 λεπτά' },
+  { en: '4 min ago',   gr: 'πριν 4 λεπτά' },
+  { en: '11 min ago',  gr: 'πριν 11 λεπτά' },
+  { en: '23 min ago',  gr: 'πριν 23 λεπτά' },
+  { en: '47 min ago',  gr: 'πριν 47 λεπτά' },
+  { en: '1h ago',      gr: 'πριν 1 ώρα' },
+  { en: '2h ago',      gr: 'πριν 2 ώρες' },
+  { en: '3h ago',      gr: 'πριν 3 ώρες' },
+  { en: '5h ago',      gr: 'πριν 5 ώρες' },
 ]
 
 // ─────────────────────────────────────────────────────────────────
 // Templates per type
 // Each uses {name} as placeholder
 // ─────────────────────────────────────────────────────────────────
-const TEMPLATES: Record<ActivityType, { headline: string; sub: string; urgency: ActivityEvent['urgency'] }[]> = {
+const TEMPLATES: Record<ActivityType, { headline: { en:string; gr:string }; sub: { en:string; gr:string }; urgency: ActivityEvent['urgency'] }[]> = {
   played_your_vibe: [
-    { headline: '{name} played your vibe 👀',        sub: 'see how they answered.',                urgency: 'high' },
-    { headline: '{name} checked you out.',            sub: 'and answered the same question.',        urgency: 'mid'  },
-    { headline: '{name} is curious about you.',       sub: 'they already played. your move.',        urgency: 'high' },
+    { headline: { en: '{name} played your vibe 👀', gr: 'η {name} έπαιξε το vibe σου 👀' }, sub: { en: 'see how they answered.', gr: 'δες πώς απάντησε.' }, urgency: 'high' },
+    { headline: { en: '{name} checked you out.', gr: 'η {name} σε κοίταξε.' }, sub: { en: 'and answered the same question.', gr: 'και απάντησε την ίδια ερώτηση.' }, urgency: 'mid' },
+    { headline: { en: '{name} is curious about you.', gr: 'η {name} είναι περίεργη για σένα.' }, sub: { en: 'they already played. your move.', gr: 'ήδη έπαιξε. σειρά σου.' }, urgency: 'high' },
   ],
   almost_match: [
-    { headline: 'you were this close with {name}.',   sub: 'one answer apart. interesting.',         urgency: 'high' },
-    { headline: '{name} almost matched you.',         sub: 'different answer. same vibe.',           urgency: 'mid'  },
-    { headline: 'so close. {name} went the other way.', sub: 'still worth a conversation.',          urgency: 'mid'  },
+    { headline: { en: 'you were this close with {name}.', gr: 'ήσουν τόσο κοντά με την {name}.' }, sub: { en: 'one answer apart. interesting.', gr: 'μία απάντηση μακριά. ενδιαφέρον.' }, urgency: 'high' },
+    { headline: { en: '{name} almost matched you.', gr: 'η {name} παραλίγο να ταιριάξει.' }, sub: { en: 'different answer. same vibe.', gr: 'άλλη απάντηση. ίδιο vibe.' }, urgency: 'mid' },
+    { headline: { en: 'so close. {name} went the other way.', gr: 'τόσο κοντά. η {name} πήγε αλλιώς.' }, sub: { en: 'still worth a conversation.', gr: 'αξίζει πάλι μια κουβέντα.' }, urgency: 'mid' },
   ],
   waiting_to_play: [
-    { headline: '{name} is waiting for you.',         sub: "she's ready. are you?",                  urgency: 'high' },
-    { headline: 'someone is waiting to play.',        sub: "don't leave them hanging.",               urgency: 'high' },
-    { headline: '{name} sent a game challenge.',      sub: 'expires in 24h.',                         urgency: 'high' },
+    { headline: { en: '{name} is waiting for you.', gr: 'η {name} σε περιμένει.' }, sub: { en: "she's ready. are you?", gr: 'είναι έτοιμη. εσύ;' }, urgency: 'high' },
+    { headline: { en: 'someone is waiting to play.', gr: 'κάποια περιμένει να παίξει.' }, sub: { en: "don't leave them hanging.", gr: 'μην την αφήνεις να περιμένει.' }, urgency: 'high' },
+    { headline: { en: '{name} sent a game challenge.', gr: 'η {name} σου έστειλε πρόκληση.' }, sub: { en: 'expires in 24h.', gr: 'λήγει σε 24 ώρες.' }, urgency: 'high' },
   ],
   answered_question: [
-    { headline: '{name} answered your question.',     sub: 'her answer might surprise you.',         urgency: 'mid'  },
-    { headline: '{name} played back.',                sub: 'see if you think alike.',                 urgency: 'mid'  },
-    { headline: '{name} has a response for you.',     sub: "tap to find out what she said.",          urgency: 'mid'  },
+    { headline: { en: '{name} answered your question.', gr: 'η {name} απάντησε την ερώτησή σου.' }, sub: { en: 'her answer might surprise you.', gr: 'η απάντησή της ίσως σε εκπλήξει.' }, urgency: 'mid' },
+    { headline: { en: '{name} played back.', gr: 'η {name} απάντησε.' }, sub: { en: 'see if you think alike.', gr: 'δες αν σκέφτεστε ίδια.' }, urgency: 'mid' },
+    { headline: { en: '{name} has a response for you.', gr: 'η {name} έχει απάντηση για σένα.' }, sub: { en: 'tap to find out what she said.', gr: 'πάτα να δεις τι είπε.' }, urgency: 'mid' },
   ],
   pending_match: [
-    { headline: 'you have a pending match.',          sub: 'waiting for someone to make a move.',    urgency: 'mid'  },
-    { headline: '2 people are ready to play.',        sub: "they're not going to wait forever.",     urgency: 'high' },
-    { headline: 'matches are piling up.',             sub: "you're in demand right now.",             urgency: 'low'  },
+    { headline: { en: 'you have a pending match.', gr: 'έχεις ένα match σε εκκρεμότητα.' }, sub: { en: 'waiting for someone to make a move.', gr: 'περιμένει κάποιον να κάνει κίνηση.' }, urgency: 'mid' },
+    { headline: { en: '2 people are ready to play.', gr: '2 άτομα είναι έτοιμα να παίξουν.' }, sub: { en: "they're not going to wait forever.", gr: 'δεν θα περιμένουν για πάντα.' }, urgency: 'high' },
+    { headline: { en: 'matches are piling up.', gr: 'τα matches μαζεύονται.' }, sub: { en: "you're in demand right now.", gr: 'έχεις ζήτηση αυτή τη στιγμή.' }, urgency: 'low' },
   ],
   incomplete_game: [
-    { headline: 'you left a game unfinished.',        sub: '{name} is still waiting for your answer.', urgency: 'high' },
-    { headline: 'finish what you started.',           sub: '{name} answered. you went quiet.',        urgency: 'high' },
-    { headline: 'unfinished game with {name}.',       sub: 'she answered 3 hours ago.',               urgency: 'mid'  },
+    { headline: { en: 'you left a game unfinished.', gr: 'άφησες ένα παιχνίδι στη μέση.' }, sub: { en: '{name} is still waiting for your answer.', gr: 'η {name} περιμένει ακόμα την απάντησή σου.' }, urgency: 'high' },
+    { headline: { en: 'finish what you started.', gr: 'τελείωσε αυτό που ξεκίνησες.' }, sub: { en: '{name} answered. you went quiet.', gr: 'η {name} απάντησε. εσύ σώπασες.' }, urgency: 'high' },
+    { headline: { en: 'unfinished game with {name}.', gr: 'ημιτελές παιχνίδι με την {name}.' }, sub: { en: 'she answered 3 hours ago.', gr: 'απάντησε πριν 3 ώρες.' }, urgency: 'mid' },
   ],
   new_player: [
-    { headline: 'someone new just joined.',           sub: 'and their first game is ready.',         urgency: 'low'  },
-    { headline: 'fresh profile. ready to play.',      sub: 'get there before someone else does.',    urgency: 'mid'  },
-    { headline: '{name} just signed up.',             sub: 'and she matches your type.',             urgency: 'low'  },
+    { headline: { en: '{name} just signed up.', gr: 'η {name} μόλις έκανε εγγραφή.' }, sub: { en: 'and she matches your type.', gr: 'και ταιριάζει στον τύπο σου.' }, urgency: 'low' },
+    { headline: { en: 'someone new just joined.', gr: 'κάποια νέα μόλις μπήκε.' }, sub: { en: 'be the first to play her.', gr: 'γίνε ο πρώτος που θα παίξει.' }, urgency: 'low' },
+    { headline: { en: '{name} is new here.', gr: 'η {name} είναι καινούργια εδώ.' }, sub: { en: 'fresh face. your move.', gr: 'φρέσκο πρόσωπο. σειρά σου.' }, urgency: 'low' },
   ],
 }
 
@@ -82,20 +82,18 @@ function buildEvent(type: ActivityType, index: number): ActivityEvent {
   const person    = CAST[index % CAST.length]
   const templates = TEMPLATES[type]
   const template  = pick(templates)
-
-  const headline = template.headline.replace('{name}', person.name)
-  const sub      = template.sub.replace('{name}', person.name)
+  const ts        = TIMESTAMPS[Math.min(index * 2, TIMESTAMPS.length - 1)]
 
   return {
     id:       `${type}-${index}`,
     type,
     name:     person.name,
     emoji:    person.emoji,
-    headline,
-    sub,
-    timestamp: TIMESTAMPS[Math.min(index * 2, TIMESTAMPS.length - 1)],
+    headline: { en: template.headline.en.replace('{name}', person.name), gr: template.headline.gr.replace('{name}', person.name) },
+    sub:      { en: template.sub.en.replace('{name}', person.name),      gr: template.sub.gr.replace('{name}', person.name) },
+    timestamp: { en: ts.en, gr: ts.gr },
     urgency:   template.urgency,
-    seen:      index > 2,   // first 3 appear unseen (creates unread badge)
+    seen:      index > 2,
   }
 }
 
@@ -121,13 +119,25 @@ export const ACTIVITY_FEED: ActivityEvent[] = FEED_ORDER.map(buildEvent)
 // ─────────────────────────────────────────────────────────────────
 // Home screen hooks — 3 rotating banners
 // ─────────────────────────────────────────────────────────────────
-export const HOME_HOOKS = [
-  { icon: '👀', text: 'Someone played your vibe.',    cta: 'see who',      urgency: 'high' as const },
-  { icon: '🎮', text: 'A game is waiting for you.',   cta: 'play now',     urgency: 'high' as const },
-  { icon: '💬', text: '2 people answered your Q.',    cta: 'check it',     urgency: 'mid'  as const },
-  { icon: '🔥', text: "You're on someone's radar.",   cta: 'find out',     urgency: 'mid'  as const },
-  { icon: '⏳', text: 'Match expires in 24h.',        cta: 'don\'t miss',  urgency: 'high' as const },
-  { icon: '✨', text: 'Someone new just joined.',     cta: 'go first',     urgency: 'low'  as const },
-]
+import type { Lang } from '@/lib/copy'
+
+export const HOME_HOOKS: Record<Lang, { icon: string; text: string; cta: string; urgency: 'high'|'mid'|'low' }[]> = {
+  en: [
+    { icon: '👀', text: 'Someone played your vibe.',  cta: 'see who',    urgency: 'high' },
+    { icon: '🎮', text: 'A game is waiting for you.', cta: 'play now',   urgency: 'high' },
+    { icon: '💬', text: '2 people answered your Q.',  cta: 'check it',   urgency: 'mid'  },
+    { icon: '🔥', text: "You're on someone's radar.", cta: 'find out',   urgency: 'mid'  },
+    { icon: '⏳', text: 'Match expires in 24h.',      cta: "don't miss", urgency: 'high' },
+    { icon: '✨', text: 'Someone new just joined.',   cta: 'go first',   urgency: 'low'  },
+  ],
+  gr: [
+    { icon: '👀', text: 'Κάποιος έπαιξε το vibe σου.', cta: 'δες ποιος',   urgency: 'high' },
+    { icon: '🎮', text: 'Σε περιμένει ένα παιχνίδι.',  cta: 'παίξε τώρα',  urgency: 'high' },
+    { icon: '💬', text: '2 άτομα απάντησαν στην ερώτησή σου.', cta: 'δες το', urgency: 'mid' },
+    { icon: '🔥', text: 'Είσαι στο ραντάρ κάποιου.',   cta: 'μάθε',        urgency: 'mid'  },
+    { icon: '⏳', text: 'Το match λήγει σε 24 ώρες.',  cta: 'μη το χάσεις', urgency: 'high' },
+    { icon: '✨', text: 'Κάποιος νέος μόλις μπήκε.',    cta: 'πρόλαβε',     urgency: 'low'  },
+  ],
+}
 
 export const UNREAD_COUNT = ACTIVITY_FEED.filter(e => !e.seen).length

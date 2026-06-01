@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { MOCK_PROFILE } from '@/lib/data'
 import { pickRandom, SUSPENSE_LINES } from '@/lib/voice'
@@ -8,14 +8,14 @@ import { THINKING_LINES, getRemembersLine } from '@/lib/anticipation'
 
 export default function SuspenseScreen() {
   const { navigate, personalization, lang, session } = useApp()
-  const [line]  = useState(() => pickRandom(SUSPENSE_LINES[lang]))
+  const line = useMemo(() => pickRandom(SUSPENSE_LINES[lang]), [lang])
   // FEATURE 2 — two "thinking" beats over a human-feeling 1.5-3s delay
-  const [thinking] = useState(() => {
+  const thinking = useMemo(() => {
     const pool = [...THINKING_LINES[lang]]
     const a = pool.splice(Math.floor(Math.random()*pool.length), 1)[0]
     const b = pool.splice(Math.floor(Math.random()*pool.length), 1)[0]
     return [a, b]
-  })
+  }, [lang])
   const [beat,  setBeat]  = useState(0)
   const [show,  setShow]  = useState(false)
   const [leave, setLeave] = useState(false)
