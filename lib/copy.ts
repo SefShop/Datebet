@@ -93,7 +93,7 @@ const en: Copy = {
     accentWord: 'costs',
     sub:        'One question. One decision. Show up — or lose.',
     typewriter: ['ghosting.', 'maybe.', 'disappearing.', 'excuses.'],
-    ctaPrimary: 'Play your first round →',
+    ctaPrimary: 'Start Playing →',
     ctaSecond:  'see how it works',
   },
 
@@ -192,7 +192,7 @@ const gr: Copy = {
     accentWord: 'κόστος',
     sub:        'Μία ερώτηση. Μία απόφαση. Δείξου — ή χάσε.',
     typewriter: ['ghosting.', 'ίσως.', 'εξαφανίσεις.', 'δικαιολογίες.'],
-    ctaPrimary: 'Παίξε τον πρώτο σου γύρο →',
+    ctaPrimary: 'Ξεκίνα να παίζεις →',
     ctaSecond:  'δες πώς λειτουργεί',
   },
 
@@ -283,17 +283,21 @@ export const COPY: Record<Lang, Copy> = { en, gr }
 // EN: cool, minimal.  GR: human, direct, emotional.
 // ═══════════════════════════════════════════════════════════════
 export interface AppCopy {
-  splash:  { tagline: string; start: string; haveAccount: string }
+  splash:  { title: string; tagline: string; start: string; haveAccount: string }
   home:    { greeting: string; titleTop: string; titleBottom: string; play: string }
   game:    { you: string; vs: string; timer: string; ctaPicked: string; ctaEmpty: string
-             whisperBold: string; whisperHonest: string; whisperSafe: string }
+             whisperBold: string; whisperHonest: string; whisperSafe: string
+             next: string; lastQ: string; progress: string }
   result:  { vibeReading: string; you: string; nextProfile: string; different: string; same: string; playAgain: string; continue: string }
   games:   { selectTitle: string; selectSub: string; cardTitle: string; cardDesc: string; boardTitle: string; boardDesc: string
              play: string; back: string; you: string; sofia: string
              yourTurn: string; sofiaTurn: string; accept: string; skip: string; draw: string
              accepted: string; skipped: string; sofiaThinking: string; deckEmpty: string; cardDone: string
              roll: string; rolling: string; rolled: string; finish: string; youWin: string; bothWin: string; rematch: string; tapToFlip: string
-             playAgain: string; tryAnother: string; lockDuel: string; gameOver: string }
+             playAgain: string; tryAnother: string; lockDuel: string; gameOver: string
+             goalCard: string; goalBoard: string; thinking: string; sofiaWent: string; sofiaPassed: string
+             youWinCard: string; sofiaWinCard: string; tieCard: string
+             msgWin: string; msgLose: string; msgTie: string; pts: string; vs: string }
   bet:     { backHint: string; yourStake: string; bothShow: string; bothShowSub: string
              noShow: string; noShowSub: string; cta: string; ctaHint: string; answersIn: string }
   commit:  { eyebrow: string; titleA: string; titleB: string; titleC: string; intro: string
@@ -307,12 +311,13 @@ export interface AppCopy {
 }
 
 const appEn: AppCopy = {
-  splash: { tagline: 'Play a game. Win a date.', start: 'Get Started', haveAccount: 'I already have an account' },
-  home:   { greeting: 'good evening.', titleTop: 'find your', titleBottom: 'player two.', play: '🎮 play & connect' },
+  splash: { title: 'Play a game together', tagline: 'No chat. Just interaction.', start: 'Start', haveAccount: 'I already have an account' },
+  home:   { greeting: 'good evening.', titleTop: 'find your', titleBottom: 'player two.', play: 'Start Game' },
   game:   { you: 'you', vs: 'vs', timer: 'answer before she does',
             ctaPicked: 'lock it in. no regrets.', ctaEmpty: 'pick one.',
-            whisperBold: 'you went bold last time.', whisperHonest: 'you were honest last round.', whisperSafe: 'you played it safe before.' },
-  result: { vibeReading: 'vibe reading', you: 'you', nextProfile: 'next profile', different: 'different', same: 'same', playAgain: 'play another round →', continue: 'continue →' },
+            whisperBold: 'you went bold last time.', whisperHonest: 'you were honest last round.', whisperSafe: 'you played it safe before.',
+            next: 'Next →', lastQ: 'Choose Game →', progress: 'of' },
+  result: { vibeReading: 'vibe reading', you: 'you', nextProfile: 'next profile', different: 'different', same: 'same', playAgain: 'play another round →', continue: 'Choose Game →' },
   games: {
     selectTitle: 'pick your game', selectSub: 'now the fun part. choose how you play.',
     cardTitle: 'card game', cardDesc: 'draw a card. say something real.',
@@ -321,7 +326,11 @@ const appEn: AppCopy = {
     yourTurn: 'your turn', sofiaTurn: "sofia's turn", accept: 'accept', skip: 'skip', draw: 'draw a card',
     accepted: 'you went for it.', skipped: 'you passed.', sofiaThinking: 'sofia is reading it...', deckEmpty: 'deck empty. nice run.', cardDone: 'play again',
     roll: 'roll', rolling: 'rolling...', rolled: 'you rolled', finish: 'finish', youWin: 'you reached the end first.', bothWin: 'you made it. together.', rematch: 'play again', tapToFlip: 'tap to flip',
-    playAgain: 'play again →', tryAnother: 'try another game →', lockDuel: 'lock the duel →', gameOver: 'that was fun.',
+    playAgain: 'play again →', tryAnother: 'try another game →', lockDuel: 'start a real duel (coming soon)', gameOver: 'that was fun.',
+    goalCard: '🎯 beat sofia — most cards taken wins', goalBoard: '🏁 race sofia to the finish',
+    thinking: 'sofia is thinking...', sofiaWent: 'sofia went for it.', sofiaPassed: 'sofia passed.',
+    youWinCard: 'you beat sofia.', sofiaWinCard: 'sofia got you this time.', tieCard: "dead even. a real tie.",
+    msgWin: 'she likes someone who commits.', msgLose: "she's tougher than she looks.", msgTie: 'perfectly matched. suspicious.', pts: 'pts', vs: 'vs',
   },
   bet:    { backHint: 'your answers are in.\nnow commit to the date.', yourStake: 'your stake',
             bothShow: 'both show up', bothShowSub: 'you each get {x} credits back. doubled.',
@@ -350,12 +359,13 @@ const appEn: AppCopy = {
 }
 
 const appGr: AppCopy = {
-  splash: { tagline: 'Παίξε ένα παιχνίδι. Κέρδισε ένα ραντεβού.', start: 'Ξεκίνα', haveAccount: 'Έχω ήδη λογαριασμό' },
-  home:   { greeting: 'καλησπέρα.', titleTop: 'βρες τον/την', titleBottom: 'player two σου.', play: '🎮 παίξε & γνωρίσου' },
+  splash: { title: 'Παίξτε ένα παιχνίδι μαζί', tagline: 'Χωρίς chat. Μόνο αλληλεπίδραση.', start: 'Ξεκίνα', haveAccount: 'Έχω ήδη λογαριασμό' },
+  home:   { greeting: 'καλησπέρα.', titleTop: 'βρες τον/την', titleBottom: 'player two σου.', play: 'Ξεκίνα παιχνίδι' },
   game:   { you: 'εσύ', vs: 'vs', timer: 'απάντησε πριν από εκείνη',
             ctaPicked: 'κλείδωσέ το. χωρίς τύψεις.', ctaEmpty: 'διάλεξε.',
-            whisperBold: 'την προηγούμενη το ρίσκαρες.', whisperHonest: 'τον προηγούμενο γύρο ήσουν ειλικρινής.', whisperSafe: 'πριν το έπαιξες ασφαλές.' },
-  result: { vibeReading: 'η χημεία σας', you: 'εσύ', nextProfile: 'επόμενο προφίλ', different: 'διαφορετικά', same: 'ίδια', playAgain: 'παίξε άλλον έναν γύρο →', continue: 'συνέχεια →' },
+            whisperBold: 'την προηγούμενη το ρίσκαρες.', whisperHonest: 'τον προηγούμενο γύρο ήσουν ειλικρινής.', whisperSafe: 'πριν το έπαιξες ασφαλές.',
+            next: 'Επόμενη →', lastQ: 'Διάλεξε παιχνίδι →', progress: 'από' },
+  result: { vibeReading: 'η χημεία σας', you: 'εσύ', nextProfile: 'επόμενο προφίλ', different: 'διαφορετικά', same: 'ίδια', playAgain: 'παίξε άλλον έναν γύρο →', continue: 'Διάλεξε παιχνίδι →' },
   games: {
     selectTitle: 'διάλεξε παιχνίδι', selectSub: 'τώρα το ωραίο. διάλεξε πώς θα παίξετε.',
     cardTitle: 'παιχνίδι με κάρτες', cardDesc: 'τράβα μια κάρτα. πες κάτι αληθινό.',
@@ -364,7 +374,11 @@ const appGr: AppCopy = {
     yourTurn: 'σειρά σου', sofiaTurn: 'σειρά της sofia', accept: 'το δέχομαι', skip: 'πάσο', draw: 'τράβα κάρτα',
     accepted: 'το έκανες.', skipped: 'πάσαρες.', sofiaThinking: 'η sofia το διαβάζει...', deckEmpty: 'τέλος η τράπουλα. ωραία ήταν.', cardDone: 'παίξε ξανά',
     roll: 'ρίξε', rolling: 'ρίχνει...', rolled: 'έφερες', finish: 'τέλος', youWin: 'έφτασες πρώτος στο τέλος.', bothWin: 'τα καταφέρατε. μαζί.', rematch: 'παίξε ξανά', tapToFlip: 'πάτα να γυρίσεις',
-    playAgain: 'παίξε ξανά →', tryAnother: 'άλλο παιχνίδι →', lockDuel: 'κλείδωσε το duel →', gameOver: 'ωραία ήταν.',
+    playAgain: 'παίξε ξανά →', tryAnother: 'άλλο παιχνίδι →', lockDuel: 'ξεκίνα αληθινό duel (σύντομα)', gameOver: 'ωραία ήταν.',
+    goalCard: '🎯 νίκησε τη sofia — όποιος πάρει πιο πολλές κάρτες', goalBoard: '🏁 τρέξε τη sofia στο τέλος',
+    thinking: 'η sofia σκέφτεται...', sofiaWent: 'η sofia το έκανε.', sofiaPassed: 'η sofia πάσαρε.',
+    youWinCard: 'νίκησες τη sofia.', sofiaWinCard: 'σε κέρδισε αυτή τη φορά η sofia.', tieCard: 'απόλυτη ισοπαλία.',
+    msgWin: 'της αρέσει κάποιος που δεσμεύεται.', msgLose: 'είναι πιο σκληρή απ' + "'" + ' ό,τι δείχνει.', msgTie: 'τέλεια ταιριαστοί. ύποπτο.', pts: 'πόντοι', vs: 'vs',
   },
   bet:    { backHint: 'οι απαντήσεις σας μπήκαν.\nτώρα δεσμεύσου για το ραντεβού.', yourStake: 'το στοίχημά σου',
             bothShow: 'εμφανίζεστε κι οι δύο', bothShowSub: 'παίρνετε ο καθένας {x} credits πίσω. διπλά.',

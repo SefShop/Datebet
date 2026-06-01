@@ -101,3 +101,9 @@ export const BOARD_FEEDBACK: Record<Lang, string[]> = {
 export function pickLine(arr: string[]): string {
   return arr[Math.floor(Math.random() * arr.length)]
 }
+
+// Sofia reactions after a move (bilingual)
+export const REACTIONS: Record<Lang, string[]> = {
+  en: ["that was bold.", "she didn't expect that.", "interesting choice.", "she's reading you.", "she noticed that.", "bold."],
+  gr: ["αυτό ήταν τολμηρό.", "δεν το περίμενε.", "ενδιαφέρουσα επιλογή.", "σε διαβάζει.", "το πρόσεξε αυτό.", "θάρρος."],
+}

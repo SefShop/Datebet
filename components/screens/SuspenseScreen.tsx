@@ -26,14 +26,15 @@ export default function SuspenseScreen() {
   const subLine = remembers ?? personalization.progressionObs ?? personalization.speedObs ?? line.bottom
   const isPersonal = !!(remembers || personalization.progressionObs || personalization.speedObs)
 
+  const [ready, setReady] = useState(false)
+
   useEffect(() => {
-    const total = 1500 + Math.floor(Math.random() * 1500)   // 1.5–3s, feels human
+    // Visual beats only — NO automatic navigation. User taps to reveal.
     const t0 = setTimeout(() => setShow(true), 80)
-    const tb = setTimeout(() => setBeat(1), Math.floor(total * 0.55))
-    const t1 = setTimeout(() => setLeave(true), total)
-    const t2 = setTimeout(() => navigate('result'), total + 420)
-    return () => [t0,tb,t1,t2].forEach(clearTimeout)
-  }, [navigate])
+    const tb = setTimeout(() => setBeat(1), 900)
+    const tr = setTimeout(() => setReady(true), 1400)   // reveal the button (no redirect)
+    return () => [t0, tb, tr].forEach(clearTimeout)
+  }, [])
 
   useEffect(() => {
     const t = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 400)
@@ -102,10 +103,21 @@ export default function SuspenseScreen() {
         </div>
       </div>
 
-      {/* Progress */}
-      <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ background:'rgba(255,255,255,0.04)' }}>
-        <div className="h-full rounded-full"
-          style={{ background:'linear-gradient(90deg, #fd297b, #ff655b)', animation:'fill 2.6s linear forwards' }} />
+      {/* Reveal button — user taps to continue (no auto-navigation) */}
+      <div className="absolute left-0 right-0 px-6" style={{ bottom: 40 }}>
+        <button onClick={() => navigate('result')}
+          disabled={!ready}
+          className="w-full rounded-2xl py-[17px] text-[16px] font-bold active:scale-95 transition-all cursor-pointer disabled:cursor-default"
+          style={{
+            fontFamily:"'Plus Jakarta Sans',sans-serif",
+            background: ready ? 'linear-gradient(135deg, #fd297b, #ff655b)' : 'rgba(255,255,255,0.05)',
+            color: ready ? '#fff' : 'rgba(255,255,255,0.25)',
+            boxShadow: ready ? '0 12px 40px rgba(253,41,123,0.35)' : 'none',
+            opacity: ready ? 1 : 0.6,
+            transition: 'all 0.4s ease',
+          }}>
+          {ready ? (lang==='gr' ? 'δες το αποτέλεσμα →' : 'see the result →') : (lang==='gr' ? '...' : '...')}
+        </button>
       </div>
 
       <style>{`

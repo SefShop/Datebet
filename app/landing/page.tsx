@@ -105,7 +105,7 @@ function MiniFlow() {
             </div>
           ))}
         </div>
-        <a href="/" style={{
+        <a href="/app" style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           marginTop: 32, color: 'rgba(255,255,255,0.35)', textDecoration: 'none',
           fontSize: 13, fontWeight: 600, padding: '11px 22px', borderRadius: 100,
@@ -282,7 +282,7 @@ export default function Landing() {
 
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' as const, marginBottom: 16 }}>
-            <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff', textDecoration: 'none', fontSize: 15, fontWeight: 700, padding: '15px 30px', borderRadius: 100, boxShadow: '0 8px 32px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
+            <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff', textDecoration: 'none', fontSize: 15, fontWeight: 700, padding: '15px 30px', borderRadius: 100, boxShadow: '0 8px 32px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 44px rgba(253,41,123,0.55)' }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(253,41,123,0.4)' }}>
               {c.hero.ctaPrimary}
@@ -413,7 +413,7 @@ export default function Landing() {
             <input type="email" placeholder={c.cta.placeholder} style={{ flex: 1, minWidth: 200, maxWidth: 260, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 100, padding: '14px 20px', fontSize: 14, color: '#fff', fontFamily: 'inherit', outline: 'none', transition: 'border-color 0.2s' }}
               onFocus={e => (e.currentTarget.style.borderColor = 'rgba(253,41,123,0.5)')}
               onBlur={e  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
-            <button onClick={() => window.location.href='/'} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: '14px 26px', borderRadius: 100, boxShadow: '0 8px 28px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
+            <button onClick={() => window.location.href='/app'} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: '14px 26px', borderRadius: 100, boxShadow: '0 8px 28px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 36px rgba(253,41,123,0.55)' }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(253,41,123,0.4)' }}>
               {c.cta.button}

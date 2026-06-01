@@ -6,24 +6,27 @@ export default function SplashScreen() {
   const { navigate, lang } = useApp()
   const t = APP_COPY[lang]
   return (
-    <div className="flex flex-col h-full bg-[#0f0f0f] items-center justify-end pb-16 relative">
-      <div className="absolute inset-0 flex items-center justify-center text-[160px]">
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 30% 20%, rgba(253,41,123,0.35) 0%, transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(255,101,91,0.25) 0%, transparent 60%), linear-gradient(160deg, #1a0a12 0%, #0f0f1a 50%, #0a1020 100%)' }} />
-        <span className="relative z-10">👫</span>
-      </div>
-      <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.92) 100%)' }} />
-      <div className="relative z-20 text-center w-full px-8">
-        <div className="text-[48px] font-extrabold text-white tracking-[-2px] mb-2" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-          Date<span style={{ background: 'linear-gradient(135deg, #fd297b, #ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
-        </div>
-        <div className="text-white/50 text-[15px] mb-9">{t.splash.tagline}</div>
-        <button onClick={() => navigate('home')} className="w-full bg-gradient-to-br from-[#fd297b] to-[#ff655b] text-white rounded-2xl py-[18px] text-[17px] font-bold shadow-[0_12px_40px_rgba(253,41,123,0.4)] active:scale-95 transition-transform cursor-pointer" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-          {t.splash.start}
-        </button>
-        <button className="w-full text-white/50 py-[14px] text-[15px] mt-2 cursor-pointer active:text-white/70 transition-colors">
-          {t.splash.haveAccount}
-        </button>
-      </div>
+    <div className="flex flex-col h-full items-center justify-center px-8 relative"
+      style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.28) 0%, transparent 60%), linear-gradient(165deg, #150a12 0%, #0d0d18 55%, #0a1020 100%)' }}>
+
+      {/* Emoji mark */}
+      <div className="text-[88px] mb-8" style={{ filter: 'drop-shadow(0 8px 30px rgba(253,41,123,0.4))' }}>👫</div>
+
+      {/* Title */}
+      <h1 className="text-[32px] font-extrabold text-white text-center tracking-[-1px] leading-tight mb-3"
+        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        {t.splash.title}
+      </h1>
+
+      {/* Subtitle */}
+      <p className="text-white/45 text-[16px] text-center mb-12">{t.splash.tagline}</p>
+
+      {/* Single action */}
+      <button onClick={() => navigate('game')}
+        className="w-full max-w-[320px] bg-gradient-to-br from-[#fd297b] to-[#ff655b] text-white rounded-2xl py-[18px] text-[17px] font-bold shadow-[0_12px_40px_rgba(253,41,123,0.4)] active:scale-95 transition-transform cursor-pointer"
+        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        {t.splash.start}
+      </button>
     </div>
   )
 }

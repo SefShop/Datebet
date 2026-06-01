@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { MOCK_PROFILE } from '@/lib/data'
-import { BOARD_TILES, TILE_STYLE, BOARD_SIZE, TILE_PRESSURE, BOARD_FEEDBACK, pickLine } from '@/lib/games'
+import { BOARD_TILES, TILE_STYLE, BOARD_SIZE, TILE_PRESSURE, BOARD_FEEDBACK, REACTIONS, pickLine } from '@/lib/games'
 
 type Turn = 'user' | 'opponent'
 const LAST = BOARD_SIZE - 1
@@ -24,22 +24,17 @@ export default function BoardGameScreen() {
   const [winner,  setWinner]    = useState<Turn | 'both' | null>(null)
   const [pressure, setPressure] = useState<string | null>(null)
   const [micro, setMicro]       = useState<string | null>(null)
-  const oppTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [thinking, setThinking] = useState(false)
 
-  // Sofia auto-plays on her turn
-  useEffect(() => {
-    if (turn === 'opponent' && !winner) {
-      oppTimer.current = setTimeout(() => roll(), 1100)
-    }
-    return () => { if (oppTimer.current) clearTimeout(oppTimer.current) }
-  }, [turn, winner]) // eslint-disable-line
+  // No auto-play — the user triggers every roll, including Sofia's turn.
 
   function landOn(pos: number, who: Turn) {
     const tile = BOARD_TILES[pos]
     const st   = TILE_STYLE[tile.type]
     setTileMsg({ emoji: st.emoji, label: st.label[lang], text: tile.text[lang], color: st.color })
     setPressure(Math.random() < 0.55 ? pickLine(TILE_PRESSURE[lang]) : null)
-    if (who === 'user') { setMicro(pickLine(BOARD_FEEDBACK[lang])); setTimeout(() => setMicro(null), 1500) }
+    setMicro(who === 'user' ? pickLine(BOARD_FEEDBACK[lang]) : pickLine(REACTIONS[lang]))
+    setTimeout(() => setMicro(null), 1500)
 
     // light effects
     let adjusted = pos
@@ -68,11 +63,21 @@ export default function BoardGameScreen() {
 
   function restart() {
     setPosUser(0); setPosOpp(0); setTurn('user'); setDice(0)
-    setRolling(false); setMoving(false); setTileMsg(null); setPressure(null); setMicro(null); setWinner(null)
+    setRolling(false); setMoving(false); setTileMsg(null); setPressure(null); setMicro(null); setWinner(null); setThinking(false)
   }
 
   function roll() {
-    if (rolling || moving || winner) return
+    if (rolling || moving || winner || thinking) return
+    if (turn === 'opponent') {
+      // Sofia "thinks" 1-2s before she rolls (user already triggered her turn)
+      setThinking(true)
+      setTimeout(() => { setThinking(false); doRoll() }, 1000 + Math.random() * 1000)
+      return
+    }
+    doRoll()
+  }
+
+  function doRoll() {
     setRolling(true)
     let ticks = 0
     const spin = setInterval(() => {
@@ -108,11 +113,16 @@ export default function BoardGameScreen() {
     <div className="flex flex-col h-full px-5 pt-14 pb-6"
       style={{ background:'linear-gradient(170deg, #06060a 0%, #0d0614 55%, #080610 100%)' }}>
 
+      {/* Goal */}
+      <div className="text-[11px] font-bold tracking-[0.5px] mb-3 text-center" style={{ color:'rgba(167,139,250,0.85)' }}>
+        {t.goalBoard}
+      </div>
+
       {/* Turn bar */}
       <div className="flex items-center justify-between mb-4">
         <Token emoji="🧑" label={t.you} active={turn==='user'} />
         <div className="text-[11px] font-bold tracking-[1.5px] uppercase" style={{ color:'rgba(255,255,255,0.35)' }}>
-          {winner ? t.finish : turn==='user' ? t.yourTurn : t.sofiaTurn}
+          {winner ? t.finish : thinking ? t.thinking : turn==='user' ? t.yourTurn : t.sofiaTurn}
         </div>
         <Token emoji={MOCK_PROFILE.emoji} label={t.sofia} active={turn==='opponent'} />
       </div>
@@ -171,7 +181,7 @@ export default function BoardGameScreen() {
           </div>
         ) : (
           <div className="text-[13px] text-center" style={{ color:'rgba(255,255,255,0.3)' }}>
-            {rolling ? t.rolling : moving ? '...' : turn==='user' ? t.roll + ' 🎲' : t.sofiaTurn}
+            {thinking ? t.thinking : rolling ? t.rolling : moving ? '...' : turn==='user' ? t.roll + ' 🎲' : (lang==='gr' ? 'ρίξε για τη sofia 🎲' : 'roll for sofia 🎲')}
           </div>
         )}
       </div>
@@ -183,10 +193,10 @@ export default function BoardGameScreen() {
                    transform: rolling ? 'rotate(12deg)' : 'none', transition:'transform 0.1s' }}>
           {DICE[dice] || '🎲'}
         </div>
-        <button onClick={roll} disabled={turn!=='user' || rolling || moving || !!winner}
+        <button onClick={roll} disabled={rolling || moving || !!winner || thinking}
           className="flex-1 rounded-2xl py-4 text-[16px] font-bold active:scale-95 transition-all cursor-pointer disabled:opacity-30"
           style={{ background:'linear-gradient(135deg,#fd297b,#ff655b)', color:'#fff', boxShadow:'0 12px 36px rgba(253,41,123,0.35)' }}>
-          {rolling ? t.rolling : turn==='user' ? t.roll : t.sofiaTurn}
+          {thinking ? t.thinking : rolling ? t.rolling : turn==='user' ? t.roll : (lang==='gr' ? 'ρίξε για τη sofia' : 'roll for sofia')}
         </button>
       </div>
 
@@ -204,9 +214,12 @@ export default function BoardGameScreen() {
             style={{ background:'linear-gradient(160deg,#160c16,#0e0814)', border:'1px solid rgba(253,41,123,0.3)',
                      animation:'popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both' }}>
             <div className="text-[44px] mb-3">{winner==='both' ? '🤝' : winner==='user' ? '🏆' : '🎲'}</div>
-            <div className="text-[19px] font-extrabold text-white mb-5 leading-snug"
+            <div className="text-[19px] font-extrabold text-white mb-1.5 leading-snug"
               style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
               {winner==='both' ? t.bothWin : winner==='user' ? t.youWin : `${MOCK_PROFILE.name} ${t.finish}`}
+            </div>
+            <div className="text-[14px] mb-5" style={{ color:'rgba(255,255,255,0.45)' }}>
+              {winner==='user' ? t.msgWin : winner==='both' ? t.msgTie : t.msgLose}
             </div>
             <div className="flex flex-col gap-2.5">
               <button onClick={restart}
