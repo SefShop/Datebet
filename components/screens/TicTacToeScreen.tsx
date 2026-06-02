@@ -2,6 +2,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
+import GameChat from '@/components/ui/GameChat'
+import type { GameEvent } from '@/lib/chat'
 
 const EMPTY='', X='X', O='O', BEST_OF=5
 type Cell = ''|'X'|'O'
@@ -27,6 +29,11 @@ function aiMove(b:Cell[]):number {
   return edges[Math.floor(Math.random()*edges.length)]
 }
 
+function nearWinTTT(b:Cell[]):boolean {
+  for(let i=0;i<9;i++){if(b[i]!==EMPTY)continue;const t=[...b];t[i]=X;if(checkWin(t)?.winner===X)return true}
+  return false
+}
+
 export default function TicTacToeScreen() {
   const { navigate, lang } = useApp()
   const t = APP_COPY[lang].games
@@ -38,12 +45,16 @@ export default function TicTacToeScreen() {
   const [round, setRound] = useState(1)
   const [gameOver, setGameOver] = useState(false)
   const [aiThinking, setAiThinking] = useState(false)
+  const streakRef = useRef(0)
+  const [chatEvent, setChatEvent] = useState<GameEvent>('idle')
+  const [chatKey, setChatKey] = useState(0)
   const timer = useRef<ReturnType<typeof setTimeout>|null>(null)
   useEffect(()=>()=>{if(timer.current)clearTimeout(timer.current)},[])
 
   function play(i:number) {
     if(board[i]!==EMPTY||turn!=='X'||result||draw||aiThinking) return
     const nb=[...board]; nb[i]=X; setBoard(nb)
+    setChatEvent(nearWinTTT(nb)?'near_win':'user_move'); setChatKey(k=>k+1)
     const w=checkWin(nb)
     if(w){endRound(w);return}
     if(isDraw(nb)){endRound(null);return}
@@ -51,6 +62,7 @@ export default function TicTacToeScreen() {
     timer.current=setTimeout(()=>{
       const ac=aiMove(nb)
       const ab=[...nb]; ab[ac]=O; setBoard(ab); setAiThinking(false)
+      setChatEvent(score[1]-score[0]>=2?'losing_bad':'ai_move'); setChatKey(k=>k+1)
       const aw=checkWin(ab)
       if(aw){endRound(aw);return}
       if(isDraw(ab)){endRound(null);return}
@@ -59,22 +71,24 @@ export default function TicTacToeScreen() {
   }
 
   function endRound(w:{winner:Cell;line:number[]}|null) {
-    if(w){setResult(w);const ns=[...score];ns[w.winner===X?0:1]++;setScore(ns);if(ns[0]>=Math.ceil(BEST_OF/2)||ns[1]>=Math.ceil(BEST_OF/2))setGameOver(true)}
-    else setDraw(true)
+    if(w){setResult(w)
+      if(w.winner===X){streakRef.current++;setChatEvent(streakRef.current>=2?'streak':'user_win')}else{streakRef.current=0;setChatEvent('ai_win')}
+      setChatKey(k=>k+1);const ns=[...score];ns[w.winner===X?0:1]++;setScore(ns);if(ns[0]>=Math.ceil(BEST_OF/2)||ns[1]>=Math.ceil(BEST_OF/2))setGameOver(true)}
+    else { setDraw(true); setChatEvent('draw'); setChatKey(k=>k+1) }
   }
 
   function nextRound() {
     setBoard(Array(9).fill(EMPTY)); setResult(null); setDraw(false); setTurn('X'); setRound(r=>r+1); setAiThinking(false)
   }
   function restart() {
-    nextRound(); setScore([0,0]); setRound(1); setGameOver(false)
+    nextRound(); setScore([0,0]); setRound(1); setGameOver(false); setChatKey(0); setChatEvent('idle'); streakRef.current=0
   }
 
   const winSet=new Set(result?.line??[])
   const sw=score[0]>=Math.ceil(BEST_OF/2)?'you':score[1]>=Math.ceil(BEST_OF/2)?'sofia':null
 
   return (
-    <div className="flex flex-col h-full px-5 pt-14 pb-6 items-center"
+    <div className="flex flex-col h-full px-5 pt-10 pb-2 items-center overflow-y-auto"
       style={{background:'linear-gradient(170deg, #06060a 0%, #0d0614 55%, #080610 100%)'}}>
 
       <div className="flex items-center justify-between w-full mb-3">
@@ -103,14 +117,14 @@ export default function TicTacToeScreen() {
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-3 gap-2 mb-6" style={{width:280}}>
+      <div className="grid grid-cols-3 gap-2 mb-6" style={{width:224}}>
         {board.map((cell,i) => {
           const isWin=winSet.has(i)
           return (
             <button key={i} onClick={()=>play(i)}
               className="rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-95"
               style={{
-                width:88, height:88,
+                width:70, height:70,
                 background: isWin ? 'rgba(253,41,123,0.2)' : 'rgba(255,255,255,0.04)',
                 border: isWin ? '2px solid #fd297b' : '1px solid rgba(255,255,255,0.08)',
                 cursor: cell===EMPTY&&turn==='X'&&!result&&!draw&&!aiThinking ? 'pointer' : 'default',
@@ -157,6 +171,8 @@ export default function TicTacToeScreen() {
           </div>
         </div>
       )}
+
+      <GameChat lang={lang} event={chatEvent} eventKey={chatKey} />
 
       <style>{`
         @keyframes popIn { from{transform:scale(0)} to{transform:scale(1)} }

@@ -2,6 +2,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
+import GameChat from '@/components/ui/GameChat'
+import type { GameEvent } from '@/lib/chat'
 
 const ROWS=6, COLS=7, EMPTY=0, P1=1, P2=2, BEST_OF=3
 type Board = number[][]
@@ -41,6 +43,11 @@ function aiMove(b:Board): number {
   return 0
 }
 
+function nearWin(b:Board,player:number):boolean {
+  for(let c=0;c<COLS;c++){ const r=drop(b,c,player); if(r&&check4(r[0])?.winner===player) return true }
+  return false
+}
+
 export default function Connect4Screen() {
   const { navigate, lang } = useApp()
   const t = APP_COPY[lang].games
@@ -51,6 +58,9 @@ export default function Connect4Screen() {
   const [round, setRound] = useState(1)
   const [gameOver, setGameOver] = useState(false)
   const [aiThinking, setAiThinking] = useState(false)
+  const streakRef = useRef(0)
+  const [chatEvent, setChatEvent] = useState<GameEvent>('idle')
+  const [chatKey, setChatKey] = useState(0)
   const timer = useRef<ReturnType<typeof setTimeout>|null>(null)
 
   useEffect(()=>()=>{if(timer.current)clearTimeout(timer.current)},[])
@@ -61,6 +71,7 @@ export default function Connect4Screen() {
     if(!r) return
     const [nb]=r
     setBoard(nb)
+    setChatEvent(nearWin(nb,P1)?'near_win':'user_move');setChatKey(k=>k+1)
     const w=check4(nb)
     if(w){ endRound(w); return }
     if(isFull(nb)){ endRound(null); return }
@@ -71,6 +82,7 @@ export default function Connect4Screen() {
       if(!ar){setAiThinking(false);return}
       const [ab]=ar
       setBoard(ab); setAiThinking(false)
+      setChatEvent(score[1]-score[0]>=2?'losing_bad':'ai_move');setChatKey(k=>k+1)
       const aw=check4(ab)
       if(aw){ endRound(aw); return }
       if(isFull(ab)){ endRound(null); return }
@@ -80,6 +92,10 @@ export default function Connect4Screen() {
 
   function endRound(w:{winner:number;cells:[number,number][]}|null) {
     setResult(w)
+    if(w){
+      if(w.winner===P1){ streakRef.current++; setChatEvent(streakRef.current>=2?'streak':'user_win');setChatKey(k=>k+1) }
+      else{ streakRef.current=0; setChatEvent('ai_win');setChatKey(k=>k+1) }
+    }
     if(w) {
       const ns=[...score]; ns[w.winner-1]++; setScore(ns)
       if(ns[0]>=Math.ceil(BEST_OF/2)||ns[1]>=Math.ceil(BEST_OF/2)) { setGameOver(true) }
@@ -91,14 +107,14 @@ export default function Connect4Screen() {
   }
 
   function restart() {
-    setBoard(mk()); setResult(null); setScore([0,0]); setRound(1); setTurn(1); setGameOver(false); setAiThinking(false)
+    setBoard(mk()); setResult(null); setScore([0,0]); setRound(1); setTurn(1); setGameOver(false); setAiThinking(false); setChatKey(0); setChatEvent('idle'); streakRef.current=0
   }
 
   const winSet = new Set(result?.cells?.map(([r,c])=>`${r}-${c}`)??[])
   const seriesWinner = score[0]>=Math.ceil(BEST_OF/2) ? 'you' : score[1]>=Math.ceil(BEST_OF/2) ? 'sofia' : null
 
   return (
-    <div className="flex flex-col h-full px-4 pt-14 pb-6 items-center"
+    <div className="flex flex-col h-full px-4 pt-10 pb-2 items-center overflow-y-auto"
       style={{ background:'linear-gradient(170deg, #06060a 0%, #0d0614 55%, #080610 100%)' }}>
 
       <div className="flex items-center justify-between w-full mb-3">
@@ -138,7 +154,7 @@ export default function Connect4Screen() {
               <button key={`${r}-${c}`} onClick={()=>play(c)}
                 className="rounded-full transition-all duration-200"
                 style={{
-                  width:42, height:42,
+                  width:34, height:34,
                   background: v===P1 ? '#fd297b' : v===P2 ? '#facc15' : 'rgba(255,255,255,0.06)',
                   border: isWin ? '2px solid #fff' : '1px solid rgba(255,255,255,0.08)',
                   boxShadow: isWin ? '0 0 12px rgba(255,255,255,0.5)' : v ? `0 2px 8px ${v===P1?'rgba(253,41,123,0.4)':'rgba(250,204,21,0.4)'}` : 'none',
@@ -192,6 +208,8 @@ export default function Connect4Screen() {
           </div>
         </div>
       )}
+
+      <GameChat lang={lang} event={chatEvent} eventKey={chatKey} />
 
       <style>{`
         @keyframes dropIn { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }

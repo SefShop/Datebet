@@ -167,7 +167,7 @@ const en: Copy = {
   },
 
   hook: {
-    line: "Most people don't come back after this.",
+    line: "Next time… it's real.",
     cta:  'See why →',
   },
 
@@ -266,7 +266,7 @@ const gr: Copy = {
   },
 
   hook: {
-    line: 'Οι περισσότεροι δεν ξαναμπαίνουν μετά από αυτό.',
+    line: 'Την επόμενη φορά… θα είναι αληθινό.',
     cta:  'Δες γιατί →',
   },
 

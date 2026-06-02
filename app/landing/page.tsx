@@ -246,6 +246,22 @@ export default function Landing() {
         <div style={{ position: 'absolute', width: 600, height: 600, top: -180, left: -180, borderRadius: '50%', background: 'radial-gradient(circle,rgba(253,41,123,0.13) 0%,transparent 70%)', filter: 'blur(70px)', pointerEvents: 'none', animation: 'drift1 14s ease-in-out infinite alternate' }} />
         <div style={{ position: 'absolute', width: 500, height: 500, bottom: -120, right: -120, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,101,91,0.11) 0%,transparent 70%)', filter: 'blur(70px)', pointerEvents: 'none', animation: 'drift2 18s ease-in-out infinite alternate' }} />
 
+
+        {/* Cinematic dating images — dark, blurred, behind text */}
+        <div style={{ position:'absolute', inset:0, zIndex:1, overflow:'hidden' }}>
+          <img src="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=1200&q=75&fit=crop"
+            alt="" loading="eager" style={{ position:'absolute', width:'55%', height:'80%', objectFit:'cover',
+            top:'8%', right:'-5%', borderRadius:32, opacity:0.18, filter:'blur(2px) saturate(0.7)',
+            animation:'driftImg1 20s ease-in-out infinite alternate' }} />
+          <img src="https://images.unsplash.com/photo-1474552226712-ac0f0961a954?w=1000&q=75&fit=crop"
+            alt="" loading="eager" style={{ position:'absolute', width:'45%', height:'70%', objectFit:'cover',
+            top:'15%', left:'-3%', borderRadius:32, opacity:0.14, filter:'blur(3px) saturate(0.6)',
+            animation:'driftImg2 24s ease-in-out infinite alternate' }} />
+          {/* Dark gradient overlay to keep text readable */}
+          <div style={{ position:'absolute', inset:0,
+            background:'radial-gradient(ellipse at center, rgba(10,8,18,0.3) 0%, rgba(10,8,18,0.85) 70%, rgba(10,8,18,0.97) 100%)' }} />
+        </div>
+
         <div style={{ maxWidth: 780, width: '100%', position: 'relative', zIndex: 2, animation: 'fadeUp 0.9s ease both' }}>
           {/* Eyebrow */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 32 }}>
@@ -394,9 +410,38 @@ export default function Landing() {
         </div>
       </section>
 
+
+      {/* ── DATING MOMENTS STRIP ── */}
+      <section style={{ padding:'60px 0', borderTop:'1px solid rgba(255,255,255,0.05)', overflow:'hidden' }}>
+        <div style={{ display:'flex', gap:16, padding:'0 24px', overflowX:'auto', scrollbarWidth:'none',
+          WebkitOverflowScrolling:'touch', scrollSnapType:'x mandatory' }}>
+          {[
+            { src:'https://images.unsplash.com/photo-1511988617509-a57c8a288659?w=500&h=340&q=75&fit=crop', alt:'date' },
+            { src:'https://images.unsplash.com/photo-1543158181-e6f9f6712055?w=500&h=340&q=75&fit=crop', alt:'walk' },
+            { src:'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500&h=340&q=75&fit=crop', alt:'laugh' },
+            { src:'https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=500&h=340&q=75&fit=crop', alt:'moment' },
+          ].map((img, i) => (
+            <div key={i} style={{ flex:'0 0 260px', scrollSnapAlign:'center', borderRadius:20, overflow:'hidden',
+              position:'relative', animation:`fadeUp 0.6s ease ${i*100}ms both` }}>
+              <img src={img.src} alt={img.alt} loading="lazy"
+                style={{ width:'100%', height:180, objectFit:'cover', filter:'saturate(0.8) brightness(0.85)',
+                  transition:'transform 0.4s ease, filter 0.4s ease' }}
+                onMouseEnter={e => { e.currentTarget.style.transform='scale(1.05)'; e.currentTarget.style.filter='saturate(1) brightness(0.95)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform='scale(1)'; e.currentTarget.style.filter='saturate(0.8) brightness(0.85)' }} />
+              <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg, transparent 40%, rgba(10,8,18,0.7) 100%)', pointerEvents:'none' }} />
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ── CTA ── */}
       <section id="cta" style={{ padding: '120px 24px 100px', textAlign: 'center' as const, position: 'relative', overflow: 'hidden', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ position: 'absolute', width: 700, height: 700, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'radial-gradient(circle,rgba(253,41,123,0.1) 0%,transparent 65%)', filter: 'blur(40px)', pointerEvents: 'none', borderRadius: '50%' }} />
+        {/* Emotional background image */}
+        <img src="https://images.unsplash.com/photo-1494774157365-9e04c6720e47?w=1200&q=70&fit=crop"
+          alt="" loading="lazy" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover',
+          opacity:0.12, filter:'blur(4px) saturate(0.5)', pointerEvents:'none' }} />
+
         <div ref={f.cta.ref} style={{ ...f.cta.style, maxWidth: 520, margin: '0 auto', position: 'relative', zIndex: 2 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.65)', marginBottom: 16 }}>{c.cta.label}</div>
           <h2 style={{ fontSize: 'clamp(32px,6vw,62px)', fontWeight: 900, letterSpacing: '-2px', lineHeight: 1.0, marginBottom: 16, whiteSpace: 'pre-line' as const }}>{c.cta.headline}</h2>
@@ -440,6 +485,8 @@ export default function Landing() {
         @keyframes fadeUp  { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
         @keyframes dotPulse{ 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.5);opacity:0.5} }
         @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes driftImg1 { from{transform:translate(0,0) scale(1)} to{transform:translate(-12px,8px) scale(1.03)} }
+        @keyframes driftImg2 { from{transform:translate(0,0) scale(1)} to{transform:translate(8px,-6px) scale(1.02)} }
         @keyframes drift1  { to{transform:translate(70px,90px)} }
         @keyframes drift2  { to{transform:translate(-60px,-70px)} }
         *{box-sizing:border-box}
