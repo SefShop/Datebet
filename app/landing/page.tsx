@@ -255,19 +255,11 @@ export default function Landing() {
             </span>
           </div>
 
-          {/* H1 — lang-aware construction */}
+          {/* H1 — 2-line hero with accent word */}
           <h1 style={{ fontSize: 'clamp(40px,9vw,88px)', fontWeight: 900, lineHeight: 1.0, letterSpacing: 'clamp(-1.5px,-0.025em,-3px)', color: '#fff', marginBottom: 24 }}>
-            {lang === 'en' ? (
-              <>{c.hero.h1[0]}<br />when it{' '}
-                <em style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontStyle: 'italic' }}>{c.hero.accentWord}</em>
-                {' '}{c.hero.h1[2]}
-              </>
-            ) : (
-              <>{c.hero.h1[0]}<br />{c.hero.h1[1]}{' '}
-                <em style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontStyle: 'italic' }}>{c.hero.accentWord}</em>
-                {c.hero.h1[2]}
-              </>
-            )}
+            {c.hero.h1[0]}<br />{c.hero.h1[1]}{' '}
+            <em style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontStyle: 'italic' }}>{c.hero.accentWord}</em>
+            {c.hero.h1[2]}
           </h1>
 
           <p style={{ fontSize: 'clamp(15px,2.5vw,19px)', color: 'rgba(255,255,255,0.42)', lineHeight: 1.7, marginBottom: 20 }}>{c.hero.sub}</p>

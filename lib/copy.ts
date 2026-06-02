@@ -89,8 +89,8 @@ const en: Copy = {
 
   hero: {
     eyebrow:    'no escape. just show up.',
-    h1:         ['People don\'t ghost', 'when it', 'them.'],
-    accentWord: 'costs',
+    h1:         ['Most games are easy to win.', 'In the game of', '?'],
+    accentWord: 'love',
     sub:        'One question. One decision. Show up — or lose.',
     typewriter: ['ghosting.', 'maybe.', 'disappearing.', 'excuses.'],
     ctaPrimary: 'Start Playing →',
@@ -188,8 +188,8 @@ const gr: Copy = {
 
   hero: {
     eyebrow:    'Δεν υπάρχει έξοδος. Απλά δείξου.',
-    h1:         ['Κανείς δεν εξαφανίζεται', 'όταν υπάρχει', '.'],
-    accentWord: 'κόστος',
+    h1:         ['Στα υπόλοιπα παιχνίδια κερδίζεις εύκολα.', 'Στο παιχνίδι του', ';'],
+    accentWord: 'έρωτα',
     sub:        'Μία ερώτηση. Μία απόφαση. Δείξου — ή χάσε.',
     typewriter: ['ghosting.', 'ίσως.', 'εξαφανίσεις.', 'δικαιολογίες.'],
     ctaPrimary: 'Ξεκίνα να παίζεις →',
@@ -289,7 +289,7 @@ export interface AppCopy {
              whisperBold: string; whisperHonest: string; whisperSafe: string
              next: string; lastQ: string; progress: string }
   result:  { vibeReading: string; you: string; nextProfile: string; different: string; same: string; playAgain: string; continue: string }
-  games:   { selectTitle: string; selectSub: string; cardTitle: string; cardDesc: string; boardTitle: string; boardDesc: string
+  games:   { selectTitle: string; selectSub: string; c4Title: string; c4Desc: string; c4Label: string; tttTitle: string; tttDesc: string; tttLabel: string; ludoTitle: string; ludoDesc: string; ludoLabel: string
              play: string; back: string; you: string; sofia: string
              yourTurn: string; sofiaTurn: string; accept: string; skip: string; draw: string
              accepted: string; skipped: string; sofiaThinking: string; deckEmpty: string; cardDone: string
@@ -320,8 +320,9 @@ const appEn: AppCopy = {
   result: { vibeReading: 'vibe reading', you: 'you', nextProfile: 'next profile', different: 'different', same: 'same', playAgain: 'play another round →', continue: 'Choose Game →' },
   games: {
     selectTitle: 'pick your game', selectSub: 'now the fun part. choose how you play.',
-    cardTitle: 'card game', cardDesc: 'draw a card. say something real.',
-    boardTitle: 'board game', boardDesc: 'roll. move. see what happens.',
+    c4Title: 'Connect 4', c4Desc: 'Drop discs. Think fast.', c4Label: 'Most played',
+    tttTitle: 'Tic Tac Toe', tttDesc: 'Classic. Quick. Brutal.', tttLabel: 'Quick match',
+    ludoTitle: 'Mini Ludo', ludoDesc: 'Roll. Move. Race her.', ludoLabel: 'Chill game',
     play: 'play →', back: '← back', you: 'you', sofia: 'sofia',
     yourTurn: 'your turn', sofiaTurn: "sofia's turn", accept: 'accept', skip: 'skip', draw: 'draw a card',
     accepted: 'you went for it.', skipped: 'you passed.', sofiaThinking: 'sofia is reading it...', deckEmpty: 'deck empty. nice run.', cardDone: 'play again',
@@ -368,8 +369,9 @@ const appGr: AppCopy = {
   result: { vibeReading: 'η χημεία σας', you: 'εσύ', nextProfile: 'επόμενο προφίλ', different: 'διαφορετικά', same: 'ίδια', playAgain: 'παίξε άλλον έναν γύρο →', continue: 'Διάλεξε παιχνίδι →' },
   games: {
     selectTitle: 'διάλεξε παιχνίδι', selectSub: 'τώρα το ωραίο. διάλεξε πώς θα παίξετε.',
-    cardTitle: 'παιχνίδι με κάρτες', cardDesc: 'τράβα μια κάρτα. πες κάτι αληθινό.',
-    boardTitle: 'επιτραπέζιο', boardDesc: 'ρίξε. προχώρα. δες τι γίνεται.',
+    c4Title: 'Σκορ 4', c4Desc: 'Ρίξε δίσκους. Σκέψου γρήγορα.', c4Label: 'Δημοφιλές',
+    tttTitle: 'Τρίλιζα', tttDesc: 'Κλασικό. Γρήγορο. Σκληρό.', tttLabel: 'Γρήγορο',
+    ludoTitle: 'Mini Ludo', ludoDesc: 'Ρίξε. Προχώρα. Νίκησέ την.', ludoLabel: 'Χαλαρό',
     play: 'παίξε →', back: '← πίσω', you: 'εσύ', sofia: 'sofia',
     yourTurn: 'σειρά σου', sofiaTurn: 'σειρά της sofia', accept: 'το δέχομαι', skip: 'πάσο', draw: 'τράβα κάρτα',
     accepted: 'το έκανες.', skipped: 'πάσαρες.', sofiaThinking: 'η sofia το διαβάζει...', deckEmpty: 'τέλος η τράπουλα. ωραία ήταν.', cardDone: 'παίξε ξανά',

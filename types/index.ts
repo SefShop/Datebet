@@ -2,7 +2,7 @@ export type Screen =
   | 'splash' | 'home' | 'game' | 'suspense' | 'result'
   | 'bet' | 'bet_commit' | 'bet_locked'
   | 'activity'
-  | 'game_select' | 'card_game' | 'board_game'
+  | 'game_select' | 'connect4' | 'tictactoe' | 'ludo'
 
 export interface Profile {
   id: string; name: string; age: number

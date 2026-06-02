@@ -10,8 +10,9 @@ import BetCommitScreen from '@/components/screens/BetCommitScreen'
 import BetLockedScreen from '@/components/screens/BetLockedScreen'
 import ActivityScreen  from '@/components/screens/ActivityScreen'
 import GameSelectionScreen from '@/components/screens/GameSelectionScreen'
-import CardGameScreen   from '@/components/screens/CardGameScreen'
-import BoardGameScreen  from '@/components/screens/BoardGameScreen'
+import Connect4Screen   from '@/components/screens/Connect4Screen'
+import TicTacToeScreen  from '@/components/screens/TicTacToeScreen'
+import LudoScreen       from '@/components/screens/LudoScreen'
 import ReturnScreen    from '@/components/screens/ReturnScreen'
 import LangToggle      from '@/components/ui/LangToggle'
 
@@ -26,8 +27,9 @@ const SCREENS = {
   bet_locked: <BetLockedScreen />,
   activity:   <ActivityScreen />,
   game_select:<GameSelectionScreen />,
-  card_game:  <CardGameScreen />,
-  board_game: <BoardGameScreen />,
+  connect4:   <Connect4Screen />,
+  tictactoe:  <TicTacToeScreen />,
+  ludo:       <LudoScreen />,
 }
 
 function AppShell() {

@@ -1,45 +1,53 @@
 // ─────────────────────────────────────────────────────────────────
-// Games data — bilingual (EN / GR). No backend. Opponent simulated.
+// Games data — action-based, not quiz-based. Bilingual (EN / GR).
+// Every card/tile = something you DO together, not answer alone.
 // ─────────────────────────────────────────────────────────────────
 import type { LangStr } from '@/types'
+import type { Lang } from '@/lib/copy'
 
-// ── CARD GAME ───────────────────────────────────────────────────
-export type CardType = 'deep' | 'risk' | 'quick' | 'personal'
+// ── CARD GAME — action cards ────────────────────────────────────
+export type CardType = 'action' | 'dare' | 'choice' | 'confess'
 
 export interface GameCard {
   type: CardType
   text: LangStr
 }
 
-// Glow + label per card type
 export const CARD_STYLE: Record<CardType, { glow: string; label: LangStr; emoji: string }> = {
-  deep:     { glow: '#a78bfa', emoji: '🌊', label: { en: 'deep',     gr: 'βαθύ'        } },
-  risk:     { glow: '#fd297b', emoji: '🔥', label: { en: 'risk',     gr: 'ρίσκο'       } },
-  quick:    { glow: '#38bdf8', emoji: '⚡', label: { en: 'quick',    gr: 'γρήγορο'     } },
-  personal: { glow: '#ff8c42', emoji: '💭', label: { en: 'personal', gr: 'προσωπικό'   } },
+  action:  { glow: '#38bdf8', emoji: '⚡', label: { en: 'action',  gr: 'ενέργεια'   } },
+  dare:    { glow: '#fd297b', emoji: '🔥', label: { en: 'dare',    gr: 'πρόκληση'   } },
+  choice:  { glow: '#a78bfa', emoji: '🎯', label: { en: 'choice',  gr: 'επιλογή'    } },
+  confess: { glow: '#ff8c42', emoji: '💬', label: { en: 'confess', gr: 'ομολογία'   } },
 }
 
 export const CARD_DECK: GameCard[] = [
-  { type: 'deep',     text: { en: "What's something you'd never admit on a first date?", gr: "Τι δεν θα παραδεχόσουν ποτέ σε πρώτο ραντεβού;" } },
-  { type: 'risk',     text: { en: "Rate my vibe so far. Be honest.",                    gr: "Βαθμολόγησε το vibe μου μέχρι τώρα. Ειλικρινά." } },
-  { type: 'quick',    text: { en: "Beach or mountains? One word. Go.",                  gr: "Θάλασσα ή βουνό; Μία λέξη. Πάμε." } },
-  { type: 'personal', text: { en: "What's the last thing that made you smile?",         gr: "Τι ήταν το τελευταίο που σε έκανε να χαμογελάσεις;" } },
-  { type: 'deep',     text: { en: "Do you believe people really change?",               gr: "Πιστεύεις ότι οι άνθρωποι αλλάζουν στ' αλήθεια;" } },
-  { type: 'risk',     text: { en: "Text your last ex right now — would you?",           gr: "Θα έγραφες στον/στην τελευταίο/α σου τώρα;" } },
-  { type: 'quick',    text: { en: "Coffee or wine? No thinking.",                        gr: "Καφές ή κρασί; Χωρίς σκέψη." } },
-  { type: 'personal', text: { en: "Who knows you best in the world?",                    gr: "Ποιος σε ξέρει καλύτερα στον κόσμο;" } },
-  { type: 'deep',     text: { en: "What do you want that you're scared to say out loud?", gr: "Τι θες που φοβάσαι να πεις δυνατά;" } },
-  { type: 'risk',     text: { en: "Most attractive thing about me right now?",           gr: "Το πιο ελκυστικό σε μένα αυτή τη στιγμή;" } },
-  { type: 'quick',    text: { en: "Early bird or night owl? Pick.",                          gr: "Πρωινός τύπος ή νυχτοπούλι; Διάλεξε." } },
-  { type: 'personal', text: { en: "What's a small thing that instantly wins you over?",  gr: "Ποιο μικρό πράγμα σε κερδίζει αμέσως;" } },
-  { type: 'deep',     text: { en: "When did you last surprise yourself?",                gr: "Πότε ήταν η τελευταία φορά που εξέπληξες τον εαυτό σου;" } },
-  { type: 'risk',     text: { en: "Truth: are you into this, or just curious?",          gr: "Αλήθεια: σου αρέσει αυτό, ή απλώς περιέργεια;" } },
-  { type: 'quick',    text: { en: "Dogs or cats? Final answer.",                         gr: "Σκύλοι ή γάτες; Τελική απάντηση." } },
-  { type: 'personal', text: { en: "What's your most-played song lately?",                gr: "Ποιο τραγούδι ακούς πιο πολύ τελευταία;" } },
+  // action — do something
+  { type: 'action',  text: { en: "Say something you normally wouldn't.",     gr: "Πες κάτι που δεν θα έλεγες κανονικά." } },
+  { type: 'action',  text: { en: "Share the last photo on your phone.",      gr: "Δείξε την τελευταία φωτογραφία στο κινητό σου." } },
+  { type: 'action',  text: { en: "Tell a story in exactly 10 words.",        gr: "Πες μια ιστορία σε ακριβώς 10 λέξεις." } },
+  { type: 'action',  text: { en: "Send a voice message. Right now.",         gr: "Στείλε ένα φωνητικό. Τώρα αμέσως." } },
+
+  // dare — small challenges
+  { type: 'dare',    text: { en: "Give a real compliment. Mean it.",         gr: "Κάνε ένα αληθινό κομπλιμέντο. Εννόησέ το." } },
+  { type: 'dare',    text: { en: "Admit your worst habit out loud.",         gr: "Παραδέξου τη χειρότερη συνήθειά σου." } },
+  { type: 'dare',    text: { en: "Say the first thing that comes to mind.",  gr: "Πες το πρώτο πράγμα που σου έρχεται." } },
+  { type: 'dare',    text: { en: "Make a promise you'll actually keep.",     gr: "Κάνε μια υπόσχεση που θα κρατήσεις." } },
+
+  // choice — pick one, reveal yourself
+  { type: 'choice',  text: { en: "Pick: coffee date or night drive.",        gr: "Διάλεξε: καφές ή νυχτερινή βόλτα." } },
+  { type: 'choice',  text: { en: "Pick: text first or wait for them.",       gr: "Διάλεξε: γράφεις πρώτος ή περιμένεις." } },
+  { type: 'choice',  text: { en: "Pick: stay in tonight or go out.",         gr: "Διάλεξε: μέσα απόψε ή έξω." } },
+  { type: 'choice',  text: { en: "Pick: honesty or mystery.",               gr: "Διάλεξε: ειλικρίνεια ή μυστήριο." } },
+
+  // confess — say something real
+  { type: 'confess', text: { en: "What are you actually thinking right now?", gr: "Τι σκέφτεσαι πραγματικά αυτή τη στιγμή;" } },
+  { type: 'confess', text: { en: "Confess: what made you interested.",       gr: "Ομολόγησε: τι σε τράβηξε." } },
+  { type: 'confess', text: { en: "One thing you'd never post online.",       gr: "Κάτι που δεν θα ανέβαζες ποτέ online." } },
+  { type: 'confess', text: { en: "Say something honest. No filter.",         gr: "Πες κάτι ειλικρινές. Χωρίς φίλτρο." } },
 ]
 
-// ── BOARD GAME ──────────────────────────────────────────────────
-export type TileType = 'question' | 'dare' | 'bonus' | 'penalty'
+// ── BOARD GAME — interactive tiles ──────────────────────────────
+export type TileType = 'talk' | 'dare' | 'fast' | 'bonus' | 'penalty'
 
 export interface BoardTile {
   type: TileType
@@ -47,36 +55,35 @@ export interface BoardTile {
 }
 
 export const TILE_STYLE: Record<TileType, { color: string; emoji: string; label: LangStr }> = {
-  question: { color: '#38bdf8', emoji: '❓', label: { en: 'question', gr: 'ερώτηση'  } },
-  dare:     { color: '#fd297b', emoji: '🔥', label: { en: 'dare',     gr: 'πρόκληση' } },
-  bonus:    { color: '#4ade80', emoji: '✨', label: { en: 'bonus',    gr: 'μπόνους'  } },
-  penalty:  { color: '#ff8c42', emoji: '🌀', label: { en: 'penalty',  gr: 'ποινή'    } },
+  talk:    { color: '#38bdf8', emoji: '💬', label: { en: 'talk',    gr: 'μίλα'       } },
+  dare:    { color: '#fd297b', emoji: '🔥', label: { en: 'dare',    gr: 'πρόκληση'   } },
+  fast:    { color: '#a78bfa', emoji: '⚡', label: { en: 'fast',    gr: 'γρήγορα'    } },
+  bonus:   { color: '#4ade80', emoji: '✨', label: { en: 'bonus',   gr: 'μπόνους'    } },
+  penalty: { color: '#ff8c42', emoji: '🌀', label: { en: 'penalty', gr: 'ποινή'      } },
 }
 
-// 16 tiles (index 0 = start, 15 = finish)
 export const BOARD_TILES: BoardTile[] = [
-  { type: 'bonus',    text: { en: "Start. You're both in.",                  gr: "Αρχή. Είστε κι οι δύο μέσα." } },
-  { type: 'question', text: { en: "Say one true thing about your day.",      gr: "Πες κάτι αληθινό για τη μέρα σου." } },
-  { type: 'dare',     text: { en: "Give a genuine compliment. Now.",         gr: "Κάνε ένα ειλικρινές κομπλιμέντο. Τώρα." } },
-  { type: 'bonus',    text: { en: "Lucky tile. Roll again.",                 gr: "Τυχερό πλακίδιο. Ρίξε ξανά." } },
-  { type: 'question', text: { en: "What's your green flag?",                 gr: "Ποιο είναι το green flag σου;" } },
-  { type: 'penalty',  text: { en: "Overthought it. Skip a turn.",            gr: "Το σκέφτηκες πολύ. Χάνεις σειρά." } },
-  { type: 'dare',     text: { en: "Send a voice note vibe — say it out loud.", gr: "Πες το δυνατά, σαν φωνητικό." } },
-  { type: 'question', text: { en: "Best trip you've ever taken?",            gr: "Το καλύτερο ταξίδι που έχεις κάνει;" } },
-  { type: 'bonus',    text: { en: "Chemistry +1. Move forward 1.",          gr: "Χημεία +1. Προχώρα 1." } },
-  { type: 'penalty',  text: { en: "Awkward silence. Back 1 tile.",          gr: "Άβολη σιωπή. Πίσω 1 πλακίδιο." } },
-  { type: 'question', text: { en: "What makes you feel alive?",              gr: "Τι σε κάνει να νιώθεις ζωντανός;" } },
-  { type: 'dare',     text: { en: "Confess one tiny secret.",               gr: "Ομολόγησε ένα μικρό μυστικό." } },
-  { type: 'question', text: { en: "Dream first date — describe it.",         gr: "Ιδανικό πρώτο ραντεβού — περίγραψέ το." } },
-  { type: 'bonus',    text: { en: "Spark. Move forward 1.",                 gr: "Σπίθα. Προχώρα 1." } },
-  { type: 'dare',     text: { en: "Look up and hold eye contact 5s.",       gr: "Κοιτάξτε ο ένας τον άλλον για 5 δευτερόλεπτα." } },
-  { type: 'bonus',    text: { en: "Finish. You made it together.",          gr: "Τέλος. Τα καταφέρατε μαζί." } },
+  { type: 'bonus',   text: { en: "Start. You're both in.",                  gr: "Αρχή. Είστε μέσα." } },
+  { type: 'talk',    text: { en: "Share one real thing about your day.",     gr: "Πες κάτι αληθινό για τη μέρα σου." } },
+  { type: 'dare',    text: { en: "Give a compliment. Mean it.",             gr: "Κάνε ένα κομπλιμέντο. Αληθινό." } },
+  { type: 'fast',    text: { en: "Coffee or wine? 3 seconds.",              gr: "Καφές ή κρασί; 3 δευτερόλεπτα." } },
+  { type: 'talk',    text: { en: "What's on your mind right now?",          gr: "Τι σκέφτεσαι τώρα;" } },
+  { type: 'penalty', text: { en: "Awkward pause. Go back 1.",               gr: "Άβολη παύση. Πίσω 1." } },
+  { type: 'dare',    text: { en: "Say something bold. No take-backs.",      gr: "Πες κάτι τολμηρό. Χωρίς πισωγύρισμα." } },
+  { type: 'fast',    text: { en: "Text or call? Now.",                      gr: "Μήνυμα ή κλήση; Τώρα." } },
+  { type: 'bonus',   text: { en: "Good energy. Move forward 1.",            gr: "Καλή ενέργεια. Προχώρα 1." } },
+  { type: 'talk',    text: { en: "Something you've never told anyone.",     gr: "Κάτι που δεν έχεις πει σε κανέναν." } },
+  { type: 'dare',    text: { en: "Look up and hold eye contact 5s.",        gr: "Κοιτάξτε ο ένας τον άλλον 5 δεύτερα." } },
+  { type: 'fast',    text: { en: "Stay in or go out? Pick now.",            gr: "Μέσα ή έξω; Τώρα." } },
+  { type: 'penalty', text: { en: "Played it safe. Back 1.",                 gr: "Το έπαιξες safe. Πίσω 1." } },
+  { type: 'talk',    text: { en: "Best thing that happened this week.",     gr: "Το καλύτερο της εβδομάδας." } },
+  { type: 'bonus',   text: { en: "Spark. Move forward 1.",                  gr: "Σπίθα. Προχώρα 1." } },
+  { type: 'bonus',   text: { en: "Finish. You made it together.",           gr: "Τέλος. Τα καταφέρατε μαζί." } },
 ]
 
 export const BOARD_SIZE = BOARD_TILES.length
 
 // ── Psychological lines (bilingual) ─────────────────────────────
-import type { Lang } from '@/lib/copy'
 
 // Pressure — shown after a card reveal / tile landing (randomly)
 export const CARD_PRESSURE: Record<Lang, string[]> = {
