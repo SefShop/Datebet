@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 
 import { useEffect, useRef, useState } from 'react'
 import { COPY, Lang } from '@/lib/copy'
@@ -249,12 +250,14 @@ export default function Landing() {
 
         {/* Cinematic dating images — dark, blurred, behind text */}
         <div style={{ position:'absolute', inset:0, zIndex:1, overflow:'hidden' }}>
-          <img src="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=1200&q=75&fit=crop"
-            alt="" loading="eager" style={{ position:'absolute', width:'55%', height:'80%', objectFit:'cover',
+          <Image src="https://images.pexels.com/photos/5933357/pexels-photo-5933357.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop"
+            alt="Couple on romantic date" width={1200} height={800} priority
+            style={{ position:'absolute', width:'55%', height:'80%', objectFit:'cover',
             top:'8%', right:'-5%', borderRadius:32, opacity:0.18, filter:'blur(2px) saturate(0.7)',
             animation:'driftImg1 20s ease-in-out infinite alternate' }} />
-          <img src="https://images.unsplash.com/photo-1474552226712-ac0f0961a954?w=1000&q=75&fit=crop"
-            alt="" loading="eager" style={{ position:'absolute', width:'45%', height:'70%', objectFit:'cover',
+          <Image src="https://images.pexels.com/photos/5911133/pexels-photo-5911133.jpeg?auto=compress&cs=tinysrgb&w=1000&h=700&fit=crop"
+            alt="Happy couple at cafe" width={1000} height={700} priority
+            style={{ position:'absolute', width:'45%', height:'70%', objectFit:'cover',
             top:'15%', left:'-3%', borderRadius:32, opacity:0.14, filter:'blur(3px) saturate(0.6)',
             animation:'driftImg2 24s ease-in-out infinite alternate' }} />
           {/* Dark gradient overlay to keep text readable */}
@@ -416,18 +419,16 @@ export default function Landing() {
         <div style={{ display:'flex', gap:16, padding:'0 24px', overflowX:'auto', scrollbarWidth:'none',
           WebkitOverflowScrolling:'touch', scrollSnapType:'x mandatory' }}>
           {[
-            { src:'https://images.unsplash.com/photo-1511988617509-a57c8a288659?w=500&h=340&q=75&fit=crop', alt:'date' },
-            { src:'https://images.unsplash.com/photo-1543158181-e6f9f6712055?w=500&h=340&q=75&fit=crop', alt:'walk' },
-            { src:'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500&h=340&q=75&fit=crop', alt:'laugh' },
-            { src:'https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=500&h=340&q=75&fit=crop', alt:'moment' },
+            { src:'https://images.pexels.com/photos/6537108/pexels-photo-6537108.jpeg?auto=compress&cs=tinysrgb&w=500&h=340&fit=crop', alt:'date' },
+            { src:'https://images.pexels.com/photos/17746292/pexels-photo-17746292.jpeg?auto=compress&cs=tinysrgb&w=500&h=340&fit=crop', alt:'walk' },
+            { src:'https://images.pexels.com/photos/31585127/pexels-photo-31585127.jpeg?auto=compress&cs=tinysrgb&w=500&h=340&fit=crop', alt:'laugh' },
+            { src:'https://images.pexels.com/photos/30871557/pexels-photo-30871557.jpeg?auto=compress&cs=tinysrgb&w=500&h=340&fit=crop', alt:'moment' },
           ].map((img, i) => (
             <div key={i} style={{ flex:'0 0 260px', scrollSnapAlign:'center', borderRadius:20, overflow:'hidden',
               position:'relative', animation:`fadeUp 0.6s ease ${i*100}ms both` }}>
-              <img src={img.src} alt={img.alt} loading="lazy"
+              <Image src={img.src} alt={img.alt} width={500} height={340} loading="lazy"
                 style={{ width:'100%', height:180, objectFit:'cover', filter:'saturate(0.8) brightness(0.85)',
-                  transition:'transform 0.4s ease, filter 0.4s ease' }}
-                onMouseEnter={e => { e.currentTarget.style.transform='scale(1.05)'; e.currentTarget.style.filter='saturate(1) brightness(0.95)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform='scale(1)'; e.currentTarget.style.filter='saturate(0.8) brightness(0.85)' }} />
+                  transition:'transform 0.4s ease, filter 0.4s ease' }} />
               <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg, transparent 40%, rgba(10,8,18,0.7) 100%)', pointerEvents:'none' }} />
             </div>
           ))}
@@ -438,8 +439,9 @@ export default function Landing() {
       <section id="cta" style={{ padding: '120px 24px 100px', textAlign: 'center' as const, position: 'relative', overflow: 'hidden', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ position: 'absolute', width: 700, height: 700, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'radial-gradient(circle,rgba(253,41,123,0.1) 0%,transparent 65%)', filter: 'blur(40px)', pointerEvents: 'none', borderRadius: '50%' }} />
         {/* Emotional background image */}
-        <img src="https://images.unsplash.com/photo-1494774157365-9e04c6720e47?w=1200&q=70&fit=crop"
-          alt="" loading="lazy" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover',
+        <Image src="https://images.pexels.com/photos/5933357/pexels-photo-5933357.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop"
+          alt="Romantic moment" width={1200} height={800} loading="lazy"
+          style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover',
           opacity:0.12, filter:'blur(4px) saturate(0.5)', pointerEvents:'none' }} />
 
         <div ref={f.cta.ref} style={{ ...f.cta.style, maxWidth: 520, margin: '0 auto', position: 'relative', zIndex: 2 }}>
