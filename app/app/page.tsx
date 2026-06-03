@@ -1,4 +1,5 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { useApp, AppProvider } from '@/lib/AppContext'
 import SplashScreen    from '@/components/screens/SplashScreen'
 import HomeScreen      from '@/components/screens/HomeScreen'
@@ -13,8 +14,16 @@ import GameSelectionScreen from '@/components/screens/GameSelectionScreen'
 import Connect4Screen   from '@/components/screens/Connect4Screen'
 import TicTacToeScreen  from '@/components/screens/TicTacToeScreen'
 import LudoScreen       from '@/components/screens/LudoScreen'
+import ProfileScreen    from '@/components/screens/ProfileScreen'
+import MatchScreen      from '@/components/screens/MatchScreen'
+import PostGameScreen   from '@/components/screens/PostGameScreen'
+import ChatScreen       from '@/components/screens/ChatScreen'
+import LockDateScreen   from '@/components/screens/LockDateScreen'
 import ReturnScreen    from '@/components/screens/ReturnScreen'
 import LangToggle      from '@/components/ui/LangToggle'
+import AuthScreen      from '@/components/screens/AuthScreen'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { NotificationToast } from '@/components/ui/SocialPresence'
 
 const SCREENS = {
   splash:     <SplashScreen />,
@@ -30,10 +39,31 @@ const SCREENS = {
   connect4:   <Connect4Screen />,
   tictactoe:  <TicTacToeScreen />,
   ludo:       <LudoScreen />,
+  profile:    <ProfileScreen />,
+  match:      <MatchScreen />,
+  post_game:  <PostGameScreen />,
+  chat:       <ChatScreen />,
+  lock_date:  <LockDateScreen />,
 }
 
 function AppShell() {
-  const { screen, returnState, dismissReturn, navigate } = useApp()
+  const { screen, returnState, dismissReturn, navigate, lang } = useApp()
+
+  // ── Auth gate (skip if Supabase not configured) ──
+  const [authed, setAuthed] = useState(!isSupabaseConfigured())  // true = skip auth if no config
+  const [authChecked, setAuthChecked] = useState(!isSupabaseConfigured())
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthed(!!data.session)
+      setAuthChecked(true)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthed(!!session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const handleReturnContinue = () => {
     dismissReturn()
@@ -53,6 +83,19 @@ function AppShell() {
         <div className="absolute z-[60]" style={{ top: 16, right: 16 }}>
           <LangToggle />
         </div>
+        <NotificationToast lang={lang} />
+
+        {/* Auth gate */}
+        {authChecked && !authed && (
+          <div className="absolute inset-0 z-[100]">
+            <AuthScreen onAuth={() => setAuthed(true)} />
+          </div>
+        )}
+        {!authChecked && (
+          <div className="absolute inset-0 z-[100] flex items-center justify-center" style={{background:'#06060a'}}>
+            <div className="text-white/30 text-[14px]">...</div>
+          </div>
+        )}
 
         {/* Normal screens */}
         {(Object.entries(SCREENS) as [string, React.ReactNode][]).map(([key, comp]) => (

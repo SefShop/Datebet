@@ -22,7 +22,7 @@ export default function SplashScreen() {
       <p className="text-white/45 text-[16px] text-center mb-12">{t.splash.tagline}</p>
 
       {/* Single action */}
-      <button onClick={() => navigate('game')}
+      <button onClick={() => navigate('profile')}
         className="w-full max-w-[320px] bg-gradient-to-br from-[#fd297b] to-[#ff655b] text-white rounded-2xl py-[18px] text-[17px] font-bold shadow-[0_12px_40px_rgba(253,41,123,0.4)] active:scale-95 transition-transform cursor-pointer"
         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         {t.splash.start}

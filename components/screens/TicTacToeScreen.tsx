@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
+import { setLastGameResult } from '@/lib/chatAI'
 import GameChat from '@/components/ui/GameChat'
 import type { GameEvent } from '@/lib/chat'
 
@@ -73,7 +74,7 @@ export default function TicTacToeScreen() {
   function endRound(w:{winner:Cell;line:number[]}|null) {
     if(w){setResult(w)
       if(w.winner===X){streakRef.current++;setChatEvent(streakRef.current>=2?'streak':'user_win')}else{streakRef.current=0;setChatEvent('ai_win')}
-      setChatKey(k=>k+1);const ns=[...score];ns[w.winner===X?0:1]++;setScore(ns);if(ns[0]>=Math.ceil(BEST_OF/2)||ns[1]>=Math.ceil(BEST_OF/2))setGameOver(true)}
+      setChatKey(k=>k+1);const ns=[...score];ns[w.winner===X?0:1]++;setScore(ns);if(ns[0]>=Math.ceil(BEST_OF/2)||ns[1]>=Math.ceil(BEST_OF/2))setGameOver(true); if(ns[0]>=Math.ceil(BEST_OF/2))setLastGameResult('won');else setLastGameResult('lost')}
     else { setDraw(true); setChatEvent('draw'); setChatKey(k=>k+1) }
   }
 
@@ -168,6 +169,8 @@ export default function TicTacToeScreen() {
               style={{background:'linear-gradient(135deg,#fd297b,#ff655b)',color:'#fff',boxShadow:'0 12px 36px rgba(253,41,123,0.35)'}}>{t.playAgain}</button>
             <button onClick={()=>navigate('game_select')} className="w-full rounded-2xl py-3 text-[13px] font-bold active:scale-95 transition-transform cursor-pointer"
               style={{background:'rgba(255,255,255,0.05)',color:'rgba(255,255,255,0.7)',border:'1px solid rgba(255,255,255,0.1)'}}>{t.tryAnother}</button>
+            <button onClick={()=>navigate('post_game')} className="w-full text-[13px] font-medium py-2 active:opacity-60 transition-opacity cursor-pointer"
+              style={{color:'rgba(255,255,255,0.35)'}}>{lang==='gr'?'Συνέχεια →':'Continue →'}</button>
           </div>
         </div>
       )}

@@ -289,6 +289,7 @@ export interface AppCopy {
              whisperBold: string; whisperHonest: string; whisperSafe: string
              next: string; lastQ: string; progress: string }
   result:  { vibeReading: string; you: string; nextProfile: string; different: string; same: string; playAgain: string; continue: string }
+  dating:  { pass: string; play: string; like: string; online: string; offline: string; matchTitle: string; matchSub: string; startGame: string; sendMsg: string; postTitle: string; postSub: string; rematchBtn: string; chatBtn: string; lockDate: string }
   games:   { selectTitle: string; selectSub: string; c4Title: string; c4Desc: string; c4Label: string; tttTitle: string; tttDesc: string; tttLabel: string; ludoTitle: string; ludoDesc: string; ludoLabel: string
              play: string; back: string; you: string; sofia: string
              yourTurn: string; sofiaTurn: string; accept: string; skip: string; draw: string
@@ -318,6 +319,13 @@ const appEn: AppCopy = {
             whisperBold: 'you went bold last time.', whisperHonest: 'you were honest last round.', whisperSafe: 'you played it safe before.',
             next: 'Next →', lastQ: 'Choose Game →', progress: 'of' },
   result: { vibeReading: 'vibe reading', you: 'you', nextProfile: 'next profile', different: 'different', same: 'same', playAgain: 'play another round →', continue: 'Choose Game →' },
+  dating: {
+    pass: 'Pass', play: 'Play Game ⚡', like: 'Like ❤️', online: 'Online', offline: 'Offline',
+    matchTitle: "It's a match!", matchSub: 'You both want to play.',
+    startGame: 'Start a Game →', sendMsg: 'Send Message',
+    postTitle: 'That was fun.', postSub: 'Now imagine this… in real life.',
+    rematchBtn: 'Rematch', chatBtn: 'Keep chatting', lockDate: 'Lock the date →',
+  },
   games: {
     selectTitle: 'pick your game', selectSub: 'now the fun part. choose how you play.',
     c4Title: 'Connect 4', c4Desc: 'Drop discs. Think fast.', c4Label: 'Most played',
@@ -367,6 +375,13 @@ const appGr: AppCopy = {
             whisperBold: 'την προηγούμενη το ρίσκαρες.', whisperHonest: 'τον προηγούμενο γύρο ήσουν ειλικρινής.', whisperSafe: 'πριν το έπαιξες ασφαλές.',
             next: 'Επόμενη →', lastQ: 'Διάλεξε παιχνίδι →', progress: 'από' },
   result: { vibeReading: 'η χημεία σας', you: 'εσύ', nextProfile: 'επόμενο προφίλ', different: 'διαφορετικά', same: 'ίδια', playAgain: 'παίξε άλλον έναν γύρο →', continue: 'Διάλεξε παιχνίδι →' },
+  dating: {
+    pass: 'Πέρνα', play: 'Παίξε ⚡', like: 'Like ❤️', online: 'Online', offline: 'Offline',
+    matchTitle: 'Ταιριάξατε!', matchSub: 'Και οι δύο θέλετε να παίξετε.',
+    startGame: 'Ξεκίνα παιχνίδι →', sendMsg: 'Στείλε μήνυμα',
+    postTitle: 'Ωραία ήταν.', postSub: 'Τώρα φαντάσου αυτό… στην πραγματικότητα.',
+    rematchBtn: 'Ρεβάνς', chatBtn: 'Συνέχισε κουβέντα', lockDate: 'Κλείδωσε το ραντεβού →',
+  },
   games: {
     selectTitle: 'διάλεξε παιχνίδι', selectSub: 'τώρα το ωραίο. διάλεξε πώς θα παίξετε.',
     c4Title: 'Σκορ 4', c4Desc: 'Ρίξε δίσκους. Σκέψου γρήγορα.', c4Label: 'Δημοφιλές',

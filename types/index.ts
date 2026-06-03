@@ -3,6 +3,7 @@ export type Screen =
   | 'bet' | 'bet_commit' | 'bet_locked'
   | 'activity'
   | 'game_select' | 'connect4' | 'tictactoe' | 'ludo'
+  | 'profile' | 'match' | 'post_game' | 'chat' | 'lock_date'
 
 export interface Profile {
   id: string; name: string; age: number
