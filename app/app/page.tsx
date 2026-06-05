@@ -88,7 +88,7 @@ function AppShell() {
         {/* Auth gate */}
         {authChecked && !authed && (
           <div className="absolute inset-0 z-[100]">
-            <AuthScreen onAuth={() => setAuthed(true)} />
+            <AuthScreen onAuth={() => setAuthed(true)} lang={lang} />
           </div>
         )}
         {!authChecked && (
