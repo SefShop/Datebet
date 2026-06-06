@@ -34,20 +34,41 @@ export default function EditProfileScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError('Not logged in'); setState('error'); return }
+
+      console.log('AUTH USER ID:', user.id)
+      console.log('AUTH USER EMAIL:', user.email)
       setUserId(user.id)
 
       const { data, error: e } = await supabase
         .from('profiles').select('*').eq('id', user.id).single()
 
-      console.log('EDIT PROFILE: loaded', data, e)
-      if (e && e.code !== 'PGRST116') { setError(e.message); setState('error'); return }
+      if (e && e.code !== 'PGRST116') {
+        console.error('PROFILE LOAD ERROR:', e)
+        setError(e.message); setState('error'); return
+      }
 
       if (data) {
+        console.log('LOADED PROFILE ID:', data.id)
+        console.log('LOADED PROFILE NAME:', data.name)
+
+        // Mismatch check
+        if (data.id !== user.id) {
+          console.error('PROFILE MISMATCH:', data.id, '!==', user.id)
+          setError('Profile mismatch. Please log out and log in again.')
+          setState('error')
+          return
+        }
+
         setName(data.name || ''); setAge(data.age ? String(data.age) : '')
         setLoc(data.location || ''); setBio(data.bio || ''); setPhoto(data.photo || '')
+      } else {
+        console.log('NO PROFILE FOUND for user', user.id)
       }
       setState('ready')
-    } catch (err: any) { setError(err.message); setState('error') }
+    } catch (err: any) {
+      console.error('PROFILE LOAD CATCH:', err)
+      setError(err.message); setState('error')
+    }
   }
 
   // ── Photo upload ──
