@@ -158,24 +158,24 @@ function ScenarioLine({ text, delay, last }: { text: string; delay: number; last
 function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
   return (
     <div style={{
-      display: 'flex', gap: 2,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: 100, padding: 3,
+      display: 'flex', gap: 1,
+      background: 'rgba(255,255,255,0.03)',
+      border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: 100, padding: 2,
     }}>
       {(['en', 'gr'] as Lang[]).map(l => (
         <button key={l} onClick={() => setLang(l)}
           style={{
-            padding: '5px 13px', borderRadius: 100, border: 'none',
-            fontSize: 12, fontWeight: 700, letterSpacing: '0.5px',
+            padding: '3px 8px', borderRadius: 100, border: 'none',
+            fontSize: 9, fontWeight: 600, letterSpacing: '0.5px',
             textTransform: 'uppercase' as const,
             cursor: 'pointer', fontFamily: 'inherit',
             transition: 'all 0.2s ease',
             background: lang === l
-              ? 'linear-gradient(135deg,#fd297b,#ff655b)'
+              ? 'rgba(253,41,123,0.25)'
               : 'transparent',
-            color: lang === l ? '#fff' : 'rgba(255,255,255,0.35)',
-            boxShadow: lang === l ? '0 2px 12px rgba(253,41,123,0.4)' : 'none',
+            color: lang === l ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)',
+            boxShadow: 'none',
           }}>
           {l}
         </button>
@@ -243,63 +243,49 @@ export default function Landing() {
       </nav>
 
       {/* ── HERO ── */}
-      <section style={{ position: 'relative', overflow: 'hidden' }}>
+      <section style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
 
-        {/* ── POSTER IMAGE ── */}
-        <div style={{ position: 'relative', width: '100%', height: '75vh', overflow: 'hidden' }}>
-          <img
-            src="/dateduel-hero.jpg"
-            alt="DateDuel — Dating through games"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
-          />
-          {/* Dark gradient fade at bottom */}
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0, height: '45%',
-            background: 'linear-gradient(180deg, transparent 0%, rgba(8,8,15,0.5) 30%, rgba(8,8,15,0.9) 70%, #08080f 100%)',
-            pointerEvents: 'none',
-          }} />
-        </div>
+        {/* Background image */}
+        <img src="/dateduel-hero.jpg" alt=""
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', zIndex: 1 }} />
 
-        {/* ── COPY BELOW IMAGE ── */}
-        <div style={{ position: 'relative', zIndex: 2, padding: '40px 24px 56px', textAlign: 'center' as const, background: '#08080f' }}>
-          <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        {/* Dark gradient overlay */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 2,
+          background: 'linear-gradient(180deg, rgba(8,8,15,0.25) 0%, rgba(8,8,15,0.4) 40%, rgba(8,8,15,0.85) 75%, #08080f 100%)' }} />
 
-            {/* Logo */}
-            <div style={{ marginBottom: 20, animation: 'fadeUp 0.6s ease both' }}>
-              <span style={{ fontSize: 16, fontWeight: 800 }}>
-                <span style={{ color: '#fff' }}>Date</span><span style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
-              </span>
-            </div>
+        {/* Content ON the image */}
+        <div style={{ position: 'relative', zIndex: 3, height: '100%', display: 'flex', flexDirection: 'column' as const, justifyContent: 'flex-end', padding: '0 24px 48px', textAlign: 'center' as const }}>
+
+          <div style={{ maxWidth: 580, margin: '0 auto', width: '100%' }}>
 
             {/* Headline */}
-            <h1 style={{ fontSize: 'clamp(26px,6vw,44px)', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-1px', color: '#fff', marginBottom: 16, animation: 'fadeUp 0.7s 0.1s ease both' }}>
+            <h1 style={{ fontSize: 'clamp(26px,6.5vw,46px)', fontWeight: 900, lineHeight: 1.12, letterSpacing: '-1px', color: '#fff', marginBottom: 14, animation: 'fadeUp 0.7s ease both' }}>
               {c.hero.h1[0]}<br />{c.hero.h1[1]}{' '}
               <em style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0,#6c63ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontStyle: 'italic' }}>{c.hero.accentWord}</em>
               {c.hero.h1[2]}
             </h1>
 
             {/* Sub */}
-            <p style={{ fontSize: 'clamp(16px,3vw,20px)', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: 32, animation: 'fadeUp 0.7s 0.2s ease both' }}>
+            <p style={{ fontSize: 'clamp(15px,3vw,19px)', color: 'rgba(255,255,255,0.55)', marginBottom: 28, animation: 'fadeUp 0.7s 0.1s ease both' }}>
               {c.hero.sub}
             </p>
 
             {/* CTA */}
-            <div style={{ animation: 'fadeUp 0.7s 0.3s ease both' }}>
+            <div style={{ marginBottom: 16, animation: 'fadeUp 0.7s 0.2s ease both' }}>
               <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', textDecoration: 'none', fontSize: 17, fontWeight: 700, padding: '18px 44px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s', letterSpacing: '-0.3px' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 48px rgba(253,41,123,0.55)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4)' }}>
                 🎮 {c.hero.ctaPrimary}
               </a>
             </div>
+
+            {/* Subtle scroll hint */}
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', animation: 'fadeUp 0.7s 0.4s ease both' }}>↓</div>
           </div>
         </div>
 
-        {/* Mobile height override */}
-        <style>{`
-          @media (max-width: 640px) {
-            section > div:first-child { height: 60vh !important; }
-          }
-        `}</style>
+        {/* Mobile height */}
+        <style>{`@media(max-width:640px){section{height:90vh!important}}`}</style>
       </section>
 
       {/* ── MINI FLOW ── */}
