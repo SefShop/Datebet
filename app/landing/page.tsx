@@ -245,6 +245,19 @@ export default function Landing() {
       {/* ── HERO ── */}
       <section style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' as const }}>
 
+        {/* ── TEST: visible hero image ── */}
+        <img
+          src="/dateduel-hero.jpg"
+          alt="DateDuel hero"
+          style={{
+            width: "100%",
+            maxWidth: "900px",
+            display: "block",
+            margin: "0 auto 40px",
+            borderRadius: "32px"
+          }}
+        />
+
         {/* ── POSTER IMAGE — the dominant visual ── */}
         <div style={{ position: 'relative', width: '100%', flex: '1 1 auto', minHeight: '55vh', maxHeight: '70vh', overflow: 'hidden' }}>
           <img src="/dateduel-hero.jpg" alt="DateDuel — Dating through games"
