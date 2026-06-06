@@ -89,12 +89,12 @@ const en: Copy = {
 
   hero: {
     eyebrow:    'no escape. just show up.',
-    h1:         ['Most games are easy to win.', 'In the game of', '?'],
-    accentWord: 'love',
-    sub:        'One game. One connection. Show up — or lose.',
+    h1:         ['Most dating apps start with chatting.', 'DateDuel starts with', '.'],
+    accentWord: 'playing',
+    sub:        'Play first. Connect later.',
     typewriter: ['ghosting.', 'maybe.', 'disappearing.', 'excuses.'],
-    ctaPrimary: 'Start Playing →',
-    ctaSecond:  'see how it works',
+    ctaPrimary: 'Start Playing',
+    ctaSecond:  'See How It Works',
   },
 
   proof: {
@@ -188,12 +188,12 @@ const gr: Copy = {
 
   hero: {
     eyebrow:    'Δεν υπάρχει έξοδος. Απλά δείξου.',
-    h1:         ['Στα υπόλοιπα παιχνίδια κερδίζεις εύκολα.', 'Στο παιχνίδι του', ';'],
-    accentWord: 'έρωτα',
-    sub:        'Ένα παιχνίδι. Μία σύνδεση. Δείξου — ή χάσε.',
+    h1:         ['Τα περισσότερα dating apps ξεκινούν με chat.', 'Το DateDuel ξεκινά με', '.'],
+    accentWord: 'παιχνίδι',
+    sub:        'Πρώτα παίξε. Μετά συνδέσου.',
     typewriter: ['ghosting.', 'ίσως.', 'εξαφανίσεις.', 'δικαιολογίες.'],
-    ctaPrimary: 'Ξεκίνα να παίζεις →',
-    ctaSecond:  'δες πώς λειτουργεί',
+    ctaPrimary: 'Ξεκίνα να παίζεις',
+    ctaSecond:  'Δες πώς λειτουργεί',
   },
 
   proof: {

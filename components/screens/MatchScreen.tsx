@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { getCurrentMatch } from '@/lib/profiles'
+import BrandBoard from '@/components/ui/BrandBoard'
 
 export default function MatchScreen() {
   const { navigate, lang } = useApp()
@@ -29,7 +30,7 @@ export default function MatchScreen() {
           style={{ background:'linear-gradient(135deg,#fd297b,#ff655b)', boxShadow:'0 8px 32px rgba(253,41,123,0.5)' }}>
           😎
         </div>
-        <div className="text-[28px]" style={{ animation: show ? 'heartBeat 0.8s 0.4s ease both' : 'none' }}>❤️</div>
+        <div style={{ animation: show ? 'heartBeat 0.8s 0.4s ease both' : 'none' }}><BrandBoard size={28} showHearts={false} animate={false} glow={true} mini={true} /></div>
         <div className="w-24 h-24 rounded-full overflow-hidden"
           style={{ boxShadow:'0 8px 32px rgba(167,139,250,0.4)', border:'3px solid rgba(253,41,123,0.4)' }}>
           <img src={match.photo} alt={match.name} className="w-full h-full object-cover"

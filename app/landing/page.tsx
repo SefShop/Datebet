@@ -1,5 +1,6 @@
 'use client'
 import Image from 'next/image'
+import BrandBoard from '@/components/ui/BrandBoard'
 
 import { useEffect, useRef, useState } from 'react'
 import { COPY, Lang } from '@/lib/copy'
@@ -243,91 +244,140 @@ export default function Landing() {
       </nav>
 
       {/* ── HERO ── */}
-      <section style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 24px 80px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', width: 600, height: 600, top: -180, left: -180, borderRadius: '50%', background: 'radial-gradient(circle,rgba(253,41,123,0.13) 0%,transparent 70%)', filter: 'blur(70px)', pointerEvents: 'none', animation: 'drift1 14s ease-in-out infinite alternate' }} />
-        <div style={{ position: 'absolute', width: 500, height: 500, bottom: -120, right: -120, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,101,91,0.11) 0%,transparent 70%)', filter: 'blur(70px)', pointerEvents: 'none', animation: 'drift2 18s ease-in-out infinite alternate' }} />
+      <section style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '100px 24px 60px', position: 'relative', overflow: 'hidden' }}>
+        {/* Neon glow orbs */}
+        <div style={{ position: 'absolute', width: 500, height: 500, top: -100, left: -150, borderRadius: '50%', background: 'radial-gradient(circle,rgba(253,41,123,0.18) 0%,transparent 65%)', filter: 'blur(80px)', pointerEvents: 'none', animation: 'drift1 14s ease-in-out infinite alternate' }} />
+        <div style={{ position: 'absolute', width: 400, height: 400, bottom: -80, right: -100, borderRadius: '50%', background: 'radial-gradient(circle,rgba(108,99,255,0.15) 0%,transparent 65%)', filter: 'blur(80px)', pointerEvents: 'none', animation: 'drift2 18s ease-in-out infinite alternate' }} />
 
+        <div style={{ maxWidth: 1100, width: '100%', position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: 48, flexWrap: 'wrap' as const, justifyContent: 'center' }}>
 
-        {/* Cinematic dating images — dark, blurred, behind text */}
-        <div style={{ position:'absolute', inset:0, zIndex:1, overflow:'hidden' }}>
-          <Image src="https://images.pexels.com/photos/5933357/pexels-photo-5933357.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop"
-            alt="Couple on romantic date" width={1200} height={800} priority
-            style={{ position:'absolute', width:'55%', height:'80%', objectFit:'cover',
-            top:'8%', right:'-5%', borderRadius:32, opacity:0.18, filter:'blur(2px) saturate(0.7)',
-            animation:'driftImg1 20s ease-in-out infinite alternate' }} />
-          <Image src="https://images.pexels.com/photos/5911133/pexels-photo-5911133.jpeg?auto=compress&cs=tinysrgb&w=1000&h=700&fit=crop"
-            alt="Happy couple at cafe" width={1000} height={700} priority
-            style={{ position:'absolute', width:'45%', height:'70%', objectFit:'cover',
-            top:'15%', left:'-3%', borderRadius:32, opacity:0.14, filter:'blur(3px) saturate(0.6)',
-            animation:'driftImg2 24s ease-in-out infinite alternate' }} />
-          {/* Dark gradient overlay to keep text readable */}
-          <div style={{ position:'absolute', inset:0,
-            background:'radial-gradient(ellipse at center, rgba(10,8,18,0.3) 0%, rgba(10,8,18,0.85) 70%, rgba(10,8,18,0.97) 100%)' }} />
-        </div>
+          {/* ── LEFT: Copy ── */}
+          <div style={{ flex: '1 1 400px', maxWidth: 540, textAlign: 'left' as const }}>
 
-        <div style={{ maxWidth: 780, width: '100%', position: 'relative', zIndex: 2, animation: 'fadeUp 0.9s ease both' }}>
-          {/* Eyebrow */}
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 32 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fd297b', boxShadow: '0 0 10px rgba(253,41,123,0.9)', animation: 'dotPulse 2s ease-in-out infinite' }} />
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '2.5px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.85)' }}>
-              {c.hero.eyebrow}
-            </span>
-          </div>
+            {/* Logo + Eyebrow */}
+            <div style={{ marginBottom: 20, animation: 'fadeUp 0.6s ease both' }}>
+              <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.3px' }}>
+                <span style={{ color: '#fff' }}>Date</span><span style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fd297b', boxShadow: '0 0 12px rgba(253,41,123,0.9)', animation: 'dotPulse 2s ease-in-out infinite' }} />
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.8)' }}>
+                  {c.hero.eyebrow}
+                </span>
+              </div>
+            </div>
 
-          {/* H1 — 2-line hero with accent word */}
-          <h1 style={{ fontSize: 'clamp(40px,9vw,88px)', fontWeight: 900, lineHeight: 1.0, letterSpacing: 'clamp(-1.5px,-0.025em,-3px)', color: '#fff', marginBottom: 24 }}>
-            {c.hero.h1[0]}<br />{c.hero.h1[1]}{' '}
-            <em style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontStyle: 'italic' }}>{c.hero.accentWord}</em>
-            {c.hero.h1[2]}
-          </h1>
+            {/* H1 */}
+            <h1 style={{ fontSize: 'clamp(28px,5vw,48px)', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-1.5px', color: '#fff', marginBottom: 16, animation: 'fadeUp 0.7s 0.1s ease both' }}>
+              {c.hero.h1[0]}<br />{c.hero.h1[1]}{' '}
+              <em style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0,#6c63ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontStyle: 'italic' }}>{c.hero.accentWord}</em>
+              {c.hero.h1[2]}
+            </h1>
 
-          <p style={{ fontSize: 'clamp(15px,2.5vw,19px)', color: 'rgba(255,255,255,0.42)', lineHeight: 1.7, marginBottom: 20 }}>{c.hero.sub}</p>
+            {/* Sub */}
+            <p style={{ fontSize: 'clamp(16px,2.5vw,20px)', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: 28, animation: 'fadeUp 0.7s 0.2s ease both' }}>
+              {c.hero.sub}
+            </p>
 
-          {/* Typewriter */}
-          <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.28)', marginBottom: 40, height: 24 }}>
-            {lang === 'en' ? 'No more ' : 'Τέλος με '}{' '}
-            <span style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-              {tw}<span style={{ color: '#fd297b', animation: 'blink 0.9s step-end infinite' }}>|</span>
-            </span>
-          </div>
-
-          {/* CTAs */}
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' as const, marginBottom: 16 }}>
-            <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff', textDecoration: 'none', fontSize: 15, fontWeight: 700, padding: '15px 30px', borderRadius: 100, boxShadow: '0 8px 32px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 44px rgba(253,41,123,0.55)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(253,41,123,0.4)' }}>
-              {c.hero.ctaPrimary}
-            </a>
-            <a href="#how" style={{ display: 'inline-flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: 14, fontWeight: 500, padding: '15px 24px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s' }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}>
-              {c.hero.ctaSecond}
-            </a>
-          </div>
-
-          {/* Playable now nudge */}
-          <div style={{ marginBottom: 44, fontSize: 12, color: 'rgba(255,255,255,0.22)', letterSpacing: '0.3px' }}>
-            Playable now — no signup required.
-          </div>
-
-          {/* Proof */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28, flexWrap: 'wrap' as const }}>
-            {[
-              { n: 91,   suf: '%', label: c.proof.showUpRate },
-              { n: 4800, suf: '+', label: c.proof.betsPlaced },
-              { n: 0,    suf: '%', label: c.proof.ghosting },
-            ].map((s, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-                {i > 0 && <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.08)' }} />}
-                <div style={{ textAlign: 'center' as const }}>
-                  <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-1px', background: 'linear-gradient(135deg,#fff,rgba(255,255,255,0.65))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                    <Count n={s.n} suffix={s.suf} />
+            {/* Flow */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 32, animation: 'fadeUp 0.7s 0.3s ease both', flexWrap: 'wrap' as const }}>
+              {[
+                { emoji: '🎮', label: lang === 'gr' ? 'Παίξε' : 'Play' },
+                { emoji: '🤝', label: lang === 'gr' ? 'Σύνδεση' : 'Connect' },
+                { emoji: '💬', label: 'Chat' },
+                { emoji: '❤️', label: lang === 'gr' ? 'Ραντεβού' : 'Date' },
+              ].map((step, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {i > 0 && <span style={{ color: 'rgba(253,41,123,0.35)', fontSize: 11 }}>→</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 16,
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                    <span style={{ fontSize: 12 }}>{step.emoji}</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>{step.label}</span>
                   </div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)', marginTop: 2 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* CTAs */}
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const, marginBottom: 28, animation: 'fadeUp 0.7s 0.4s ease both' }}>
+              <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', textDecoration: 'none', fontSize: 15, fontWeight: 700, padding: '16px 32px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 48px rgba(253,41,123,0.55)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4)' }}>
+                🎮 {c.hero.ctaPrimary}
+              </a>
+              <a href="#how" style={{ display: 'inline-flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: 14, fontWeight: 500, padding: '16px 24px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}>
+                {c.hero.ctaSecond}
+              </a>
+            </div>
+
+            {/* Proof */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' as const, animation: 'fadeUp 0.7s 0.5s ease both' }}>
+              {[
+                { n: 91, suf: '%', label: c.proof.showUpRate },
+                { n: 4800, suf: '+', label: c.proof.betsPlaced },
+                { n: 0, suf: '%', label: c.proof.ghosting },
+              ].map((stat, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                  {i > 0 && <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.08)' }} />}
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-1px', background: 'linear-gradient(135deg,#fff,rgba(255,255,255,0.65))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                      <Count n={stat.n} suffix={stat.suf} />
+                    </div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)', marginTop: 1 }}>{stat.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── RIGHT: Phone frame with BrandBoard ── */}
+          <div style={{ flex: '0 0 auto', animation: 'fadeUp 0.8s 0.3s ease both' }}>
+            <div style={{
+              width: 280, padding: '32px 24px 40px',
+              background: 'rgba(255,255,255,0.03)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 36,
+              boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 60px rgba(253,41,123,0.08), inset 0 1px 0 rgba(255,255,255,0.04)',
+              animation: 'phoneFloat 6s ease-in-out infinite alternate',
+              position: 'relative' as const, overflow: 'hidden' as const,
+            }}>
+              {/* Status bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, padding: '0 4px' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>DateDuel</span>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#4ade80' }} />
+                  <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>live</span>
                 </div>
               </div>
-            ))}
+
+              {/* Board */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+                <BrandBoard size={62} showHearts={true} animate={true} glow={true} />
+              </div>
+
+              {/* Fake profile row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 16,
+                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#fd297b,#c850c0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>😎</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>vs Sofia, 24</div>
+                  <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>{lang === 'gr' ? 'Παίζει τώρα' : 'Playing now'}</div>
+                </div>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px #4ade80' }} />
+              </div>
+
+              {/* Demo label */}
+              <div style={{ textAlign: 'center' as const, marginTop: 12 }}>
+                <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.15)', padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.04)' }}>
+                  Demo Player
+                </span>
+              </div>
+            </div>
           </div>
+
         </div>
       </section>
 
@@ -487,6 +537,9 @@ export default function Landing() {
         @keyframes fadeUp  { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
         @keyframes dotPulse{ 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.5);opacity:0.5} }
         @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes phoneFloat { from{transform:translateY(0)} to{transform:translateY(-8px)} }
+        @keyframes cellPop { from{opacity:0;transform:scale(0.5)} to{opacity:1;transform:scale(1)} }
+        @keyframes heartDrift { from{transform:translate(0,0)} to{transform:translate(3px,-5px)} }
         @keyframes driftImg1 { from{transform:translate(0,0) scale(1)} to{transform:translate(-12px,8px) scale(1.03)} }
         @keyframes driftImg2 { from{transform:translate(0,0) scale(1)} to{transform:translate(8px,-6px) scale(1.02)} }
         @keyframes drift1  { to{transform:translate(70px,90px)} }

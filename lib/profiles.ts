@@ -1,4 +1,5 @@
 import type { Lang } from '@/lib/copy'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 export interface UserProfile {
   id: string; name: string; age: number
@@ -57,6 +58,45 @@ export const PROFILES: UserProfile[] = [
     bio:{en:"Competitive about everything. Even board games.",gr:"Ανταγωνιστική σε όλα. Ακόμα και στα επιτραπέζια."},
   },
 ]
+
+// ── Fetch real profiles from Supabase ────────────────────────────
+export async function fetchProfiles(): Promise<UserProfile[]> {
+  if (!isSupabaseConfigured()) return PROFILES  // fallback to demo
+
+  try {
+    // Get current user to exclude
+    const { data: { user } } = await supabase.auth.getUser()
+    const currentId = user?.id
+
+    let query = supabase
+      .from('profiles')
+      .select('*')
+      .limit(50)  // fetch up to 50 profiles
+
+    if (currentId) {
+      query = query.neq('id', currentId)
+    }
+
+    const { data, error } = await query
+
+    if (error || !data || data.length === 0) return PROFILES  // fallback
+
+    // Map Supabase rows to UserProfile format
+    return data.map((row: any, i: number) => ({
+      id: row.id,
+      name: row.name || 'Player',
+      age: row.age || 0,
+      photo: row.photo || '',
+      gradient: PROFILES[i % PROFILES.length]?.gradient || 'linear-gradient(135deg,#fd297b,#ff655b)',
+      location: { en: row.location || '', gr: row.location || '' },
+      online: Math.random() < 0.6,  // simulated for now
+      interests: [],
+      bio: { en: row.bio || '', gr: row.bio || '' },
+    }))
+  } catch {
+    return PROFILES  // fallback on any error
+  }
+}
 
 // Simple match state
 let _match: UserProfile | null = null

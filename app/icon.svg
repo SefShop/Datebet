@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="6" fill="#08080f"/>
+  <rect x="2" y="2" width="8" height="8" rx="2" fill="#1a1225"/>
+  <rect x="12" y="2" width="8" height="8" rx="2" fill="#1a1225"/>
+  <rect x="22" y="2" width="8" height="8" rx="2" fill="#1a1225"/>
+  <rect x="2" y="12" width="8" height="8" rx="2" fill="#1a1225"/>
+  <rect x="12" y="12" width="8" height="8" rx="2" fill="#1a1225"/>
+  <rect x="22" y="12" width="8" height="8" rx="2" fill="#1a1225"/>
+  <rect x="2" y="22" width="8" height="8" rx="2" fill="#1a1225"/>
+  <rect x="12" y="22" width="8" height="8" rx="2" fill="#1a1225"/>
+  <rect x="22" y="22" width="8" height="8" rx="2" fill="#1a1225"/>
+  <!-- X marks (pink) -->
+  <text x="6" y="9" text-anchor="middle" font-size="8" font-weight="900" fill="#fd297b">✕</text>
+  <text x="16" y="19" text-anchor="middle" font-size="8" font-weight="900" fill="#fd297b">✕</text>
+  <text x="26" y="29" text-anchor="middle" font-size="8" font-weight="900" fill="#fd297b">✕</text>
+  <!-- O marks (purple) -->
+  <text x="26" y="9" text-anchor="middle" font-size="8" font-weight="900" fill="#6c63ff">○</text>
+  <text x="6" y="29" text-anchor="middle" font-size="8" font-weight="900" fill="#6c63ff">○</text>
+  <!-- Win line -->
+  <line x1="6" y1="6" x2="26" y2="26" stroke="#fd297b" stroke-width="1.5" opacity="0.5"/>
+</svg>

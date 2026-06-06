@@ -1,6 +1,7 @@
 'use client'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
+import BrandBoard from '@/components/ui/BrandBoard'
 
 export default function SplashScreen() {
   const { navigate, lang } = useApp()
@@ -9,8 +10,8 @@ export default function SplashScreen() {
     <div className="flex flex-col h-full items-center justify-center px-8 relative"
       style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.28) 0%, transparent 60%), linear-gradient(165deg, #150a12 0%, #0d0d18 55%, #0a1020 100%)' }}>
 
-      {/* Emoji mark */}
-      <div className="text-[88px] mb-8" style={{ filter: 'drop-shadow(0 8px 30px rgba(253,41,123,0.4))' }}>👫</div>
+      {/* Brand mark */}
+      <div className="mb-8"><BrandBoard size={52} showHearts={false} animate={true} glow={true} mini={true} /></div>
 
       {/* Title */}
       <h1 className="text-[32px] font-extrabold text-white text-center tracking-[-1px] leading-tight mb-3"
