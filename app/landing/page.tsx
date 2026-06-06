@@ -243,49 +243,91 @@ export default function Landing() {
       </nav>
 
       {/* ── HERO ── */}
-      <section style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
+      <section style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '100px 24px 60px', textAlign: 'center' as const, position: 'relative', overflow: 'hidden' }}>
 
-        {/* Background image */}
-        <img src="/dateduel-hero.jpg" alt=""
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', zIndex: 1 }} />
+        {/* Neon glow orbs */}
+        <div style={{ position: 'absolute', width: 500, height: 500, top: -100, left: -150, borderRadius: '50%', background: 'radial-gradient(circle,rgba(253,41,123,0.18) 0%,transparent 65%)', filter: 'blur(80px)', pointerEvents: 'none', animation: 'drift1 14s ease-in-out infinite alternate' }} />
+        <div style={{ position: 'absolute', width: 400, height: 400, bottom: -80, right: -100, borderRadius: '50%', background: 'radial-gradient(circle,rgba(108,99,255,0.15) 0%,transparent 65%)', filter: 'blur(80px)', pointerEvents: 'none', animation: 'drift2 18s ease-in-out infinite alternate' }} />
 
-        {/* Dark gradient overlay */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: 2,
-          background: 'linear-gradient(180deg, rgba(8,8,15,0.25) 0%, rgba(8,8,15,0.4) 40%, rgba(8,8,15,0.85) 75%, #08080f 100%)' }} />
+        <div style={{ maxWidth: 640, width: '100%', position: 'relative', zIndex: 2 }}>
 
-        {/* Content ON the image */}
-        <div style={{ position: 'relative', zIndex: 3, height: '100%', display: 'flex', flexDirection: 'column' as const, justifyContent: 'flex-end', padding: '0 24px 48px', textAlign: 'center' as const }}>
-
-          <div style={{ maxWidth: 580, margin: '0 auto', width: '100%' }}>
-
-            {/* Headline */}
-            <h1 style={{ fontSize: 'clamp(26px,6.5vw,46px)', fontWeight: 900, lineHeight: 1.12, letterSpacing: '-1px', color: '#fff', marginBottom: 14, animation: 'fadeUp 0.7s ease both' }}>
-              {c.hero.h1[0]}<br />{c.hero.h1[1]}{' '}
-              <em style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0,#6c63ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontStyle: 'italic' }}>{c.hero.accentWord}</em>
-              {c.hero.h1[2]}
-            </h1>
-
-            {/* Sub */}
-            <p style={{ fontSize: 'clamp(15px,3vw,19px)', color: 'rgba(255,255,255,0.55)', marginBottom: 28, animation: 'fadeUp 0.7s 0.1s ease both' }}>
-              {c.hero.sub}
-            </p>
-
-            {/* CTA */}
-            <div style={{ marginBottom: 16, animation: 'fadeUp 0.7s 0.2s ease both' }}>
-              <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', textDecoration: 'none', fontSize: 17, fontWeight: 700, padding: '18px 44px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s', letterSpacing: '-0.3px' }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 48px rgba(253,41,123,0.55)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4)' }}>
-                🎮 {c.hero.ctaPrimary}
-              </a>
+          {/* Logo */}
+          <div style={{ marginBottom: 16, animation: 'fadeUp 0.6s ease both' }}>
+            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.3px' }}>
+              <span style={{ color: '#fff' }}>Date</span><span style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fd297b', boxShadow: '0 0 12px rgba(253,41,123,0.9)', animation: 'dotPulse 2s ease-in-out infinite' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.8)' }}>
+                {c.hero.eyebrow}
+              </span>
             </div>
+          </div>
 
-            {/* Subtle scroll hint */}
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', animation: 'fadeUp 0.7s 0.4s ease both' }}>↓</div>
+          {/* Headline */}
+          <h1 style={{ fontSize: 'clamp(32px,7vw,56px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-1.5px', color: '#fff', marginBottom: 18, animation: 'fadeUp 0.7s 0.1s ease both' }}>
+            {c.hero.h1[0]}<br />{c.hero.h1[1]}{' '}
+            <em style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0,#6c63ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontStyle: 'italic' }}>{c.hero.accentWord}</em>
+            {c.hero.h1[2]}
+          </h1>
+
+          {/* Sub */}
+          <p style={{ fontSize: 'clamp(16px,3vw,20px)', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: 32, animation: 'fadeUp 0.7s 0.2s ease both' }}>
+            {c.hero.sub}
+          </p>
+
+          {/* Flow */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 36, animation: 'fadeUp 0.7s 0.3s ease both', flexWrap: 'wrap' as const }}>
+            {[
+              { emoji: '🎮', label: lang === 'gr' ? 'Παίξε' : 'Play' },
+              { emoji: '🤝', label: lang === 'gr' ? 'Σύνδεση' : 'Connect' },
+              { emoji: '💬', label: 'Chat' },
+              { emoji: '❤️', label: lang === 'gr' ? 'Ραντεβού' : 'Date' },
+            ].map((step, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {i > 0 && <span style={{ color: 'rgba(253,41,123,0.35)', fontSize: 11 }}>→</span>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 16,
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <span style={{ fontSize: 12 }}>{step.emoji}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>{step.label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTAs */}
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' as const, marginBottom: 32, animation: 'fadeUp 0.7s 0.4s ease both' }}>
+            <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 700, padding: '17px 36px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 48px rgba(253,41,123,0.55)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4)' }}>
+              🎮 {c.hero.ctaPrimary}
+            </a>
+            <a href="#how" style={{ display: 'inline-flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: 14, fontWeight: 500, padding: '17px 24px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}>
+              {c.hero.ctaSecond}
+            </a>
+          </div>
+
+          {/* Stats */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28, flexWrap: 'wrap' as const, animation: 'fadeUp 0.7s 0.5s ease both' }}>
+            {[
+              { n: 91, suf: '%', label: c.proof.showUpRate },
+              { n: 4800, suf: '+', label: c.proof.betsPlaced },
+              { n: 0, suf: '%', label: c.proof.ghosting },
+            ].map((stat, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
+                {i > 0 && <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.08)' }} />}
+                <div style={{ textAlign: 'center' as const }}>
+                  <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-1px', background: 'linear-gradient(135deg,#fff,rgba(255,255,255,0.65))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    <Count n={stat.n} suffix={stat.suf} />
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)', marginTop: 2 }}>{stat.label}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-
-        {/* Mobile height */}
-        <style>{`@media(max-width:640px){section{height:90vh!important}}`}</style>
       </section>
 
       {/* ── MINI FLOW ── */}
