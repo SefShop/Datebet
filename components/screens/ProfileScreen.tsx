@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
-import { PROFILES, setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
+import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
 import { OnlineCounter, ActivityFeed } from '@/components/ui/SocialPresence'
 import { getStatus } from '@/lib/social'
 
@@ -15,7 +15,6 @@ export default function ProfileScreen() {
   const [profiles, setProfiles] = useState<UserProfile[]>([])
   const [state, setState]       = useState<State>('loading')
   const [errorMsg, setErrorMsg] = useState('')
-  const [demoMode, setDemoMode] = useState(false)
   const [idx, setIdx]           = useState(0)
   const [anim, setAnim]         = useState<'in'|'out-left'|'out-right'>('in')
   const [locked, setLocked]     = useState(false)
@@ -32,13 +31,6 @@ export default function ProfileScreen() {
     if (result.profiles.length === 0) { setState('empty'); return }
     setProfiles(result.profiles)
     setIdx(0)
-    setState('ready')
-  }
-
-  function showDemo() {
-    setProfiles(PROFILES)
-    setIdx(0)
-    setDemoMode(true)
     setState('ready')
   }
 
@@ -137,11 +129,7 @@ export default function ProfileScreen() {
             <div className="text-[14px] text-white/40 mb-6">
               {lang==='gr' ? 'Κάλεσε κάποιον να παίξει.' : 'Invite someone to play.'}
             </div>
-            <button onClick={showDemo}
-              className="rounded-full px-5 py-2.5 text-[12px] font-medium active:scale-95 transition-transform cursor-pointer"
-              style={{ background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.4)', border:'1px solid rgba(255,255,255,0.08)' }}>
-              {lang==='gr' ? 'Δοκιμαστικά προφίλ ↗' : 'Preview demo players ↗'}
-            </button>
+
           </div>
         </div>
       )}
@@ -149,16 +137,6 @@ export default function ProfileScreen() {
       {/* ── READY — show profile card ── */}
       {state === 'ready' && p && (
         <>
-          {/* Demo mode indicator */}
-          {demoMode && (
-            <div className="text-center py-1">
-              <span className="text-[9px] font-bold tracking-[1px] uppercase px-3 py-1 rounded-full"
-                style={{ background:'rgba(253,41,123,0.1)', color:'rgba(253,41,123,0.5)', border:'1px solid rgba(253,41,123,0.15)' }}>
-                Demo
-              </span>
-            </div>
-          )}
-
           <div className="flex-1 px-3 pb-2 flex items-center justify-center">
             <div key={p.id + idx} className="w-full max-w-[400px] rounded-3xl overflow-hidden relative"
               style={{

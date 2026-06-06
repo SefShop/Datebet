@@ -74,11 +74,15 @@ const GRADIENTS = [
 export type FetchResult = { profiles: UserProfile[]; error: string | null }
 
 export async function fetchProfiles(): Promise<FetchResult> {
-  if (!isSupabaseConfigured()) return { profiles: [], error: null }
+  if (!isSupabaseConfigured()) {
+    console.log('PROFILES: Supabase not configured')
+    return { profiles: [], error: 'Supabase not configured' }
+  }
 
   try {
     const { data: { user } } = await supabase.auth.getUser()
     const currentId = user?.id
+    console.log('PROFILES: current user id:', currentId)
 
     let query = supabase
       .from('profiles')
@@ -89,24 +93,31 @@ export async function fetchProfiles(): Promise<FetchResult> {
 
     const { data, error } = await query
 
-    if (error) return { profiles: [], error: error.message }
-    if (!data || data.length === 0) return { profiles: [], error: null }
-
-    return {
-      error: null,
-      profiles: data.map((row: any, i: number) => ({
-        id: row.id,
-        name: row.name || 'Player',
-        age: row.age || 0,
-        photo: row.photo || '',
-        gradient: GRADIENTS[i % GRADIENTS.length],
-        location: { en: row.location || '', gr: row.location || '' },
-        online: Math.random() < 0.6,
-        interests: [],
-        bio: { en: row.bio || '', gr: row.bio || '' },
-      })),
+    console.log('PROFILES: loaded', data?.length ?? 0, 'profiles')
+    if (error) {
+      console.error('PROFILES: supabase error:', error)
+      return { profiles: [], error: error.message }
     }
+    if (!data || data.length === 0) {
+      console.log('PROFILES: table empty or no other users')
+      return { profiles: [], error: null }
+    }
+
+    const mapped = data.map((row: any, i: number) => ({
+      id: row.id,
+      name: row.name || 'Player',
+      age: row.age || 0,
+      photo: row.photo || '',
+      gradient: GRADIENTS[i % GRADIENTS.length],
+      location: { en: row.location || '', gr: row.location || '' },
+      online: Math.random() < 0.6,
+      interests: [],
+      bio: { en: row.bio || '', gr: row.bio || '' },
+    }))
+    console.log('PROFILES: mapped', mapped.map(p => p.name))
+    return { error: null, profiles: mapped }
   } catch (e: any) {
+    console.error('PROFILES: catch error:', e)
     return { profiles: [], error: e?.message || 'Unknown error' }
   }
 }
