@@ -1,6 +1,5 @@
 'use client'
 import Image from 'next/image'
-import BrandBoard from '@/components/ui/BrandBoard'
 
 import { useEffect, useRef, useState } from 'react'
 import { COPY, Lang } from '@/lib/copy'
@@ -244,43 +243,78 @@ export default function Landing() {
       </nav>
 
       {/* ── HERO ── */}
-      <section style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '100px 24px 60px', position: 'relative', overflow: 'hidden' }}>
-        {/* Neon glow orbs */}
-        <div style={{ position: 'absolute', width: 500, height: 500, top: -100, left: -150, borderRadius: '50%', background: 'radial-gradient(circle,rgba(253,41,123,0.18) 0%,transparent 65%)', filter: 'blur(80px)', pointerEvents: 'none', animation: 'drift1 14s ease-in-out infinite alternate' }} />
-        <div style={{ position: 'absolute', width: 400, height: 400, bottom: -80, right: -100, borderRadius: '50%', background: 'radial-gradient(circle,rgba(108,99,255,0.15) 0%,transparent 65%)', filter: 'blur(80px)', pointerEvents: 'none', animation: 'drift2 18s ease-in-out infinite alternate' }} />
+      <section style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' as const }}>
 
-        <div style={{ maxWidth: 1100, width: '100%', position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: 48, flexWrap: 'wrap' as const, justifyContent: 'center' }}>
+        {/* ── POSTER IMAGE — the dominant visual ── */}
+        <div style={{ position: 'relative', width: '100%', flex: '1 1 auto', minHeight: '55vh', maxHeight: '70vh', overflow: 'hidden' }}>
+          <img src="/dateduel-hero.jpg" alt="DateDuel — Dating through games"
+            style={{
+              width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top',
+              display: 'block',
+            }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
 
-          {/* ── LEFT: Copy ── */}
-          <div style={{ flex: '1 1 400px', maxWidth: 540, textAlign: 'left' as const }}>
+          {/* Fallback gradient (shows if image missing) */}
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 0,
+            background: 'radial-gradient(ellipse at 50% 40%, rgba(253,41,123,0.2) 0%, rgba(108,99,255,0.1) 30%, transparent 60%), linear-gradient(180deg, #0a0612 0%, #130a1a 50%, #0a0612 100%)',
+          }}>
+            {/* VS neon placeholder (only visible if image fails) */}
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+              fontSize: 72, fontWeight: 900, letterSpacing: '-3px',
+              background: 'linear-gradient(135deg,#fd297b,#c850c0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              textShadow: '0 0 60px rgba(253,41,123,0.5)',
+              opacity: 0.5,
+            }}>VS</div>
+          </div>
 
-            {/* Logo + Eyebrow */}
-            <div style={{ marginBottom: 20, animation: 'fadeUp 0.6s ease both' }}>
-              <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.3px' }}>
+          {/* Dark gradient bottom fade — ensures text below is readable */}
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%',
+            background: 'linear-gradient(180deg, transparent 0%, rgba(8,8,15,0.6) 40%, rgba(8,8,15,0.95) 80%, #08080f 100%)',
+            pointerEvents: 'none', zIndex: 2,
+          }} />
+
+          {/* Neon glow accents */}
+          <div style={{ position: 'absolute', top: '30%', left: '10%', width: 200, height: 200, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(253,41,123,0.15) 0%, transparent 70%)',
+            filter: 'blur(40px)', pointerEvents: 'none', zIndex: 1 }} />
+          <div style={{ position: 'absolute', top: '30%', right: '10%', width: 200, height: 200, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(108,99,255,0.12) 0%, transparent 70%)',
+            filter: 'blur(40px)', pointerEvents: 'none', zIndex: 1 }} />
+        </div>
+
+        {/* ── COPY SECTION — below the poster ── */}
+        <div style={{ position: 'relative', zIndex: 3, padding: '0 24px 48px', textAlign: 'center' as const, marginTop: -60 }}>
+          <div style={{ maxWidth: 600, margin: '0 auto' }}>
+
+            {/* Logo */}
+            <div style={{ marginBottom: 16, animation: 'fadeUp 0.6s ease both' }}>
+              <span style={{ fontSize: 16, fontWeight: 800 }}>
                 <span style={{ color: '#fff' }}>Date</span><span style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
               </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fd297b', boxShadow: '0 0 12px rgba(253,41,123,0.9)', animation: 'dotPulse 2s ease-in-out infinite' }} />
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.8)' }}>
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.8)' }}>
                   {c.hero.eyebrow}
                 </span>
               </div>
             </div>
 
-            {/* H1 */}
-            <h1 style={{ fontSize: 'clamp(28px,5vw,48px)', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-1.5px', color: '#fff', marginBottom: 16, animation: 'fadeUp 0.7s 0.1s ease both' }}>
+            {/* Headline */}
+            <h1 style={{ fontSize: 'clamp(26px,6vw,44px)', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-1px', color: '#fff', marginBottom: 14, animation: 'fadeUp 0.7s 0.1s ease both' }}>
               {c.hero.h1[0]}<br />{c.hero.h1[1]}{' '}
               <em style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0,#6c63ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontStyle: 'italic' }}>{c.hero.accentWord}</em>
               {c.hero.h1[2]}
             </h1>
 
             {/* Sub */}
-            <p style={{ fontSize: 'clamp(16px,2.5vw,20px)', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: 28, animation: 'fadeUp 0.7s 0.2s ease both' }}>
+            <p style={{ fontSize: 'clamp(15px,3vw,19px)', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: 28, animation: 'fadeUp 0.7s 0.2s ease both' }}>
               {c.hero.sub}
             </p>
 
             {/* Flow */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 32, animation: 'fadeUp 0.7s 0.3s ease both', flexWrap: 'wrap' as const }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 28, animation: 'fadeUp 0.7s 0.3s ease both', flexWrap: 'wrap' as const }}>
               {[
                 { emoji: '🎮', label: lang === 'gr' ? 'Παίξε' : 'Play' },
                 { emoji: '🤝', label: lang === 'gr' ? 'Σύνδεση' : 'Connect' },
@@ -299,13 +333,13 @@ export default function Landing() {
             </div>
 
             {/* CTAs */}
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const, marginBottom: 28, animation: 'fadeUp 0.7s 0.4s ease both' }}>
-              <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', textDecoration: 'none', fontSize: 15, fontWeight: 700, padding: '16px 32px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' as const, marginBottom: 24, animation: 'fadeUp 0.7s 0.4s ease both' }}>
+              <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 700, padding: '17px 36px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s', letterSpacing: '-0.3px' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 48px rgba(253,41,123,0.55)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4)' }}>
                 🎮 {c.hero.ctaPrimary}
               </a>
-              <a href="#how" style={{ display: 'inline-flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: 14, fontWeight: 500, padding: '16px 24px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s' }}
+              <a href="#how" style={{ display: 'inline-flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: 14, fontWeight: 500, padding: '17px 24px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s' }}
                 onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)' }}
                 onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}>
                 {c.hero.ctaSecond}
@@ -313,7 +347,7 @@ export default function Landing() {
             </div>
 
             {/* Proof */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' as const, animation: 'fadeUp 0.7s 0.5s ease both' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, flexWrap: 'wrap' as const, animation: 'fadeUp 0.7s 0.5s ease both' }}>
               {[
                 { n: 91, suf: '%', label: c.proof.showUpRate },
                 { n: 4800, suf: '+', label: c.proof.betsPlaced },
@@ -331,53 +365,6 @@ export default function Landing() {
               ))}
             </div>
           </div>
-
-          {/* ── RIGHT: Phone frame with BrandBoard ── */}
-          <div style={{ flex: '0 0 auto', animation: 'fadeUp 0.8s 0.3s ease both' }}>
-            <div style={{
-              width: 280, padding: '32px 24px 40px',
-              background: 'rgba(255,255,255,0.03)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 36,
-              boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 60px rgba(253,41,123,0.08), inset 0 1px 0 rgba(255,255,255,0.04)',
-              animation: 'phoneFloat 6s ease-in-out infinite alternate',
-              position: 'relative' as const, overflow: 'hidden' as const,
-            }}>
-              {/* Status bar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, padding: '0 4px' }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>DateDuel</span>
-                <div style={{ display: 'flex', gap: 3 }}>
-                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#4ade80' }} />
-                  <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>live</span>
-                </div>
-              </div>
-
-              {/* Board */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-                <BrandBoard size={62} showHearts={true} animate={true} glow={true} />
-              </div>
-
-              {/* Fake profile row */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 16,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#fd297b,#c850c0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>😎</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>vs Sofia, 24</div>
-                  <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>{lang === 'gr' ? 'Παίζει τώρα' : 'Playing now'}</div>
-                </div>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px #4ade80' }} />
-              </div>
-
-              {/* Demo label */}
-              <div style={{ textAlign: 'center' as const, marginTop: 12 }}>
-                <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.15)', padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.04)' }}>
-                  Demo Player
-                </span>
-              </div>
-            </div>
-          </div>
-
         </div>
       </section>
 
