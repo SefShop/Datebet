@@ -1,10 +1,12 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useApp } from '@/lib/AppContext'
 
 interface Props { onLogout: () => void }
 
 export default function UserMenu({ onLogout }: Props) {
+  const { navigate } = useApp()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -23,7 +25,7 @@ export default function UserMenu({ onLogout }: Props) {
   }
 
   const items = [
-    { icon: '👤', label: 'Profile', action: () => setOpen(false) },
+    { icon: '👤', label: 'Profile', action: () => { setOpen(false); navigate('edit_profile') } },
     { icon: '⚙️', label: 'Settings', action: () => setOpen(false) },
     { icon: '🚪', label: 'Logout', action: logout, danger: true },
   ]

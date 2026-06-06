@@ -19,6 +19,7 @@ import MatchScreen      from '@/components/screens/MatchScreen'
 import PostGameScreen   from '@/components/screens/PostGameScreen'
 import ChatScreen       from '@/components/screens/ChatScreen'
 import LockDateScreen   from '@/components/screens/LockDateScreen'
+import EditProfileScreen from '@/components/screens/EditProfileScreen'
 import ReturnScreen    from '@/components/screens/ReturnScreen'
 import LangToggle      from '@/components/ui/LangToggle'
 import UserMenu        from '@/components/ui/UserMenu'
@@ -45,6 +46,7 @@ const SCREENS = {
   post_game:  <PostGameScreen />,
   chat:       <ChatScreen />,
   lock_date:  <LockDateScreen />,
+  edit_profile: <EditProfileScreen />,
 }
 
 function AppShell() {
