@@ -7,7 +7,7 @@ interface Props { onAuth: () => void; lang?: 'en' | 'gr' }
 const C = {
   en: {
     tabIn: 'Sign In', tabUp: 'Sign Up',
-    h1: ["This isn't just a game.", "It's how you meet", 'someone.'],
+    h1: ["This isn't just swiping.", "It's how you meet", 'someone.'],
     email: 'Email address', pass: 'Password',
     cta: 'Enter the game →', ctaUp: 'Create account →',
     or: 'or', google: 'Continue with Google',
@@ -18,7 +18,7 @@ const C = {
   },
   gr: {
     tabIn: 'Σύνδεση', tabUp: 'Δημιουργία',
-    h1: ['Αυτό δεν είναι απλά ένα παιχνίδι.', 'Είναι ο τρόπος να γνωρίσεις', 'κάποιον.'],
+    h1: ['Αυτό δεν είναι απλά swipe.', 'Είναι ο τρόπος να γνωρίσεις', 'κάποιον.'],
     email: 'Email', pass: 'Κωδικός',
     cta: 'Μπες στο παιχνίδι →', ctaUp: 'Δημιούργησε →',
     or: 'ή', google: 'Συνέχεια με Google',
