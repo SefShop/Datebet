@@ -25,6 +25,7 @@ import LangToggle      from '@/components/ui/LangToggle'
 import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { clearProfileState } from '@/lib/profiles'
 import { NotificationToast } from '@/components/ui/SocialPresence'
 
 const SCREENS = {
@@ -62,7 +63,12 @@ function AppShell() {
       setAuthed(!!data.session)
       setAuthChecked(true)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('AUTH STATE CHANGE:', event, session?.user?.id)
+      if (event === 'SIGNED_OUT' || !session) {
+        clearProfileState()
+        localStorage.clear()
+      }
       setAuthed(!!session)
     })
     return () => subscription.unsubscribe()

@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/lib/AppContext'
+import { clearProfileState } from '@/lib/profiles'
 
 interface Props { onLogout: () => void }
 
@@ -19,8 +20,10 @@ export default function UserMenu({ onLogout }: Props) {
   }, [open])
 
   async function logout() {
-    await supabase.auth.signOut()
+    console.log('LOGOUT: clearing all state')
+    clearProfileState()
     localStorage.clear()
+    await supabase.auth.signOut()
     onLogout()
   }
 
