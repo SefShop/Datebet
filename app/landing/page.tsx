@@ -243,142 +243,63 @@ export default function Landing() {
       </nav>
 
       {/* ── HERO ── */}
-      <section style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' as const }}>
+      <section style={{ position: 'relative', overflow: 'hidden' }}>
 
-        {/* ── TEST: visible hero image ── */}
-        <img
-          src="/dateduel-hero.jpg"
-          alt="DateDuel hero"
-          style={{
-            width: "100%",
-            maxWidth: "900px",
-            display: "block",
-            margin: "0 auto 40px",
-            borderRadius: "32px"
-          }}
-        />
-
-        {/* ── POSTER IMAGE — the dominant visual ── */}
-        <div style={{ position: 'relative', width: '100%', flex: '1 1 auto', minHeight: '55vh', maxHeight: '70vh', overflow: 'hidden' }}>
-          <img src="/dateduel-hero.jpg" alt="DateDuel — Dating through games"
-            style={{
-              width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top',
-              display: 'block',
-            }}
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-
-          {/* Fallback gradient (shows if image missing) */}
+        {/* ── POSTER IMAGE ── */}
+        <div style={{ position: 'relative', width: '100%', height: '75vh', overflow: 'hidden' }}>
+          <img
+            src="/dateduel-hero.jpg"
+            alt="DateDuel — Dating through games"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
+          />
+          {/* Dark gradient fade at bottom */}
           <div style={{
-            position: 'absolute', inset: 0, zIndex: 0,
-            background: 'radial-gradient(ellipse at 50% 40%, rgba(253,41,123,0.2) 0%, rgba(108,99,255,0.1) 30%, transparent 60%), linear-gradient(180deg, #0a0612 0%, #130a1a 50%, #0a0612 100%)',
-          }}>
-            {/* VS neon placeholder (only visible if image fails) */}
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-              fontSize: 72, fontWeight: 900, letterSpacing: '-3px',
-              background: 'linear-gradient(135deg,#fd297b,#c850c0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              textShadow: '0 0 60px rgba(253,41,123,0.5)',
-              opacity: 0.5,
-            }}>VS</div>
-          </div>
-
-          {/* Dark gradient bottom fade — ensures text below is readable */}
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%',
-            background: 'linear-gradient(180deg, transparent 0%, rgba(8,8,15,0.6) 40%, rgba(8,8,15,0.95) 80%, #08080f 100%)',
-            pointerEvents: 'none', zIndex: 2,
+            position: 'absolute', bottom: 0, left: 0, right: 0, height: '45%',
+            background: 'linear-gradient(180deg, transparent 0%, rgba(8,8,15,0.5) 30%, rgba(8,8,15,0.9) 70%, #08080f 100%)',
+            pointerEvents: 'none',
           }} />
-
-          {/* Neon glow accents */}
-          <div style={{ position: 'absolute', top: '30%', left: '10%', width: 200, height: 200, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(253,41,123,0.15) 0%, transparent 70%)',
-            filter: 'blur(40px)', pointerEvents: 'none', zIndex: 1 }} />
-          <div style={{ position: 'absolute', top: '30%', right: '10%', width: 200, height: 200, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(108,99,255,0.12) 0%, transparent 70%)',
-            filter: 'blur(40px)', pointerEvents: 'none', zIndex: 1 }} />
         </div>
 
-        {/* ── COPY SECTION — below the poster ── */}
-        <div style={{ position: 'relative', zIndex: 3, padding: '0 24px 48px', textAlign: 'center' as const, marginTop: -60 }}>
-          <div style={{ maxWidth: 600, margin: '0 auto' }}>
+        {/* ── COPY BELOW IMAGE ── */}
+        <div style={{ position: 'relative', zIndex: 2, padding: '40px 24px 56px', textAlign: 'center' as const, background: '#08080f' }}>
+          <div style={{ maxWidth: 640, margin: '0 auto' }}>
 
             {/* Logo */}
-            <div style={{ marginBottom: 16, animation: 'fadeUp 0.6s ease both' }}>
+            <div style={{ marginBottom: 20, animation: 'fadeUp 0.6s ease both' }}>
               <span style={{ fontSize: 16, fontWeight: 800 }}>
                 <span style={{ color: '#fff' }}>Date</span><span style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
               </span>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fd297b', boxShadow: '0 0 12px rgba(253,41,123,0.9)', animation: 'dotPulse 2s ease-in-out infinite' }} />
-                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.8)' }}>
-                  {c.hero.eyebrow}
-                </span>
-              </div>
             </div>
 
             {/* Headline */}
-            <h1 style={{ fontSize: 'clamp(26px,6vw,44px)', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-1px', color: '#fff', marginBottom: 14, animation: 'fadeUp 0.7s 0.1s ease both' }}>
+            <h1 style={{ fontSize: 'clamp(26px,6vw,44px)', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-1px', color: '#fff', marginBottom: 16, animation: 'fadeUp 0.7s 0.1s ease both' }}>
               {c.hero.h1[0]}<br />{c.hero.h1[1]}{' '}
               <em style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0,#6c63ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontStyle: 'italic' }}>{c.hero.accentWord}</em>
               {c.hero.h1[2]}
             </h1>
 
             {/* Sub */}
-            <p style={{ fontSize: 'clamp(15px,3vw,19px)', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: 28, animation: 'fadeUp 0.7s 0.2s ease both' }}>
+            <p style={{ fontSize: 'clamp(16px,3vw,20px)', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: 32, animation: 'fadeUp 0.7s 0.2s ease both' }}>
               {c.hero.sub}
             </p>
 
-            {/* Flow */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 28, animation: 'fadeUp 0.7s 0.3s ease both', flexWrap: 'wrap' as const }}>
-              {[
-                { emoji: '🎮', label: lang === 'gr' ? 'Παίξε' : 'Play' },
-                { emoji: '🤝', label: lang === 'gr' ? 'Σύνδεση' : 'Connect' },
-                { emoji: '💬', label: 'Chat' },
-                { emoji: '❤️', label: lang === 'gr' ? 'Ραντεβού' : 'Date' },
-              ].map((step, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {i > 0 && <span style={{ color: 'rgba(253,41,123,0.35)', fontSize: 11 }}>→</span>}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 16,
-                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                    <span style={{ fontSize: 12 }}>{step.emoji}</span>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>{step.label}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* CTAs */}
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' as const, marginBottom: 24, animation: 'fadeUp 0.7s 0.4s ease both' }}>
-              <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 700, padding: '17px 36px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s', letterSpacing: '-0.3px' }}
+            {/* CTA */}
+            <div style={{ animation: 'fadeUp 0.7s 0.3s ease both' }}>
+              <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', textDecoration: 'none', fontSize: 17, fontWeight: 700, padding: '18px 44px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s', letterSpacing: '-0.3px' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 48px rgba(253,41,123,0.55)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4)' }}>
                 🎮 {c.hero.ctaPrimary}
               </a>
-              <a href="#how" style={{ display: 'inline-flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: 14, fontWeight: 500, padding: '17px 24px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s' }}
-                onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)' }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}>
-                {c.hero.ctaSecond}
-              </a>
-            </div>
-
-            {/* Proof */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, flexWrap: 'wrap' as const, animation: 'fadeUp 0.7s 0.5s ease both' }}>
-              {[
-                { n: 91, suf: '%', label: c.proof.showUpRate },
-                { n: 4800, suf: '+', label: c.proof.betsPlaced },
-                { n: 0, suf: '%', label: c.proof.ghosting },
-              ].map((stat, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-                  {i > 0 && <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.08)' }} />}
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-1px', background: 'linear-gradient(135deg,#fff,rgba(255,255,255,0.65))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                      <Count n={stat.n} suffix={stat.suf} />
-                    </div>
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)', marginTop: 1 }}>{stat.label}</div>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         </div>
+
+        {/* Mobile height override */}
+        <style>{`
+          @media (max-width: 640px) {
+            section > div:first-child { height: 60vh !important; }
+          }
+        `}</style>
       </section>
 
       {/* ── MINI FLOW ── */}
