@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
-import { MOCK_PROFILE } from '@/lib/data'
+import { getCurrentMatch } from '@/lib/profiles'
 import { CARD_DECK, CARD_STYLE, GameCard, CARD_PRESSURE, REACTIONS, pickLine } from '@/lib/games'
 
 type Turn = 'user' | 'sofia'
@@ -107,7 +107,7 @@ export default function CardGameScreen() {
       <div className="flex items-center gap-4 mb-1">
         <Score emoji="🧑" label={t.you}   pts={uPts} active={turn==='user'}  glow={glow} />
         <div className="text-[11px] font-bold uppercase tracking-[1px]" style={{ color:'rgba(255,255,255,0.25)' }}>{t.vs}</div>
-        <Score emoji={MOCK_PROFILE.emoji} label={t.sofia} pts={sPts} active={turn==='sofia'} glow={glow} />
+        <Score emoji={"🎮"} label={t.sofia} pts={sPts} active={turn==='sofia'} glow={glow} />
       </div>
       <div className="text-[10px] mb-5" style={{ color:'rgba(255,255,255,0.18)' }}>{drawn} / {CARD_DECK.length}</div>
 
@@ -136,7 +136,7 @@ export default function CardGameScreen() {
                     <span className="text-[22px]">{style?.emoji}</span>
                     <span className="text-[11px] font-bold tracking-[2px] uppercase" style={{ color:glow }}>{style?.label[lang]}</span>
                   </div>
-                  <span className="text-[18px]">{turn==='user' ? '🧑' : MOCK_PROFILE.emoji}</span>
+                  <span className="text-[18px]">{turn==='user' ? '🧑' : "🎮"}</span>
                 </div>
                 <div className="text-[22px] font-bold text-white leading-snug text-center my-auto"
                   style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>

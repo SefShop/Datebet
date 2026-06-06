@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
-import { MOCK_PROFILE } from '@/lib/data'
+import { getCurrentMatch } from '@/lib/profiles'
 import { BOARD_TILES, TILE_STYLE, BOARD_SIZE, TILE_PRESSURE, BOARD_FEEDBACK, REACTIONS, pickLine } from '@/lib/games'
 
 type Turn = 'user' | 'opponent'
@@ -124,7 +124,7 @@ export default function BoardGameScreen() {
         <div className="text-[11px] font-bold tracking-[1.5px] uppercase" style={{ color:'rgba(255,255,255,0.35)' }}>
           {winner ? t.finish : thinking ? t.thinking : turn==='user' ? t.yourTurn : t.sofiaTurn}
         </div>
-        <Token emoji={MOCK_PROFILE.emoji} label={t.sofia} active={turn==='opponent'} />
+        <Token emoji={"🎮"} label={t.sofia} active={turn==='opponent'} />
       </div>
 
       {/* Board — serpentine 4x4 */}
@@ -137,7 +137,7 @@ export default function BoardGameScreen() {
           const st  = TILE_STYLE[BOARD_TILES[idx].type]
           const here = []
           if (posUser === idx) here.push('🧑')
-          if (posOpp === idx)  here.push(MOCK_PROFILE.emoji)
+          if (posOpp === idx)  here.push("🎮")
           const isEnd = idx === LAST
           return (
             <div key={raw} className="relative rounded-xl flex items-center justify-center"
@@ -216,7 +216,7 @@ export default function BoardGameScreen() {
             <div className="text-[44px] mb-3">{winner==='both' ? '🤝' : winner==='user' ? '🏆' : '🎲'}</div>
             <div className="text-[19px] font-extrabold text-white mb-1.5 leading-snug"
               style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-              {winner==='both' ? t.bothWin : winner==='user' ? t.youWin : `${MOCK_PROFILE.name} ${t.finish}`}
+              {winner==='both' ? t.bothWin : winner==='user' ? t.youWin : `${getCurrentMatch().name} ${t.finish}`}
             </div>
             <div className="text-[14px] mb-5" style={{ color:'rgba(255,255,255,0.45)' }}>
               {winner==='user' ? t.msgWin : winner==='both' ? t.msgTie : t.msgLose}

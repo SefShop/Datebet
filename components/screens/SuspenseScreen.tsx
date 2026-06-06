@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { MOCK_PROFILE } from '@/lib/data'
+import { getCurrentMatch } from '@/lib/profiles'
 import { pickRandom, SUSPENSE_LINES } from '@/lib/voice'
 import { THINKING_LINES, getRemembersLine } from '@/lib/anticipation'
 
@@ -75,7 +75,7 @@ export default function SuspenseScreen() {
         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6c63ff] to-[#a855f7]
           flex items-center justify-center text-[30px] relative z-10"
           style={{ animation:'floatB 2.2s ease-in-out infinite', boxShadow:'0 0 30px rgba(109,99,255,0.4)' }}>
-          {MOCK_PROFILE.emoji}
+          {"🎮"}
         </div>
       </div>
 
@@ -88,7 +88,7 @@ export default function SuspenseScreen() {
         }}>
         <div className="text-white text-[21px] font-bold tracking-[-0.3px] mb-3 leading-tight"
           style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-          {MOCK_PROFILE.name} {thinking[beat]}{dots}
+          {getCurrentMatch().name} {thinking[beat]}{dots}
         </div>
         {/* Speed observation — personalised if available */}
         <div key={subLine}

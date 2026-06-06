@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { MOCK_PROFILE } from '@/lib/data'
+import { getCurrentMatch } from '@/lib/profiles'
 import { APP_COPY } from '@/lib/copy'
 
 const TOTAL = 3   // 3 questions max — then straight to game selection
@@ -41,8 +41,8 @@ export default function GameScreen() {
           <div className="text-[10px] font-black tracking-[3px] text-white/20 uppercase px-2">vs</div>
           <div className="flex flex-col items-center gap-2">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6c63ff] to-[#a855f7]
-              flex items-center justify-center text-[24px] ring-2 ring-[#6c63ff]/30 ring-offset-2 ring-offset-transparent">{MOCK_PROFILE.emoji}</div>
-            <span className="text-[11px] text-white/30 font-medium tracking-wide">{MOCK_PROFILE.name.toLowerCase()}</span>
+              flex items-center justify-center text-[24px] ring-2 ring-[#6c63ff]/30 ring-offset-2 ring-offset-transparent">{getCurrentMatch().name[0]?.toUpperCase() || "?"}</div>
+            <span className="text-[11px] text-white/30 font-medium tracking-wide">{getCurrentMatch().name.toLowerCase()}</span>
           </div>
         </div>
 

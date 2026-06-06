@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { MOCK_PROFILE, BET_AMOUNTS } from '@/lib/data'
+import { BET_AMOUNTS } from '@/lib/data'
+import { getCurrentMatch } from '@/lib/profiles'
 import { APP_COPY } from '@/lib/copy'
 
 export default function BetScreen() {
@@ -34,18 +35,18 @@ export default function BetScreen() {
         <div className="flex items-center gap-4 mt-6 mb-2">
           <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#2d1b2e] to-[#1a1040]
             flex items-center justify-center text-[28px] ring-2 ring-white/10">
-            {MOCK_PROFILE.emoji}
+            {"🎮"}
           </div>
           <div className="flex-1">
             <div className="text-[24px] font-extrabold text-white tracking-tight"
-              style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{MOCK_PROFILE.name}</div>
+              style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{getCurrentMatch().name}</div>
             <div className="text-[12px]" style={{ color:'rgba(255,255,255,0.3)' }}>
-              {MOCK_PROFILE.location} · {MOCK_PROFILE.distance}
+              {getCurrentMatch().location.en} · {""}
             </div>
           </div>
           <div className="text-[13px] font-bold px-3 py-1.5 rounded-full"
             style={{ background:'rgba(253,41,123,0.12)', color:'#fd297b', border:'1px solid rgba(253,41,123,0.2)' }}>
-            ⚡ {game.compatibilityScore || MOCK_PROFILE.compatibility}%
+            ⚡ {game.compatibilityScore || "85"}%
           </div>
         </div>
 

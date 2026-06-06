@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { MOCK_PROFILE } from '@/lib/data'
+import { getCurrentMatch } from '@/lib/profiles'
 import { APP_COPY } from '@/lib/copy'
 
 export default function BetCommitScreen() {
@@ -50,7 +50,7 @@ export default function BetCommitScreen() {
 
         <p className="mt-4 text-[14px] leading-relaxed"
           style={{ color:'rgba(255,255,255,0.38)' }}>
-          <span dangerouslySetInnerHTML={{__html: t.commit.intro.replace('{x}', String(bet.amount)).replace('{name}', MOCK_PROFILE.name)}} />
+          <span dangerouslySetInnerHTML={{__html: t.commit.intro.replace('{x}', String(bet.amount)).replace('{name}', getCurrentMatch().name)}} />
         </p>
       </div>
 

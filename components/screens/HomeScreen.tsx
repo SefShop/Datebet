@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import ProfileCard from '@/components/ui/ProfileCard'
 import Navbar from '@/components/ui/Navbar'
-import { MOCK_PROFILE } from '@/lib/data'
+import { getCurrentMatch } from '@/lib/profiles'
 import { HOME_HOOKS, UNREAD_COUNT } from '@/lib/activity'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
@@ -112,8 +112,8 @@ export default function HomeScreen() {
 
       {/* Card stack */}
       <div className="flex-1 relative mx-5 min-h-0">
-        <ProfileCard profile={{ ...MOCK_PROFILE, emoji: '🧑' }} isBack />
-        <ProfileCard profile={MOCK_PROFILE} onClick={handlePlay} />
+        <ProfileCard profile={{ ...getCurrentMatch(), emoji: '🧑', distance: '', compatibility: 85 } as any} isBack />
+        <ProfileCard profile={{...getCurrentMatch(), distance: '', compatibility: 85} as any} onClick={handlePlay} />
       </div>
 
       {/* Action row */}

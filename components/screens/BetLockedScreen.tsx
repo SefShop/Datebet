@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
-import { MOCK_PROFILE, BET_AMOUNTS } from '@/lib/data'
+import { BET_AMOUNTS } from '@/lib/data'
+import { getCurrentMatch } from '@/lib/profiles'
 import SofiaAvatar from '@/components/ui/SofiaAvatar'
 import {
   ScriptEntry, PresenceEvent,

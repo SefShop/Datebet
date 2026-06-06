@@ -125,4 +125,11 @@ export async function fetchProfiles(): Promise<FetchResult> {
 // Simple match state
 let _match: UserProfile | null = null
 export function setCurrentMatch(p: UserProfile) { _match = p }
-export function getCurrentMatch(): UserProfile { return _match ?? PROFILES[0] }
+export function getCurrentMatch(): UserProfile {
+  return _match ?? {
+    id: 'unknown', name: 'Player', age: 0, photo: '',
+    gradient: 'linear-gradient(135deg,#fd297b,#ff655b)',
+    location: { en: '', gr: '' }, online: false, interests: [],
+    bio: { en: '', gr: '' },
+  }
+}
