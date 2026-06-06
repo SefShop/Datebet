@@ -60,41 +60,54 @@ export const PROFILES: UserProfile[] = [
 ]
 
 // ── Fetch real profiles from Supabase ────────────────────────────
-export async function fetchProfiles(): Promise<UserProfile[]> {
-  if (!isSupabaseConfigured()) return PROFILES  // fallback to demo
+// Gradients pool for profile cards
+const GRADIENTS = [
+  'linear-gradient(135deg,#6c63ff,#a855f7)',
+  'linear-gradient(135deg,#fd297b,#ff655b)',
+  'linear-gradient(135deg,#38bdf8,#6366f1)',
+  'linear-gradient(135deg,#f59e0b,#ef4444)',
+  'linear-gradient(135deg,#ec4899,#8b5cf6)',
+  'linear-gradient(135deg,#14b8a6,#06b6d4)',
+  'linear-gradient(135deg,#f472b6,#c084fc)',
+]
+
+export type FetchResult = { profiles: UserProfile[]; error: string | null }
+
+export async function fetchProfiles(): Promise<FetchResult> {
+  if (!isSupabaseConfigured()) return { profiles: [], error: null }
 
   try {
-    // Get current user to exclude
     const { data: { user } } = await supabase.auth.getUser()
     const currentId = user?.id
 
     let query = supabase
       .from('profiles')
       .select('*')
-      .limit(50)  // fetch up to 50 profiles
+      .limit(50)
 
-    if (currentId) {
-      query = query.neq('id', currentId)
-    }
+    if (currentId) query = query.neq('id', currentId)
 
     const { data, error } = await query
 
-    if (error || !data || data.length === 0) return PROFILES  // fallback
+    if (error) return { profiles: [], error: error.message }
+    if (!data || data.length === 0) return { profiles: [], error: null }
 
-    // Map Supabase rows to UserProfile format
-    return data.map((row: any, i: number) => ({
-      id: row.id,
-      name: row.name || 'Player',
-      age: row.age || 0,
-      photo: row.photo || '',
-      gradient: PROFILES[i % PROFILES.length]?.gradient || 'linear-gradient(135deg,#fd297b,#ff655b)',
-      location: { en: row.location || '', gr: row.location || '' },
-      online: Math.random() < 0.6,  // simulated for now
-      interests: [],
-      bio: { en: row.bio || '', gr: row.bio || '' },
-    }))
-  } catch {
-    return PROFILES  // fallback on any error
+    return {
+      error: null,
+      profiles: data.map((row: any, i: number) => ({
+        id: row.id,
+        name: row.name || 'Player',
+        age: row.age || 0,
+        photo: row.photo || '',
+        gradient: GRADIENTS[i % GRADIENTS.length],
+        location: { en: row.location || '', gr: row.location || '' },
+        online: Math.random() < 0.6,
+        interests: [],
+        bio: { en: row.bio || '', gr: row.bio || '' },
+      })),
+    }
+  } catch (e: any) {
+    return { profiles: [], error: e?.message || 'Unknown error' }
   }
 }
 
