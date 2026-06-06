@@ -1,22 +1,31 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 
 type State = 'loading' | 'ready' | 'saving' | 'error'
+type PhotoState = 'idle' | 'uploading' | 'done' | 'error'
+
+const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+const ALLOWED = ['image/jpeg', 'image/png', 'image/webp']
 
 export default function EditProfileScreen() {
   const { navigate, lang } = useApp()
 
-  const [name, setName]       = useState('')
-  const [age, setAge]         = useState('')
-  const [location, setLoc]    = useState('')
-  const [bio, setBio]         = useState('')
-  const [photo, setPhoto]     = useState('')
-  const [state, setState]     = useState<State>('loading')
-  const [error, setError]     = useState('')
-  const [saved, setSaved]     = useState(false)
-  const [focus, setFocus]     = useState<string|null>(null)
+  const [name, setName]         = useState('')
+  const [age, setAge]           = useState('')
+  const [location, setLoc]      = useState('')
+  const [bio, setBio]           = useState('')
+  const [photo, setPhoto]       = useState('')
+  const [state, setState]       = useState<State>('loading')
+  const [error, setError]       = useState('')
+  const [saved, setSaved]       = useState(false)
+  const [focus, setFocus]       = useState<string|null>(null)
+  const [photoState, setPhotoState] = useState<PhotoState>('idle')
+  const [photoError, setPhotoError] = useState('')
+  const [preview, setPreview]   = useState<string|null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [userId, setUserId]     = useState<string|null>(null)
 
   useEffect(() => { loadProfile() }, [])
 
@@ -25,29 +34,82 @@ export default function EditProfileScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError('Not logged in'); setState('error'); return }
+      setUserId(user.id)
 
       const { data, error: e } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+        .from('profiles').select('*').eq('id', user.id).single()
 
       console.log('EDIT PROFILE: loaded', data, e)
       if (e && e.code !== 'PGRST116') { setError(e.message); setState('error'); return }
 
       if (data) {
-        setName(data.name || '')
-        setAge(data.age ? String(data.age) : '')
-        setLoc(data.location || '')
-        setBio(data.bio || '')
-        setPhoto(data.photo || '')
+        setName(data.name || ''); setAge(data.age ? String(data.age) : '')
+        setLoc(data.location || ''); setBio(data.bio || ''); setPhoto(data.photo || '')
       }
       setState('ready')
+    } catch (err: any) { setError(err.message); setState('error') }
+  }
+
+  // ── Photo upload ──
+  function onFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoError('')
+
+    if (!ALLOWED.includes(file.type)) {
+      setPhotoError(lang==='gr' ? 'Μόνο JPG, PNG, WebP' : 'Only JPG, PNG, WebP'); return
+    }
+    if (file.size > MAX_SIZE) {
+      setPhotoError(lang==='gr' ? 'Μέγιστο 5MB' : 'Max 5MB'); return
+    }
+
+    // Preview
+    const reader = new FileReader()
+    reader.onload = () => setPreview(reader.result as string)
+    reader.readAsDataURL(file)
+
+    uploadFile(file)
+  }
+
+  async function uploadFile(file: File) {
+    if (!userId) return
+    setPhotoState('uploading')
+
+    const ext = file.name.split('.').pop()
+    const path = `${userId}/${Date.now()}.${ext}`
+
+    try {
+      const { error: upErr } = await supabase.storage
+        .from('profile-photos')
+        .upload(path, file, { upsert: true })
+
+      if (upErr) {
+        console.error('PHOTO UPLOAD error:', upErr)
+        setPhotoError(upErr.message)
+        setPhotoState('error')
+        return
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(path)
+
+      console.log('PHOTO UPLOAD: public URL', urlData.publicUrl)
+      setPhoto(urlData.publicUrl)
+      setPhotoState('done')
     } catch (err: any) {
-      setError(err.message); setState('error')
+      console.error('PHOTO UPLOAD catch:', err)
+      setPhotoError(err.message)
+      setPhotoState('error')
     }
   }
 
+  function removePhoto() {
+    setPhoto(''); setPreview(null); setPhotoState('idle')
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  // ── Save profile ──
   async function saveProfile() {
     setState('saving'); setError(''); setSaved(false)
     try {
@@ -55,23 +117,15 @@ export default function EditProfileScreen() {
       if (!user) { setError('Not logged in'); setState('ready'); return }
 
       const { error: e } = await supabase.from('profiles').upsert({
-        id: user.id,
-        name,
-        age: parseInt(age) || 0,
-        location,
-        bio,
-        photo,
+        id: user.id, name, age: parseInt(age) || 0, location, bio, photo,
       })
 
       console.log('EDIT PROFILE: save result', e)
       if (e) { setError(e.message); setState('ready'); return }
 
-      setSaved(true)
-      setState('ready')
+      setSaved(true); setState('ready')
       setTimeout(() => navigate('profile'), 800)
-    } catch (err: any) {
-      setError(err.message); setState('ready')
-    }
+    } catch (err: any) { setError(err.message); setState('ready') }
   }
 
   const t = {
@@ -79,18 +133,23 @@ export default function EditProfileScreen() {
     name:     lang==='gr' ? 'Όνομα' : 'Name',
     age:      lang==='gr' ? 'Ηλικία' : 'Age',
     location: lang==='gr' ? 'Τοποθεσία' : 'Location',
-    bio:      lang==='gr' ? 'Bio' : 'Bio',
-    photo:    lang==='gr' ? 'URL φωτογραφίας' : 'Photo URL',
+    bio:      'Bio',
+    photoUrl: lang==='gr' ? 'Ή URL φωτογραφίας' : 'Or paste photo URL',
+    upload:   lang==='gr' ? '📷 Ανέβασε φωτογραφία' : '📷 Upload Photo',
+    remove:   lang==='gr' ? 'Αφαίρεση' : 'Remove',
+    uploading:lang==='gr' ? 'Ανέβασμα...' : 'Uploading...',
+    uploaded: lang==='gr' ? 'Ανέβηκε ✓' : 'Uploaded ✓',
     save:     lang==='gr' ? 'Αποθήκευση' : 'Save',
     saving:   lang==='gr' ? 'Αποθήκευση...' : 'Saving...',
     saved:    lang==='gr' ? 'Αποθηκεύτηκε ✓' : 'Saved ✓',
     back:     lang==='gr' ? '← Πίσω' : '← Back',
   }
 
+  const photoSrc = preview || photo || ''
+
   function inputStyle(key: string) {
     return {
-      background: 'rgba(255,255,255,0.05)',
-      color: '#fff', caretColor: '#fd297b',
+      background: 'rgba(255,255,255,0.05)', color: '#fff', caretColor: '#fd297b',
       border: focus===key ? '1.5px solid rgba(253,41,123,0.5)' : '1.5px solid rgba(255,255,255,0.07)',
       boxShadow: focus===key ? '0 0 20px rgba(253,41,123,0.1)' : 'none',
     }
@@ -99,7 +158,6 @@ export default function EditProfileScreen() {
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ background:'#06060a', scrollbarWidth:'none' as any }}>
 
-      {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-14 pb-4">
         <button onClick={() => navigate('profile')}
           className="text-white/40 text-[14px] active:opacity-60 cursor-pointer">{t.back}</button>
@@ -114,24 +172,48 @@ export default function EditProfileScreen() {
       ) : (
         <div className="px-5 pb-10">
 
-          {/* Photo preview */}
-          <div className="flex justify-center mb-6">
-            <div className="w-28 h-28 rounded-full overflow-hidden"
+          {/* Photo section */}
+          <div className="flex flex-col items-center mb-6">
+            <div className="w-28 h-28 rounded-full overflow-hidden mb-3"
               style={{ border:'3px solid rgba(253,41,123,0.3)', boxShadow:'0 0 24px rgba(253,41,123,0.15)' }}>
-              {photo ? (
-                <img src={photo} alt="Profile" className="w-full h-full object-cover"
+              {photoSrc ? (
+                <img src={photoSrc} alt="Profile" className="w-full h-full object-cover"
                   onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[48px]"
                   style={{ background:'linear-gradient(135deg,#fd297b,#c850c0)' }}>👤</div>
               )}
             </div>
+
+            {/* Upload button */}
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
+              onChange={onFileSelect} className="hidden" />
+
+            <div className="flex items-center gap-2">
+              <button onClick={() => fileRef.current?.click()}
+                disabled={photoState==='uploading'}
+                className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 transition-transform cursor-pointer disabled:opacity-40"
+                style={{ background:'rgba(253,41,123,0.15)', color:'#fd297b', border:'1px solid rgba(253,41,123,0.25)' }}>
+                {photoState==='uploading' ? t.uploading : photoState==='done' ? t.uploaded : t.upload}
+              </button>
+
+              {photoSrc && (
+                <button onClick={removePhoto}
+                  className="rounded-full px-3 py-2 text-[11px] font-medium active:scale-95 transition-transform cursor-pointer"
+                  style={{ background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.4)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                  {t.remove}
+                </button>
+              )}
+            </div>
+
+            {photoError && (
+              <div className="text-[11px] mt-2 px-3 py-1 rounded-lg"
+                style={{ background:'rgba(239,68,68,0.08)', color:'#f87171' }}>{photoError}</div>
+            )}
           </div>
 
           {/* Fields */}
           <div className="flex flex-col gap-3">
-
-            {/* Name */}
             <div>
               <label className="text-[11px] font-bold text-white/30 uppercase tracking-[1px] mb-1.5 block">{t.name}</label>
               <input value={name} onChange={e => setName(e.target.value)}
@@ -140,7 +222,6 @@ export default function EditProfileScreen() {
                 style={inputStyle('n')} />
             </div>
 
-            {/* Age + Location row */}
             <div className="flex gap-3">
               <div className="flex-shrink-0" style={{ width: 90 }}>
                 <label className="text-[11px] font-bold text-white/30 uppercase tracking-[1px] mb-1.5 block">{t.age}</label>
@@ -160,7 +241,6 @@ export default function EditProfileScreen() {
               </div>
             </div>
 
-            {/* Bio */}
             <div>
               <label className="text-[11px] font-bold text-white/30 uppercase tracking-[1px] mb-1.5 block">{t.bio}</label>
               <textarea value={bio} onChange={e => setBio(e.target.value)}
@@ -172,9 +252,8 @@ export default function EditProfileScreen() {
               <div className="text-right text-[10px] mt-1" style={{ color:'rgba(255,255,255,0.2)' }}>{bio.length}/200</div>
             </div>
 
-            {/* Photo URL */}
             <div>
-              <label className="text-[11px] font-bold text-white/30 uppercase tracking-[1px] mb-1.5 block">{t.photo}</label>
+              <label className="text-[11px] font-bold text-white/30 uppercase tracking-[1px] mb-1.5 block">{t.photoUrl}</label>
               <input value={photo} onChange={e => setPhoto(e.target.value)}
                 placeholder="https://..."
                 onFocus={() => setFocus('p')} onBlur={() => setFocus(null)}
@@ -183,7 +262,6 @@ export default function EditProfileScreen() {
             </div>
           </div>
 
-          {/* Error */}
           {error && (
             <div className="text-[12px] text-center px-3 py-2 rounded-xl mt-4"
               style={{ background:'rgba(239,68,68,0.08)', color:'#f87171', border:'1px solid rgba(239,68,68,0.12)' }}>
@@ -191,7 +269,6 @@ export default function EditProfileScreen() {
             </div>
           )}
 
-          {/* Save */}
           <button onClick={saveProfile} disabled={state==='saving' || !name}
             className="w-full rounded-2xl py-4 text-[16px] font-bold mt-5 active:scale-[0.97] transition-all cursor-pointer disabled:opacity-40"
             style={{
