@@ -49,15 +49,17 @@ export default function AuthScreen({ onAuth, lang = 'gr' }: Props) {
     try {
       if (mode === 'signup') {
         if (!name || !age) { setError('Fill in name and age'); setLoading(false); return }
-        const { error: e } = await supabase.auth.signUp({ email, password: pass })
-        if (e) { setError(e.message); setLoading(false); return }
-        // Insert profile
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          await supabase.from('profiles').insert({
-            id: user.id, name, age: parseInt(age), bio: '', photo: '', location: '',
-          })
-        }
+        const { data: authData, error: authError } = await supabase.auth.signUp({ email, password: pass })
+        console.log('AUTH', authData, authError)
+        if (authError) { setError(authError.message); setLoading(false); return }
+        const userId = authData.user?.id
+        console.log('USER ID', userId)
+        if (!userId) { setError('No user ID returned'); setLoading(false); return }
+        const profileResult = await supabase.from('profiles').insert({
+          id: userId, name, age: parseInt(age), bio: '', photo: '', location: '',
+        })
+        console.log('PROFILE INSERT', profileResult)
+        if (profileResult.error) { setError('Profile: ' + profileResult.error.message); setLoading(false); return }
       } else {
         const { error: e } = await supabase.auth.signInWithPassword({ email, password: pass })
         if (e) { setError(e.message); setLoading(false); return }

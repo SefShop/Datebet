@@ -21,6 +21,7 @@ import ChatScreen       from '@/components/screens/ChatScreen'
 import LockDateScreen   from '@/components/screens/LockDateScreen'
 import ReturnScreen    from '@/components/screens/ReturnScreen'
 import LangToggle      from '@/components/ui/LangToggle'
+import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { NotificationToast } from '@/components/ui/SocialPresence'
@@ -82,6 +83,7 @@ function AppShell() {
         {/* Persistent language toggle — top right, above all screens */}
         <div className="absolute z-[60]" style={{ top: 16, right: 16 }}>
           <LangToggle />
+          {authed && <UserMenu onLogout={() => setAuthed(false)} />}
         </div>
         <NotificationToast lang={lang} />
 

@@ -1,0 +1,71 @@
+'use client'
+import { useState, useRef, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+
+interface Props { onLogout: () => void }
+
+export default function UserMenu({ onLogout }: Props) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    function handle(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  async function logout() {
+    await supabase.auth.signOut()
+    localStorage.clear()
+    onLogout()
+  }
+
+  const items = [
+    { icon: '👤', label: 'Profile', action: () => setOpen(false) },
+    { icon: '⚙️', label: 'Settings', action: () => setOpen(false) },
+    { icon: '🚪', label: 'Logout', action: logout, danger: true },
+  ]
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Trigger */}
+      <button onClick={() => setOpen(!open)}
+        className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+        style={{
+          background: open ? 'rgba(253,41,123,0.15)' : 'rgba(255,255,255,0.06)',
+          border: `1.5px solid ${open ? 'rgba(253,41,123,0.3)' : 'rgba(255,255,255,0.1)'}`,
+          backdropFilter: 'blur(12px)',
+        }}>
+        <span className="text-[14px]">👤</span>
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute top-12 right-0 w-[180px] rounded-2xl overflow-hidden"
+          style={{
+            background: 'rgba(15,12,25,0.92)',
+            backdropFilter: 'blur(24px) saturate(1.4)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)',
+            animation: 'menuIn 0.2s ease both',
+          }}>
+          {items.map((item, i) => (
+            <button key={i} onClick={item.action}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:bg-white/5 cursor-pointer"
+              style={{
+                borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                color: item.danger ? '#fd297b' : 'rgba(255,255,255,0.7)',
+              }}>
+              <span className="text-[14px]">{item.icon}</span>
+              <span className="text-[13px] font-medium">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <style>{`@keyframes menuIn { from{opacity:0;transform:translateY(-8px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }`}</style>
+    </div>
+  )
+}
