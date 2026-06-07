@@ -1,9 +1,9 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Lang } from '@/lib/copy'
-import { GameEvent, QUICK_MSGS, FLIRT_OPTIONS, getSofiaResponse, getPrompt, getToast, shouldRespond } from '@/lib/chat'
+import { GameEvent, QUICK_MSGS, FLIRT_OPTIONS, getOpponentResponse, getPrompt, getToast, shouldRespond } from '@/lib/chat'
 
-interface Msg { from: 'user' | 'sofia'; text: string }
+interface Msg { from: 'user' | 'opponent'; text: string }
 
 interface Props {
   lang: Lang
@@ -43,7 +43,7 @@ export default function GameChat({ lang, event, eventKey }: Props) {
       later(() => setToast(null), 1500)
     }
 
-    // Sofia typing → response (variable realistic delay)
+    // Opponent typing → response (variable realistic delay)
     const baseDelay = 800 + Math.random() * 1200   // 0.8–2s
     const pauseChance = Math.random() < 0.25        // 25% chance of pause-type-pause
 
@@ -54,14 +54,14 @@ export default function GameChat({ lang, event, eventKey }: Props) {
       later(() => setTyping(true), 300 + 600 + 400)  // resume
       later(() => {
         setTyping(false)
-        setMsgs(m => [...m, { from: 'sofia', text: getSofiaResponse(event, lang) }])
+        setMsgs(m => [...m, { from: 'opponent', text: getOpponentResponse(event, lang) }])
       }, baseDelay + 800)
     } else {
       // Normal: type → message
       later(() => setTyping(true), 300)
       later(() => {
         setTyping(false)
-        setMsgs(m => [...m, { from: 'sofia', text: getSofiaResponse(event, lang) }])
+        setMsgs(m => [...m, { from: 'opponent', text: getOpponentResponse(event, lang) }])
       }, baseDelay)
     }
   }, [eventKey]) // eslint-disable-line
@@ -70,12 +70,12 @@ export default function GameChat({ lang, event, eventKey }: Props) {
     if (!text.trim()) return
     setMsgs(m => [...m, { from: 'user', text: text.trim() }])
     setInput(''); setFlirtOpen(false)
-    // Sofia occasionally replies to user messages too
+    // Opponent occasionally replies to user messages too
     if (Math.random() < 0.5) {
       later(() => setTyping(true), 600)
       later(() => {
         setTyping(false)
-        setMsgs(m => [...m, { from: 'sofia', text: getSofiaResponse('idle', lang) }])
+        setMsgs(m => [...m, { from: 'opponent', text: getOpponentResponse('idle', lang) }])
       }, 1200 + Math.random() * 800)
     }
   }
@@ -111,9 +111,9 @@ export default function GameChat({ lang, event, eventKey }: Props) {
                 background: m.from==='user' ? 'linear-gradient(135deg,#fd297b,#ff655b)' : 'rgba(255,255,255,0.07)',
                 color: m.from==='user' ? '#fff' : 'rgba(255,255,255,0.75)',
                 borderBottomRightRadius: m.from==='user' ? 4 : 14,
-                borderBottomLeftRadius: m.from==='sofia' ? 4 : 14,
+                borderBottomLeftRadius: m.from==='opponent' ? 4 : 14,
               }}>
-              {m.from==='sofia' && <span className="text-[9px] font-bold block mb-0.5" style={{color:'#a78bfa'}}>Sofia</span>}
+              {m.from==='opponent' && <span className="text-[9px] font-bold block mb-0.5" style={{color:'#a78bfa'}}>Opponent</span>}
               {m.text}
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function GameChat({ lang, event, eventKey }: Props) {
           <div className="flex justify-start" style={{animation:'msgSlide 0.2s ease both'}}>
             <div className="rounded-2xl px-3 py-1.5 text-[11px]" style={{background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.35)'}}>
               <span className="inline-flex items-center gap-1">
-                Sofia {lang==='gr'?'γράφει':'is typing'}
+                Opponent {lang==='gr'?'γράφει':'is typing'}
                 <span className="inline-flex gap-px ml-0.5">
                   {[0,1,2].map(i=><span key={i} className="inline-block rounded-full bg-white/30"
                     style={{width:3,height:3,animation:`dot ${0.8}s ${i*0.15}s infinite ease-in-out`}} />)}

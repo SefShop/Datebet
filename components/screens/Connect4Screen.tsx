@@ -171,7 +171,7 @@ export default function Connect4Screen() {
       {result && !gameOver && (
         <div className="text-center mb-4" style={{animation:'fadeIn 0.4s ease both'}}>
           <div className="text-[18px] font-bold text-white mb-2">
-            {result.winner===P1 ? (lang==='gr'?'Κέρδισες τον γύρο!':'You won this round!') : (lang==='gr'?'Η Sofia κέρδισε.':'Sofia won this one.')}
+            {result.winner===P1 ? (lang==='gr'?'Κέρδισες τον γύρο!':'You won this round!') : (lang==='gr'?'Ο αντίπαλος κέρδισε.':'Opponent won this one.')}
           </div>
           <button onClick={nextRound}
             className="rounded-2xl px-8 py-3 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer"
@@ -196,7 +196,7 @@ export default function Connect4Screen() {
         <div className="flex-1 flex flex-col items-center justify-center text-center w-full" style={{animation:'fadeIn 0.4s ease both'}}>
           <div className="text-[48px] mb-2">{seriesWinner==='you'?'🏆':'🎲'}</div>
           <div className="text-[20px] font-extrabold text-white mb-1">
-            {seriesWinner==='you' ? (lang==='gr'?'Νίκησες τη Sofia!':'You beat Sofia!') : (lang==='gr'?'Η Sofia κέρδισε τη σειρά.':'Sofia won the series.')}
+            {seriesWinner==='you' ? (lang==='gr'?'Νίκησες!':'You won!') : (lang==='gr'?'Ο αντίπαλος κέρδισε τη σειρά.':'Opponent won the series.')}
           </div>
           <div className="text-[14px] mb-6" style={{color:'rgba(255,255,255,0.4)'}}>
             {score[0]} – {score[1]}

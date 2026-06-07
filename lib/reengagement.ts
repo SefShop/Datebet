@@ -46,7 +46,7 @@ const COPY: Record<AbsenceTier, CopySet[]> = {
   fresh: [],
   short: [
     { headline:{en:"you left at an interesting moment.",gr:"έφυγες σε ενδιαφέρουσα στιγμή."}, sub:{en:"things moved without you.",gr:"τα πράγματα κινήθηκαν χωρίς εσένα."}, cta:{en:"see what happened →",gr:"δες τι έγινε →"}, event:{en:"Someone checked the app.",gr:"Κάποιος μπήκε στο app."} },
-    { headline:{en:"she came back. you didn't.",gr:"εκείνη γύρισε. εσύ όχι."}, sub:{en:"for a few minutes, at least.",gr:"για λίγα λεπτά, τουλάχιστον."}, cta:{en:"pick up where it left off →",gr:"συνέχισε από εκεί που έμεινες →"}, event:{en:"A player came back online.",gr:"Ένας παίκτης γύρισε online."} },
+    { headline:{en:"a player returned.",gr:"ένας παίκτης γύρισε."}, sub:{en:"for a few minutes, at least.",gr:"για λίγα λεπτά, τουλάχιστον."}, cta:{en:"pick up where it left off →",gr:"συνέχισε από εκεί που έμεινες →"}, event:{en:"A player came back online.",gr:"Ένας παίκτης γύρισε online."} },
     { headline:{en:"something shifted while you were gone.",gr:"κάτι άλλαξε όσο έλειπες."}, sub:{en:"brief absence. still noticed.",gr:"σύντομη απουσία. το πρόσεξε όμως."}, cta:{en:"find out →",gr:"μάθε →"}, event:{en:"A new match appeared in your queue.",gr:"Ένα νέο match εμφανίστηκε στη λίστα σου."} },
   ],
   medium: [

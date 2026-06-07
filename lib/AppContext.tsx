@@ -5,7 +5,7 @@ import { COPY, Lang } from '@/lib/copy'
 import { QUESTION_POOL, localizeQuestion } from '@/lib/data'
 import { pickRandom } from '@/lib/voice'
 import { buildPersonalization } from '@/lib/personalization'
-import { saveSession, loadReturn } from '@/lib/reengagement'
+// reengagement removed
 
 interface PersonalizationSnapshot {
   speedObs:       string | null
@@ -76,31 +76,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [bet,       setBetState] = useState<BetState>(DEFAULT_BET)
   const [session,   setSession]  = useState<SessionProfile>(DEFAULT_SESSION)
   const [personalization, setPersona] = useState(DEFAULT_PERSONA)
-  const [returnState, setReturnState] = useState<ReturnState | null>(null)
+  const returnState: ReturnState | null = null
   const questionShownAt = useRef<number>(Date.now())
 
   // ── On mount: check if user is returning ──────────────────────
   useEffect(() => {
-    const ret = loadReturn()
-    if (ret) setReturnState(ret)
+    const ret = null
+    
   }, [])
 
-  // ── Save session snapshot on every screen change ──────────────
-  useEffect(() => {
-    saveSession({
-      lastScreen:     screen,
-      hadActiveGame:  screen === 'game' || screen === 'suspense',
-      hadActiveBet:   bet.status === 'waiting',
-      roundCount:     session.roundCount,
-    })
-  }, [screen, bet.status, session.roundCount])
+  // save session removed
 
   const navigate = (s: Screen) => {
-    if (s === 'game') questionShownAt.current = Date.now()
+    // removed
     setScreen(s)
   }
 
-  const dismissReturn = () => setReturnState(null)
+  const dismissReturn = () => {}  // no-op
 
   const setUserAnswer = (id: string) => setGame(p=>({...p, userAnswer:id}))
 
@@ -121,7 +113,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       roundCount:      prev.roundCount + 1,
     }))
     setPersona({ speedObs:p.speedObs, boldObs:p.boldObs, patternObs:p.patternObs, egoHook:p.egoHook, progressionObs:p.progressionObs })
-    setScreen('suspense')
+    setScreen('profile')
   }
 
   const resetGame = () => {
@@ -134,15 +126,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const playAgain = () => {
     resetGame()
-    setScreen('game')
+    setScreen('profile')
   }
 
   const setBetAmount = (n: number) => setBetState(p=>({...p, amount:n}))
-  const commitBet  = () => { setBetState(p=>({...p, status:'committed'})); setScreen('bet_commit') }
+  const commitBet  = () => { setBetState(p=>({...p, status:'committed'})); setScreen('profile') }
   const lockBet    = () => {
     const now = Date.now()
     setBetState(p=>({...p, status:'waiting', lockedAt:now, expiresAt:now+86_400_000, userIn:true}))
-    setScreen('bet_locked')
+    setScreen('profile')
   }
 
   return (

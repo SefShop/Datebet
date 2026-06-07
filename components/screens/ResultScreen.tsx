@@ -142,13 +142,13 @@ export default function ResultScreen() {
             style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.7)', border:'1px solid rgba(255,255,255,0.1)' }}>
             {t.result.playAgain}
           </button>
-          <button onClick={() => navigate('bet')}
+          <button onClick={() => navigate('profile')}
             className="flex-1 rounded-2xl py-[14px] text-[13px] font-bold active:scale-95 transition-transform cursor-pointer"
             style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.7)', border:'1px solid rgba(255,255,255,0.1)' }}>
             {copy.cta}
           </button>
         </div>
-        <button onClick={() => navigate('home')}
+        <button onClick={() => navigate('profile')}
           className="w-full text-[13px] font-medium py-1.5 active:opacity-60 transition-opacity cursor-pointer"
           style={{ color:'rgba(255,255,255,0.22)' }}>
           {t.result.nextProfile}

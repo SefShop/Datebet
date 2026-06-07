@@ -30,7 +30,7 @@ export default function HomeScreen() {
 
   const handlePlay = () => {
     resetGame()
-    navigate('game')
+    navigate('profile')
   }
 
   return (
@@ -61,7 +61,7 @@ export default function HomeScreen() {
 
         {/* Notification bell with badge */}
         <button
-          onClick={() => navigate('activity')}
+          onClick={() => navigate('inbox')}
           className="relative w-11 h-11 rounded-full flex items-center justify-center text-[18px]
             active:scale-90 transition-transform cursor-pointer mt-1"
           style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -79,7 +79,7 @@ export default function HomeScreen() {
       {/* Activity hook banner — rotating */}
       <div className="mx-5 mb-4 flex-shrink-0">
         <button
-          onClick={() => navigate('activity')}
+          onClick={() => navigate('inbox')}
           className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all"
           style={{
             background: hook.urgency === 'high'
@@ -134,7 +134,7 @@ export default function HomeScreen() {
           }}>
           {t.home.play}
         </button>
-        <button onClick={() => navigate('bet')}
+        <button onClick={() => navigate('profile')}
           className="w-14 h-14 rounded-full flex items-center justify-center text-[22px]
             active:scale-90 transition-transform cursor-pointer"
           style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -142,7 +142,7 @@ export default function HomeScreen() {
         </button>
       </div>
 
-      <Navbar active="home" onActivityTap={() => navigate('activity')} unread={UNREAD_COUNT} />
+      <Navbar active="home" onActivityTap={() => navigate('inbox')} unread={UNREAD_COUNT} />
     </div>
   )
 }

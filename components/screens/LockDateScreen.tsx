@@ -51,7 +51,7 @@ export default function LockDateScreen() {
     : (lang==='gr' ? 'είσαι επίμονος… μου αρέσει αυτό.' : "you're persistent… I like that.")
 
   // Post-accept Sofia message
-  const sofiaPostMsg = lang==='gr'
+  const postMsg = lang==='gr'
     ? (Math.random()<0.5 ? 'λοιπόν… πότε με βγάζεις;' : 'το κλείδωσες. τώρα απόδειξέ το.')
     : (Math.random()<0.5 ? 'so… when are you taking me out?' : 'you locked it. now prove it.')
 
@@ -147,7 +147,7 @@ export default function LockDateScreen() {
         </div>
       )}
 
-      {/* ── POST-ACCEPT (Sofia's response) ── */}
+      {/* ── POST-ACCEPT (match's response) ── */}
       {phase === 'postAccept' && (
         <div className="text-center w-full max-w-[340px]" style={{ animation:'fadeUp 0.5s ease both' }}>
           <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-4"
@@ -158,7 +158,7 @@ export default function LockDateScreen() {
             {match.name}
           </div>
           <div className="text-[20px] font-bold text-white mb-8 italic" style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-            "{sofiaPostMsg}"
+            "{postMsg}"
           </div>
           <div className="flex flex-col gap-2.5">
             <button onClick={() => navigate('chat')}

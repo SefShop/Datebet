@@ -27,7 +27,7 @@ export default function GameScreen() {
 
       {/* Header */}
       <div className="px-6 pt-14 flex-shrink-0">
-        <button onClick={() => navigate('splash')}
+        <button onClick={() => navigate('profile')}
           className="w-10 h-10 rounded-full flex items-center justify-center text-white/50 text-[18px]
             bg-white/[0.06] border border-white/[0.08] active:scale-90 active:bg-white/10 transition-all cursor-pointer">←</button>
 

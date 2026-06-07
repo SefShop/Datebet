@@ -82,7 +82,7 @@ export default function BetLockedScreen() {
   const pct       = Math.min(100, ((86_400_000 - remaining) / 86_400_000) * 100)
   const toneColor = currentEvent ? TONE_COLOR[currentEvent.tone] : 'rgba(255,255,255,0.3)'
 
-  if (locked) return <BothLockedScreen amount={bet.amount} onNext={() => navigate('home')} />
+  if (locked) return <BothLockedScreen amount={bet.amount} onNext={() => navigate('profile')} />
 
   return (
     <div className="flex flex-col h-full"
@@ -218,7 +218,7 @@ export default function BetLockedScreen() {
 
       {/* Bottom */}
       <div className="mt-auto px-5 pb-10 flex flex-col gap-3 flex-shrink-0">
-        <button onClick={() => navigate('home')}
+        <button onClick={() => navigate('profile')}
           className="w-full rounded-2xl py-4 text-[14px] font-semibold cursor-pointer active:scale-95 transition-transform"
           style={{
             background:'rgba(255,255,255,0.04)',

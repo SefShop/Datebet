@@ -146,7 +146,7 @@ export default function TicTacToeScreen() {
         <div className="text-center mb-4" style={{animation:'fadeIn 0.4s ease both'}}>
           <div className="text-[18px] font-bold text-white mb-2">
             {draw ? (lang==='gr'?'Ισοπαλία!':'Draw!') :
-             result?.winner===X ? (lang==='gr'?'Κέρδισες!':'You won!') : (lang==='gr'?'Η Sofia κέρδισε.':'Sofia won.')}
+             result?.winner===X ? (lang==='gr'?'Κέρδισες!':'You won!') : (lang==='gr'?'Ο αντίπαλος κέρδισε.':'Opponent won.')}
           </div>
           <button onClick={nextRound}
             className="rounded-2xl px-8 py-3 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer"
@@ -161,7 +161,7 @@ export default function TicTacToeScreen() {
         <div className="flex-1 flex flex-col items-center justify-center text-center w-full" style={{animation:'fadeIn 0.4s ease both'}}>
           <div className="text-[48px] mb-2">{sw==='you'?'🏆':'❌'}</div>
           <div className="text-[20px] font-extrabold text-white mb-1">
-            {sw==='you' ? (lang==='gr'?'Νίκησες!':'You win!') : (lang==='gr'?'Η Sofia κέρδισε.':'Sofia wins.')}
+            {sw==='you' ? (lang==='gr'?'Νίκησες!':'You win!') : (lang==='gr'?'Ο αντίπαλος κέρδισε.':'Opponent wins.')}
           </div>
           <div className="text-[14px] mb-6" style={{color:'rgba(255,255,255,0.4)'}}>{score[0]} – {score[1]}</div>
           <div className="w-full flex flex-col gap-2.5">

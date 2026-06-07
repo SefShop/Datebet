@@ -47,7 +47,7 @@ export default function GameSelectionScreen() {
         ))}
       </div>
 
-      <button onClick={() => navigate('splash')}
+      <button onClick={() => navigate('profile')}
         className="mt-auto w-full text-[13px] font-medium py-3 active:opacity-60 transition-opacity cursor-pointer"
         style={{ color:'rgba(255,255,255,0.25)' }}>{t.back}</button>
       <style>{`@keyframes fadeSlideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }`}</style>

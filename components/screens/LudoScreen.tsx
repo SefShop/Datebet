@@ -140,7 +140,7 @@ export default function LudoScreen() {
         <div className="flex-1 flex flex-col items-center justify-center text-center w-full" style={{animation:'fadeIn 0.4s ease both'}}>
           <div className="text-[48px] mb-2">{winner==='user'?'🏆':'🎲'}</div>
           <div className="text-[20px] font-extrabold text-white mb-1">
-            {winner==='user' ? (lang==='gr'?'Κέρδισες!':'You win!') : (lang==='gr'?'Η Sofia κέρδισε.':'Sofia wins.')}
+            {winner==='user' ? (lang==='gr'?'Κέρδισες!':'You win!') : (lang==='gr'?'Ο αντίπαλος κέρδισε.':'Opponent wins.')}
           </div>
           <div className="text-[14px] mb-6" style={{color:'rgba(255,255,255,0.4)'}}>
             {lang==='gr'?'Πρώτη στο τέλος.':'First to the finish.'}

@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
-import { OnlineCounter, ActivityFeed } from '@/components/ui/SocialPresence'
-import { getStatus } from '@/lib/social'
+
+
 
 type State = 'loading' | 'ready' | 'empty' | 'error'
 
@@ -72,11 +72,8 @@ export default function ProfileScreen() {
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background:'#06060a' }}>
 
-      {/* Social bar */}
-      <div className="flex items-center justify-between px-4 pt-12 pb-1">
-        <OnlineCounter lang={lang} />
-        <ActivityFeed lang={lang} />
-      </div>
+      {/* Top spacer */}
+      <div className="pt-12 pb-1" />
 
       {/* Checking overlay */}
       {checking && (
@@ -164,7 +161,7 @@ export default function ProfileScreen() {
                   style={{ background:'rgba(0,0,0,0.5)', backdropFilter:'blur(8px)' }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: p.online ? '#4ade80' : '#555',
                     boxShadow: p.online ? '0 0 6px #4ade80' : 'none' }} />
-                  <span className="text-[10px] font-bold text-white/70">{getStatus(p.online, lang)}</span>
+                  <span className="text-[10px] font-bold text-white/70">{p.online ? 'online' : 'offline'}</span>
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 px-5 pb-3">
                   <div className="flex items-baseline gap-2">

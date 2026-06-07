@@ -105,7 +105,7 @@ export default function SuspenseScreen() {
 
       {/* Reveal button — user taps to continue (no auto-navigation) */}
       <div className="absolute left-0 right-0 px-6" style={{ bottom: 40 }}>
-        <button onClick={() => navigate('result')}
+        <button onClick={() => navigate('profile')}
           disabled={!ready}
           className="w-full rounded-2xl py-[17px] text-[16px] font-bold active:scale-95 transition-all cursor-pointer disabled:cursor-default"
           style={{

@@ -117,7 +117,7 @@ export default function CardGameScreen() {
           msg={winner==='user' ? t.msgWin : winner==='sofia' ? t.msgLose : t.msgTie}
           emoji={winner==='user' ? '🏆' : winner==='sofia' ? '🎴' : '🤝'}
           score={`${t.you} ${uPts}  ·  ${sPts} ${t.sofia}`}
-          t={t} onAgain={restart} onAnother={() => navigate('game_select')} onDuel={() => navigate('bet')} />
+          t={t} onAgain={restart} onAnother={() => navigate('game_select')} onDuel={() => navigate('profile')} />
       ) : (
         <>
           <div className="flex-1 flex items-center justify-center w-full" style={{ perspective:1000 }}>

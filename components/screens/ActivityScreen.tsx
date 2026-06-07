@@ -31,7 +31,7 @@ export default function ActivityScreen() {
     // Route to game for action-oriented events
     if (['waiting_to_play', 'incomplete_game', 'played_your_vibe', 'answered_question'].includes(event.type)) {
       resetGame()
-      navigate('game')
+      navigate('profile')
     }
   }
 
@@ -44,7 +44,7 @@ export default function ActivityScreen() {
       {/* Header */}
       <div className="px-6 pt-14 pb-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
-          <button onClick={() => navigate('home')}
+          <button onClick={() => navigate('profile')}
             className="w-10 h-10 rounded-full flex items-center justify-center text-[18px]
               active:scale-90 transition-transform cursor-pointer"
             style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>

@@ -25,7 +25,7 @@ export default function BetScreen() {
       </div>
 
       <div className="px-6 pt-3 pb-0 flex-shrink-0">
-        <button onClick={() => navigate('result')}
+        <button onClick={() => navigate('profile')}
           className="w-10 h-10 rounded-full flex items-center justify-center text-[18px] active:scale-90 transition-transform cursor-pointer"
           style={{ background:'rgba(255,255,255,0.06)', color:'rgba(255,255,255,0.4)', border:'1px solid rgba(255,255,255,0.08)' }}>
           ←

@@ -59,7 +59,7 @@ export const PROMPTS: Record<Lang, Record<GameEvent, string[]>> = {
 }
 
 // ── Sofia responses — varied, playful, competitive, sometimes flirty ──
-const SOFIA: Record<Lang, Record<GameEvent, string[]>> = {
+const OPPONENT_LINES: Record<Lang, Record<GameEvent, string[]>> = {
   en: {
     user_move: [
       'hmm… interesting move','you\'re thinking too much','I\'m watching how you play',
@@ -141,7 +141,7 @@ export const TOAST_LINES: Record<Lang, string[]> = {
 }
 
 // ── Exports ─────────────────────────────────────────────────────
-export function getSofiaResponse(event:GameEvent, lang:Lang):string { return pick(SOFIA[lang][event]) }
+export function getOpponentResponse(event:GameEvent, lang:Lang):string { return pick(OPPONENT_LINES[lang][event]) }
 export function getPrompt(event:GameEvent, lang:Lang):string { return pick(PROMPTS[lang][event]) }
 export function getToast(lang:Lang):string { return pick(TOAST_LINES[lang]) }
 

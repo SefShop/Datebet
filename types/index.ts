@@ -1,6 +1,6 @@
 export type Screen =
-  | 'splash' | 'home' | 'game' | 'suspense' | 'result'
-  | 'bet' | 'bet_commit' | 'bet_locked'
+  | 'splash' | 'result'
+  | 'bet_locked'
   | 'activity'
   | 'game_select' | 'connect4' | 'tictactoe' | 'ludo'
   | 'inbox' | 'profile' | 'match' | 'post_game' | 'chat' | 'lock_date' | 'edit_profile'

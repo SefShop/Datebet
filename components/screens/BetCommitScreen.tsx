@@ -32,7 +32,7 @@ export default function BetCommitScreen() {
 
       <div className="px-6 pt-14 pb-6 flex-shrink-0"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <button onClick={() => navigate('bet')}
+        <button onClick={() => navigate('profile')}
           className="w-10 h-10 rounded-full flex items-center justify-center text-[18px] mb-6 active:scale-90 cursor-pointer"
           style={{ background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.35)', border:'1px solid rgba(255,255,255,0.07)' }}>
           ←
