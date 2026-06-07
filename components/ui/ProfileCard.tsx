@@ -29,7 +29,7 @@ export default function ProfileCard({ profile, onClick, isBack = false }: Profil
             {profile.name}, {profile.age}
           </div>
           <div className="text-[14px] text-white/65 mt-1">
-            📍 {profile.location}, {profile.distance}
+            📍 {String((profile.location as any)?.en ?? profile.location ?? "")}{profile.distance ? ", " + profile.distance : ""}
           </div>
           <div className="mt-2.5 inline-flex items-center gap-1.5 bg-[#fd297b]/90 backdrop-blur text-white text-[12px] font-semibold px-3 py-1.5 rounded-full">
             <span className="animate-pulse">●</span> Game ready to play
