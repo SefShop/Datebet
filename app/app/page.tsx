@@ -20,6 +20,7 @@ import PostGameScreen   from '@/components/screens/PostGameScreen'
 import ChatScreen       from '@/components/screens/ChatScreen'
 import LockDateScreen   from '@/components/screens/LockDateScreen'
 import EditProfileScreen from '@/components/screens/EditProfileScreen'
+import InboxScreen       from '@/components/screens/InboxScreen'
 import ReturnScreen    from '@/components/screens/ReturnScreen'
 import LangToggle      from '@/components/ui/LangToggle'
 import UserMenu        from '@/components/ui/UserMenu'
@@ -48,6 +49,7 @@ const SCREENS = {
   chat:       <ChatScreen />,
   lock_date:  <LockDateScreen />,
   edit_profile: <EditProfileScreen />,
+  inbox:        <InboxScreen />,
 }
 
 function AppShell() {

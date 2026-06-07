@@ -29,7 +29,8 @@ export default function UserMenu({ onLogout }: Props) {
   }
 
   const items = [
-    { icon: '👤', label: 'Profile', action: () => { console.log('MENU: navigate to edit_profile'); setOpen(false); setTimeout(() => navigate('edit_profile'), 50) } },
+    { icon: '👤', label: 'Profile', action: () => { setOpen(false); setTimeout(() => navigate('edit_profile'), 50) } },
+    { icon: '💬', label: 'Messages', action: () => { setOpen(false); setTimeout(() => navigate('inbox'), 50) } },
     { icon: '⚙️', label: 'Settings', action: () => setOpen(false) },
     { icon: '🚪', label: 'Logout', action: logout, danger: true },
   ]
