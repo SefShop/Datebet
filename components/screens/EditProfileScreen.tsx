@@ -35,12 +35,13 @@ export default function EditProfileScreen() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError('Not logged in'); setState('error'); return }
 
+      console.log('=== MY PROFILE ===')
       console.log('AUTH USER ID:', user.id)
       console.log('AUTH USER EMAIL:', user.email)
       setUserId(user.id)
 
       const { data, error: e } = await supabase
-        .from('profiles').select('*').eq('id', user.id).single()
+        .from('profiles').select('*').eq('id', user.id).maybeSingle()
 
       if (e && e.code !== 'PGRST116') {
         console.error('PROFILE LOAD ERROR:', e)
@@ -50,6 +51,7 @@ export default function EditProfileScreen() {
       if (data) {
         console.log('LOADED PROFILE ID:', data.id)
         console.log('LOADED PROFILE NAME:', data.name)
+        console.log('LOADED PROFILE PHOTO:', data.photo ? 'yes' : 'none')
 
         // Mismatch check
         if (data.id !== user.id) {
@@ -137,12 +139,16 @@ export default function EditProfileScreen() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError('Not logged in'); setState('ready'); return }
 
-      const { error: e } = await supabase.from('profiles').upsert({
-        id: user.id, name, age: parseInt(age) || 0, location, bio, photo,
-      })
+      const payload = { id: user.id, name, age: parseInt(age) || 0, location, bio, photo }
+      console.log('EDIT PROFILE: saving for user', user.id, payload)
 
-      console.log('EDIT PROFILE: save result', e)
-      if (e) { setError(e.message); setState('ready'); return }
+      const { error: e } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' })
+
+      if (e) { console.error('EDIT PROFILE: save error', e); setError(e.message); setState('ready'); return }
+
+      // Immediately refetch to confirm save
+      const { data: verify } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+      console.log('EDIT PROFILE: verified after save', verify?.id, verify?.name, verify?.photo ? '(has photo)' : '(no photo)')
 
       setSaved(true); setState('ready')
       setTimeout(() => navigate('profile'), 800)

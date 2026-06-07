@@ -20,10 +20,11 @@ export default function UserMenu({ onLogout }: Props) {
   }, [open])
 
   async function logout() {
-    console.log('LOGOUT: clearing all state')
+    console.log('LOGOUT: signing out + clearing state')
     clearProfileState()
-    localStorage.clear()
     await supabase.auth.signOut()
+    // Only remove app keys, not Supabase auth tokens (signOut handles those)
+    try { localStorage.removeItem('lang') } catch {}
     onLogout()
   }
 

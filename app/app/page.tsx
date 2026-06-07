@@ -54,7 +54,8 @@ function AppShell() {
   const { screen, returnState, dismissReturn, navigate, lang } = useApp()
 
   // ── Auth gate (skip if Supabase not configured) ──
-  const [authed, setAuthed] = useState(!isSupabaseConfigured())  // true = skip auth if no config
+  const [authed, setAuthed] = useState(!isSupabaseConfigured())
+  const [authKey, setAuthKey] = useState(0)  // true = skip auth if no config
   const [authChecked, setAuthChecked] = useState(!isSupabaseConfigured())
 
   useEffect(() => {
@@ -66,10 +67,11 @@ function AppShell() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('AUTH STATE CHANGE:', event, session?.user?.id)
       if (event === 'SIGNED_OUT' || !session) {
+        console.log('AUTH: signed out, clearing profile state')
         clearProfileState()
-        localStorage.clear()
       }
       setAuthed(!!session)
+      setAuthKey(k => k + 1)  // force remount all screens
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -107,7 +109,8 @@ function AppShell() {
           </div>
         )}
 
-        {/* Normal screens */}
+        {/* Normal screens — key forces remount on auth change */}
+        <div key={authKey} className="absolute inset-0">
         {(Object.entries(SCREENS) as [string, React.ReactNode][]).map(([key, comp]) => (
           <div key={key} className="absolute inset-0"
             style={{
@@ -119,6 +122,7 @@ function AppShell() {
             {comp}
           </div>
         ))}
+        </div>
 
         {/* Return overlay — sits on top, slides in from below */}
         {returnState && (
