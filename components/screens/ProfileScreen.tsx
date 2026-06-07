@@ -203,9 +203,14 @@ export default function ProfileScreen() {
               ❌
             </button>
             <button onClick={playDirect} disabled={locked}
-              className="w-14 h-14 rounded-full flex items-center justify-center text-[18px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"
+              className="w-12 h-12 rounded-full flex items-center justify-center text-[16px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"
               style={{ background:'rgba(56,189,248,0.15)', border:'2px solid rgba(56,189,248,0.3)' }}>
               ⚡
+            </button>
+            <button onClick={() => { if(!p||locked)return; setCurrentMatch(p); navigate('chat') }} disabled={locked}
+              className="w-12 h-12 rounded-full flex items-center justify-center text-[16px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"
+              style={{ background:'rgba(167,139,250,0.15)', border:'2px solid rgba(167,139,250,0.3)' }}>
+              💬
             </button>
             <button onClick={like} disabled={locked}
               className="w-16 h-16 rounded-full flex items-center justify-center text-[22px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"

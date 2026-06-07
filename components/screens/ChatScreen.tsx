@@ -88,6 +88,16 @@ export default function ChatScreen() {
     const text = input.trim()
     setInput('')
 
+    // Optimistic update — show immediately
+    const tempMsg: Message = {
+      id: 'temp-' + Date.now(),
+      created_at: new Date().toISOString(),
+      sender_id: userId,
+      receiver_id: receiverId,
+      text,
+    }
+    setMsgs(prev => [...prev, tempMsg])
+
     const { error: e } = await supabase.from('messages').insert({
       sender_id: userId,
       receiver_id: receiverId,
