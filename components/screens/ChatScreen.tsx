@@ -1,224 +1,236 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { APP_COPY } from '@/lib/copy'
+import { supabase } from '@/lib/supabase'
 import { getCurrentMatch } from '@/lib/profiles'
-import { generateResponse, getMood, resetMood, QUICK, FLIRT_QUICK } from '@/lib/chatAI'
 
-interface Msg { from: 'user'|'sofia'; text: string; type?: 'read' }
+interface Message {
+  id: string
+  created_at: string
+  sender_id: string
+  receiver_id: string
+  text: string
+}
 
 export default function ChatScreen() {
   const { navigate, lang } = useApp()
-  const t = APP_COPY[lang].dating
   const match = getCurrentMatch()
 
-  const [msgs, setMsgs]       = useState<Msg[]>([])
+  const [msgs, setMsgs]       = useState<Message[]>([])
   const [input, setInput]     = useState('')
-  const [typing, setTyping]   = useState(false)
-  const [flirt, setFlirt]     = useState(false)
-  const [showExit, setShowExit] = useState(false)
-  const sheLeftFired = useRef(false)
+  const [userId, setUserId]   = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const timers    = useRef<ReturnType<typeof setTimeout>[]>([])
-  const msgCount  = useRef(0)
-  const later = useCallback((fn:()=>void,ms:number)=>{timers.current.push(setTimeout(fn,ms))},[])
 
-  useEffect(() => { resetMood(); return () => timers.current.forEach(clearTimeout) }, [])
-  useEffect(()=>{scrollRef.current?.scrollTo({top:scrollRef.current.scrollHeight,behavior:'smooth'})},[msgs,typing])
+  const receiverId = match.id !== 'none' ? match.id : null
 
-  function pushMsg(m: Msg) { setMsgs(prev => [...prev, m]) }
+  // Get current user + load messages
+  useEffect(() => {
+    let channel: any = null
 
-  function send(text: string) {
-    if (!text.trim()) return
-    pushMsg({ from:'user', text:text.trim() })
-    setInput(''); setFlirt(false)
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setError('Not logged in'); setLoading(false); return }
+      setUserId(user.id)
+      console.log('CHAT: user', user.id, '→ receiver', receiverId)
 
-    const resp = generateResponse(msgCount.current, text.trim(), lang)
-    msgCount.current++
+      if (!receiverId) { setLoading(false); return }
 
-    // IGNORE behavior (20%)
-    if (resp.behavior === 'ignore') {
-      later(() => pushMsg({ from:'sofia', text: lang==='gr'?'διαβάστηκε':'read', type:'read' }), 800)
-      return
+      // Fetch existing messages
+      const { data, error: e } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`)
+        .order('created_at', { ascending: true })
+        .limit(100)
+
+      console.log('CHAT: loaded', data?.length ?? 0, 'messages')
+      if (e) { console.error('CHAT error:', e); setError(e.message) }
+      if (data) setMsgs(data)
+      setLoading(false)
+
+      // Subscribe to realtime
+      channel = supabase
+        .channel(`chat-${user.id}-${receiverId}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        }, (payload: any) => {
+          const newMsg = payload.new as Message
+          // Only add if it's between these two users
+          if (
+            (newMsg.sender_id === user.id && newMsg.receiver_id === receiverId) ||
+            (newMsg.sender_id === receiverId && newMsg.receiver_id === user.id)
+          ) {
+            console.log('CHAT: realtime msg from', newMsg.sender_id)
+            setMsgs(prev => {
+              if (prev.some(m => m.id === newMsg.id)) return prev
+              return [...prev, newMsg]
+            })
+          }
+        })
+        .subscribe()
     }
 
-    // TYPING pattern: start → maybe pause → resume → send
-    const typingStart = Math.min(resp.delay * 0.3, 600)
-    later(() => setTyping(true), typingStart)
+    init()
+    return () => { if (channel) supabase.removeChannel(channel) }
+  }, [receiverId])
 
-    // 30% chance: stop/start typing (feels like rethinking)
-    if (Math.random() < 0.30) {
-      later(() => setTyping(false), typingStart + 500 + Math.random() * 400)
-      later(() => setTyping(true), typingStart + 900 + Math.random() * 300)
-    }
+  // Auto-scroll
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [msgs])
 
-    // Send messages with correction + stagger
-    let offset = resp.delay
-    resp.messages.forEach((text, i) => {
-      const t2 = i === 0 && resp.correction ? `${resp.correction} ${text}` : text
-      later(() => {
-        setTyping(false)
-        pushMsg({ from:'sofia', text:t2 })
-        // If more messages coming, restart typing briefly
-        if (i < resp.messages.length - 1) later(() => setTyping(true), 300)
-      }, offset)
-      offset += 800 + Math.random() * 600  // stagger between double msgs
+  async function send() {
+    if (!input.trim() || !userId || !receiverId) return
+    const text = input.trim()
+    setInput('')
+
+    const { error: e } = await supabase.from('messages').insert({
+      sender_id: userId,
+      receiver_id: receiverId,
+      text,
     })
 
-    // Exit CTA after enough exchanges
-    if (msgCount.current >= 5 && !showExit) {
-      later(() => setShowExit(true), offset + 2000)
-    }
-
-    // "She left" moment: rare, creates tension (once per session)
-    if (msgCount.current >= 7 && !sheLeftFired.current && Math.random() < 0.3) {
-      sheLeftFired.current = true
-      const comeback = 20000 + Math.random() * 20000  // 20-40s
-      later(() => {
-        pushMsg({ from:'sofia', text: lang==='gr' ? 'sorry, αποσπάστηκα 😅' : 'got distracted 😅' })
-      }, comeback)
-    }
+    if (e) { console.error('CHAT send error:', e); setError(e.message) }
   }
 
-  const pills = flirt ? FLIRT_QUICK[lang] : QUICK[lang]
-  const mood = getMood()
-  const moodEmoji = mood === 'playful' ? '😄' : mood === 'cold' ? '😐' : '😏'
+  // Quick replies
+  const quicks = lang === 'gr'
+    ? ['σειρά σου 😏','ρεβάνς;','τύχη ήταν','τι κερδίζω;']
+    : ['your move 😏','rematch?','you got lucky','what\'s the prize?']
 
   return (
-    <div className="flex flex-col h-full" style={{ background:'#06060a' }}>
+    <div className="flex flex-col h-full" style={{ background: '#06060a' }}>
 
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 pt-12 pb-3"
-        style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(6,6,10,0.95)', backdropFilter:'blur(12px)' }}>
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(6,6,10,0.95)', backdropFilter: 'blur(12px)' }}>
         <button onClick={() => navigate('profile')} className="text-white/40 text-[16px] mr-1 active:opacity-60 cursor-pointer">←</button>
-        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0"
-          style={{ border:'2px solid rgba(253,41,123,0.3)' }}>
-          <img src={match.photo} alt={match.name} className="w-full h-full object-cover"
-            onError={e=>{(e.target as HTMLImageElement).style.display='none'}} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[15px] font-bold text-white truncate">{match.name} <span className="text-[12px]">{moodEmoji}</span></div>
-          <div className="flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: match.online?'#4ade80':'#555' }} />
-            <span className="text-[11px]" style={{ color:'rgba(255,255,255,0.4)' }}>
-              {typing ? (lang==='gr'?'γράφει...':'typing...') : match.online ? (lang==='gr'?'online':'online now') : (lang==='gr'?'πρόσφατα':'active 2m ago')}
-            </span>
-          </div>
-        </div>
+        {receiverId ? (
+          <>
+            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0"
+              style={{ border: '2px solid rgba(253,41,123,0.3)' }}>
+              {match.photo ? (
+                <img src={match.photo} alt={match.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[20px]"
+                  style={{ background: match.gradient }}>👤</div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[15px] font-bold text-white truncate">{match.name}</div>
+              <div className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {lang === 'gr' ? 'Πραγματικός παίκτης' : 'Real player'}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="text-[15px] font-bold text-white">Chat</div>
+        )}
       </div>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ scrollbarWidth:'none' }}>
-        {msgs.length === 0 && (
+      {/* Messages area */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ scrollbarWidth: 'none' }}>
+
+        {!receiverId && (
+          <div className="text-center py-16">
+            <div className="text-[40px] mb-3">💬</div>
+            <div className="text-[15px] font-semibold text-white/50">
+              {lang === 'gr' ? 'Διάλεξε έναν παίκτη για chat.' : 'Select a player to chat.'}
+            </div>
+            <button onClick={() => navigate('profile')}
+              className="mt-4 rounded-full px-5 py-2.5 text-[13px] font-bold active:scale-95 transition-transform cursor-pointer"
+              style={{ background: 'rgba(253,41,123,0.15)', color: '#fd297b', border: '1px solid rgba(253,41,123,0.25)' }}>
+              {lang === 'gr' ? 'Discover →' : 'Discover →'}
+            </button>
+          </div>
+        )}
+
+        {loading && receiverId && (
           <div className="text-center py-8">
-            <div className="text-[40px] mb-3">👋</div>
+            <div className="text-[24px]" style={{ animation: 'pulse 1s infinite' }}>💬</div>
+          </div>
+        )}
+
+        {error && (
+          <div className="text-center text-[12px] px-3 py-2 rounded-xl"
+            style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171' }}>{error}</div>
+        )}
+
+        {!loading && receiverId && msgs.length === 0 && (
+          <div className="text-center py-8">
             <div className="text-[14px] text-white/40">
-              {lang==='gr' ? `Γράψε στη ${match.name}` : `Message ${match.name}`}
+              {lang === 'gr' ? `Ξεκίνα μια κουβέντα με τον/την ${match.name}` : `Start a conversation with ${match.name}`}
             </div>
           </div>
         )}
 
-        {msgs.map((m,i) => (
-          <div key={i}>
-            {m.type === 'read' ? (
-              <div className="text-center text-[11px] py-1" style={{ color:'rgba(255,255,255,0.25)', animation:'msgSlide 0.3s ease both' }}>
-                ✓✓ {m.text}
-              </div>
-            ) : (
-              <div className={`flex ${m.from==='user'?'justify-end':'justify-start'}`}
-                style={{ animation:'msgSlide 0.3s ease both' }}>
-                {m.from==='sofia' && (
-                  <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mr-2 mt-1">
+        {msgs.map(m => {
+          const isMine = m.sender_id === userId
+          return (
+            <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
+              style={{ animation: 'msgSlide 0.3s ease both' }}>
+              {!isMine && (
+                <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mr-2 mt-1">
+                  {match.photo ? (
                     <img src={match.photo} alt="" className="w-full h-full object-cover" />
-                  </div>
-                )}
-                <div className="max-w-[78%] rounded-2xl px-4 py-2.5"
-                  style={{
-                    background: m.from==='user' ? 'linear-gradient(135deg,#fd297b,#ff655b)' : 'rgba(255,255,255,0.07)',
-                    color: m.from==='user' ? '#fff' : 'rgba(255,255,255,0.85)',
-                    borderBottomRightRadius: m.from==='user' ? 4 : 18,
-                    borderBottomLeftRadius: m.from==='sofia' ? 4 : 18,
-                    fontSize:14, lineHeight:'1.45',
-                  }}>
-                  {m.text}
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[10px]"
+                      style={{ background: match.gradient }}>👤</div>
+                  )}
                 </div>
+              )}
+              <div className="max-w-[78%] rounded-2xl px-4 py-2.5"
+                style={{
+                  background: isMine ? 'linear-gradient(135deg,#fd297b,#ff655b)' : 'rgba(255,255,255,0.08)',
+                  color: isMine ? '#fff' : 'rgba(255,255,255,0.85)',
+                  borderBottomRightRadius: isMine ? 4 : 18,
+                  borderBottomLeftRadius: !isMine ? 4 : 18,
+                  fontSize: 14, lineHeight: '1.45',
+                }}>
+                {m.text}
               </div>
-            )}
-          </div>
-        ))}
-
-        {typing && (
-          <div className="flex justify-start" style={{ animation:'msgSlide 0.2s ease both' }}>
-            <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mr-2 mt-1">
-              <img src={match.photo} alt="" className="w-full h-full object-cover" />
             </div>
-            <div className="rounded-2xl px-4 py-2.5" style={{ background:'rgba(255,255,255,0.05)' }}>
-              <span className="inline-flex gap-1">
-                {[0,1,2].map(i=><span key={i} className="inline-block rounded-full bg-white/30"
-                  style={{width:5,height:5,animation:`dot 0.8s ${i*0.18}s infinite ease-in-out`}} />)}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {showExit && (
-          <div className="text-center py-4" style={{ animation:'fadeUp 0.5s ease both' }}>
-            <div className="text-[13px] italic mb-3" style={{ color:'rgba(253,41,123,0.55)' }}>
-              {lang==='gr' ? 'φαντάσου αυτό… στην πραγματικότητα.' : "imagine this… in real life."}
-            </div>
-            <div className="flex gap-2 justify-center">
-              <button onClick={() => navigate('game_select')}
-                className="px-4 py-2 rounded-full text-[12px] font-bold active:scale-95 transition-transform cursor-pointer"
-                style={{ background:'rgba(255,255,255,0.06)', color:'rgba(255,255,255,0.5)', border:'1px solid rgba(255,255,255,0.08)' }}>
-                {t.rematchBtn}
-              </button>
-              <button onClick={() => navigate('lock_date')}
-                className="px-4 py-2 rounded-full text-[12px] font-bold active:scale-95 transition-transform cursor-pointer"
-                style={{ background:'linear-gradient(135deg,#fd297b,#ff655b)', color:'#fff' }}>
-                {t.lockDate}
-              </button>
-            </div>
-          </div>
-        )}
+          )
+        })}
       </div>
 
       {/* Quick pills */}
-      <div className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto"
-        style={{ scrollbarWidth:'none', borderTop:'1px solid rgba(255,255,255,0.04)' }}>
-        <button onClick={() => setFlirt(!flirt)}
-          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[12px] active:scale-90 transition-transform cursor-pointer"
-          style={{ background:flirt?'rgba(253,41,123,0.25)':'rgba(253,41,123,0.1)', border:`1px solid ${flirt?'rgba(253,41,123,0.4)':'rgba(253,41,123,0.2)'}` }}>
-          🔥
-        </button>
-        {pills.map((q,i) => (
-          <button key={`${flirt}-${i}`} onClick={() => send(q)}
-            className="flex-shrink-0 text-[11px] font-medium px-3 py-1.5 rounded-full active:scale-95 transition-transform cursor-pointer whitespace-nowrap"
-            style={{ background:flirt?'rgba(253,41,123,0.1)':'rgba(255,255,255,0.05)',
-                     color:flirt?'#ff8fb5':'rgba(255,255,255,0.5)',
-                     border:`1px solid ${flirt?'rgba(253,41,123,0.2)':'rgba(255,255,255,0.06)'}` }}>
-            {q}
-          </button>
-        ))}
-      </div>
+      {receiverId && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto"
+          style={{ scrollbarWidth: 'none', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+          {quicks.map((q, i) => (
+            <button key={i} onClick={() => { setInput(q); }}
+              className="flex-shrink-0 text-[11px] font-medium px-3 py-1.5 rounded-full active:scale-95 transition-transform cursor-pointer whitespace-nowrap"
+              style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Input */}
-      <div className="flex items-center gap-2 px-3 pb-6 pt-1.5">
-        <input value={input} onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if(e.key==='Enter') send(input) }}
-          placeholder={lang==='gr' ? 'πες κάτι...' : 'say something...'}
-          className="flex-1 rounded-full px-4 py-3 text-[14px] outline-none"
-          style={{ background:'rgba(255,255,255,0.06)', color:'#fff', border:'1px solid rgba(255,255,255,0.08)', caretColor:'#fd297b' }} />
-        <button onClick={() => send(input)} disabled={!input.trim()}
-          className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform cursor-pointer disabled:opacity-25"
-          style={{ background:'linear-gradient(135deg,#fd297b,#ff655b)' }}>
-          <span className="text-white text-[16px]">↑</span>
-        </button>
-      </div>
+      {receiverId && (
+        <div className="flex items-center gap-2 px-3 pb-6 pt-1.5">
+          <input value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') send() }}
+            placeholder={lang === 'gr' ? 'πες κάτι...' : 'say something...'}
+            className="flex-1 rounded-full px-4 py-3 text-[14px] outline-none"
+            style={{ background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.08)', caretColor: '#fd297b' }} />
+          <button onClick={send} disabled={!input.trim()}
+            className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform cursor-pointer disabled:opacity-25"
+            style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)' }}>
+            <span className="text-white text-[16px]">↑</span>
+          </button>
+        </div>
+      )}
 
       <style>{`
         @keyframes msgSlide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes dot { 0%,100%{opacity:0.2;transform:translateY(0)} 50%{opacity:1;transform:translateY(-3px)} }
-        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
       `}</style>
     </div>
   )
