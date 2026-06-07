@@ -13,10 +13,15 @@ export default function UserMenu({ onLogout }: Props) {
   const [unread, setUnread] = useState(0)
 
   useEffect(() => {
-    getUnreadCount().then(setUnread)
-    const t = setInterval(() => getUnreadCount().then(setUnread), 10000)
+    getUnreadCount().then(n => { console.log('MENU UNREAD:', n); setUnread(n) })
+    const t = setInterval(() => getUnreadCount().then(setUnread), 8000)
     return () => clearInterval(t)
   }, [])
+
+  // Refresh when menu opens
+  useEffect(() => {
+    if (open) getUnreadCount().then(setUnread)
+  }, [open])
   const ref = useRef<HTMLDivElement>(null)
 
   // Close on outside click
@@ -56,6 +61,10 @@ export default function UserMenu({ onLogout }: Props) {
         <span className="text-[14px]">👤</span>
         {unread > 0 && <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full" style={{ background:'#fd297b', boxShadow:'0 0 6px #fd297b', border:'2px solid #08080f' }} />}
       </button>
+      {/* Debug: visible unread count */}
+      <span className="text-[9px] font-bold" style={{ color:'rgba(253,41,123,0.7)' }}>
+        {unread > 0 ? unread : ''}
+      </span>
 
       {/* Dropdown */}
       {open && (
