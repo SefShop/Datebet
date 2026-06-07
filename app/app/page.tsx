@@ -21,7 +21,7 @@ import ChatScreen       from '@/components/screens/ChatScreen'
 import LockDateScreen   from '@/components/screens/LockDateScreen'
 import EditProfileScreen from '@/components/screens/EditProfileScreen'
 import InboxScreen       from '@/components/screens/InboxScreen'
-import ReturnScreen    from '@/components/screens/ReturnScreen'
+// ReturnScreen removed
 import LangToggle      from '@/components/ui/LangToggle'
 import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
@@ -127,17 +127,7 @@ function AppShell() {
         </div>
 
         {/* Return overlay — sits on top, slides in from below */}
-        {returnState && (
-          <div className="absolute inset-0 z-50"
-            style={{
-              animation: 'slideUp 0.45s cubic-bezier(0.34,1.56,0.64,1) both',
-            }}>
-            <ReturnScreen
-              returnState={returnState}
-              onContinue={handleReturnContinue}
-            />
-          </div>
-        )}
+        { /* ReturnScreen removed */ }
       </div>
 
       <style>{`

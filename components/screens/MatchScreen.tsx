@@ -9,6 +9,7 @@ export default function MatchScreen() {
   const { navigate, lang } = useApp()
   const t = APP_COPY[lang].dating
   const match = getCurrentMatch()
+  if (!match) return <div className="flex items-center justify-center h-full" style={{background:"#06060a"}}><div className="text-center"><div className="text-[14px] text-white/40">No player selected</div></div></div>
   const [show, setShow] = useState(false)
   useEffect(() => { setTimeout(() => setShow(true), 100) }, [])
 

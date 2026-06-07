@@ -88,7 +88,7 @@ export default function SuspenseScreen() {
         }}>
         <div className="text-white text-[21px] font-bold tracking-[-0.3px] mb-3 leading-tight"
           style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-          {getCurrentMatch().name} {thinking[beat]}{dots}
+          {(getCurrentMatch()?.name || "Player")} {thinking[beat]}{dots}
         </div>
         {/* Speed observation — personalised if available */}
         <div key={subLine}

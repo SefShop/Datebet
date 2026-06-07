@@ -8,7 +8,7 @@ function pick<T>(a:T[]):T { return a[Math.floor(Math.random()*a.length)] }
 function rand(min:number,max:number){ return min+Math.floor(Math.random()*(max-min+1)) }
 
 // ── Names pool ──────────────────────────────────────────────────
-const NAMES = ['Anna','Chris','Naya','Demi','Leo','Sofia','Elena','Maria','Iro','Alex','Nikos','Kostas','Mika','Thanos']
+const NAMES = ['Player_A','Player_B','Player_C','Player_D','Player_E','Player_F','Player_G','Player_H']
 
 // ── Online count ────────────────────────────────────────────────
 let _count = rand(95,180)

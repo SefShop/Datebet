@@ -71,13 +71,8 @@ export function setCurrentMatch(p: UserProfile) {
   _match = p
 }
 
-export function getCurrentMatch(): UserProfile {
-  return _match ?? {
-    id: 'none', name: 'Player', age: 0, photo: '',
-    gradient: 'linear-gradient(135deg,#fd297b,#ff655b)',
-    location: { en: '', gr: '' }, online: false, interests: [],
-    bio: { en: '', gr: '' },
-  }
+export function getCurrentMatch(): UserProfile | null {
+  return _match
 }
 
 // ── Clear ALL profile state (call on logout / auth change) ──────

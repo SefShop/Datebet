@@ -39,9 +39,9 @@ export default function BetScreen() {
           </div>
           <div className="flex-1">
             <div className="text-[24px] font-extrabold text-white tracking-tight"
-              style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{getCurrentMatch().name}</div>
+              style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{(getCurrentMatch()?.name || "Player")}</div>
             <div className="text-[12px]" style={{ color:'rgba(255,255,255,0.3)' }}>
-              {getCurrentMatch().location.en} · {""}
+              {(getCurrentMatch()?.location?.en || "")} · {""}
             </div>
           </div>
           <div className="text-[13px] font-bold px-3 py-1.5 rounded-full"

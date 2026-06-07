@@ -50,7 +50,7 @@ export default function BetCommitScreen() {
 
         <p className="mt-4 text-[14px] leading-relaxed"
           style={{ color:'rgba(255,255,255,0.38)' }}>
-          <span dangerouslySetInnerHTML={{__html: t.commit.intro.replace('{x}', String(bet.amount)).replace('{name}', getCurrentMatch().name)}} />
+          <span dangerouslySetInnerHTML={{__html: t.commit.intro.replace('{x}', String(bet.amount)).replace('{name}', (getCurrentMatch()?.name || "Player"))}} />
         </p>
       </div>
 

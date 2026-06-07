@@ -216,7 +216,7 @@ export default function BoardGameScreen() {
             <div className="text-[44px] mb-3">{winner==='both' ? '🤝' : winner==='user' ? '🏆' : '🎲'}</div>
             <div className="text-[19px] font-extrabold text-white mb-1.5 leading-snug"
               style={{ fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-              {winner==='both' ? t.bothWin : winner==='user' ? t.youWin : `${getCurrentMatch().name} ${t.finish}`}
+              {winner==='both' ? t.bothWin : winner==='user' ? t.youWin : `${(getCurrentMatch()?.name || "Player")} ${t.finish}`}
             </div>
             <div className="text-[14px] mb-5" style={{ color:'rgba(255,255,255,0.45)' }}>
               {winner==='user' ? t.msgWin : winner==='both' ? t.msgTie : t.msgLose}

@@ -7,6 +7,7 @@ export default function PostGameScreen() {
   const { navigate, lang } = useApp()
   const t = APP_COPY[lang].dating
   const match = getCurrentMatch()
+  if (!match) return <div className="flex items-center justify-center h-full" style={{background:"#06060a"}}><div className="text-center"><div className="text-[14px] text-white/40">No player selected</div></div></div>
 
   return (
     <div className="flex flex-col h-full items-center justify-center px-8 relative overflow-hidden"

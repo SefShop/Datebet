@@ -112,8 +112,8 @@ export default function HomeScreen() {
 
       {/* Card stack */}
       <div className="flex-1 relative mx-5 min-h-0">
-        <ProfileCard profile={{ ...getCurrentMatch(), emoji: '🧑', distance: '', compatibility: 85 } as any} isBack />
-        <ProfileCard profile={{...getCurrentMatch(), distance: '', compatibility: 85} as any} onClick={handlePlay} />
+        <ProfileCard profile={{ ...(getCurrentMatch() || {name:"Player",photo:"",gradient:"linear-gradient(135deg,#fd297b,#ff655b)",location:{en:"",gr:""},online:false,interests:[],bio:{en:"",gr:""},id:"none",age:0}), emoji: '🧑', distance: '', compatibility: 85 } as any} isBack />
+        <ProfileCard profile={{...(getCurrentMatch() || {name:"Player",photo:"",gradient:"linear-gradient(135deg,#fd297b,#ff655b)",location:{en:"",gr:""},online:false,interests:[],bio:{en:"",gr:""},id:"none",age:0}), distance: '', compatibility: 85} as any} onClick={handlePlay} />
       </div>
 
       {/* Action row */}

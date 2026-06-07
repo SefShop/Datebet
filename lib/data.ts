@@ -3,7 +3,7 @@ import type { Lang } from '@/lib/copy'
 
 export const MOCK_PROFILE: Profile = {
   id: '1',
-  name: 'Sofia',
+  name: 'Player',
   age: 26,
   location: 'Athens',
   distance: '2km away',

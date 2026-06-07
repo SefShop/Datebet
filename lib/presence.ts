@@ -23,7 +23,7 @@ export interface PresenceEvent {
   id: string
   status: PresenceStatus
   // What the UI shows
-  headline: string          // e.g. "Sofia is thinking..."
+  headline: string          // e.g. "Opponent is thinking..."
   sub: string               // e.g. "she opened the app 2 min ago"
   // Avatar behavior
   avatarPulse: 'none' | 'soft' | 'strong'
@@ -55,7 +55,7 @@ export const SCRIPT_LOCKS_IN: ScriptEntry[] = [
   {
     status: 'opened_app',
     minDelay: 1800, maxDelay: 4200,
-    headline: { en: 'Sofia opened the app.', gr: 'Η Sofia άνοιξε το app.' },
+    headline: { en: 'Someone opened the app.', gr: 'Κάποιος άνοιξε το app.' },
     sub: { en: 'she saw the notification.', gr: 'είδε την ειδοποίηση.' },
     avatarPulse: 'soft', avatarGlow: 'rgba(109,99,255,0.4)',
     tone: 'neutral',
@@ -71,7 +71,7 @@ export const SCRIPT_LOCKS_IN: ScriptEntry[] = [
   {
     status: 'thinking',
     minDelay: 3000, maxDelay: 7000,
-    headline: { en: 'Sofia is thinking...', gr: 'Η Sofia σκέφτεται...' },
+    headline: { en: 'Opponent is thinking...', gr: 'Αντίπαλος σκέφτεται...' },
     sub: { en: "she hasn't decided yet.", gr: "δεν έχει αποφασίσει ακόμα." },
     avatarPulse: 'soft', avatarGlow: 'rgba(255,140,66,0.35)',
     tone: 'uncertain',
@@ -87,7 +87,7 @@ export const SCRIPT_LOCKS_IN: ScriptEntry[] = [
   {
     status: 'typing',
     minDelay: 2000, maxDelay: 5000,
-    headline: { en: 'Sofia is typing...', gr: 'Η Sofia γράφει...' },
+    headline: { en: 'Someone is typing...', gr: 'Κάποιος γράφει...' },
     sub: { en: "she's about to make a move.", gr: "ετοιμάζεται να κάνει κίνηση." },
     avatarPulse: 'strong', avatarGlow: 'rgba(253,41,123,0.5)',
     tone: 'hopeful',
@@ -115,7 +115,7 @@ export const SCRIPT_SLOW: ScriptEntry[] = [
   {
     status: 'opened_app',
     minDelay: 3000, maxDelay: 7000,
-    headline: { en: 'Sofia opened the app.', gr: 'Η Sofia άνοιξε το app.' },
+    headline: { en: 'Someone opened the app.', gr: 'Κάποιος άνοιξε το app.' },
     sub: { en: 'took her a moment.', gr: 'της πήρε μια στιγμή.' },
     avatarPulse: 'soft', avatarGlow: 'rgba(109,99,255,0.3)',
     tone: 'neutral',
@@ -131,7 +131,7 @@ export const SCRIPT_SLOW: ScriptEntry[] = [
   {
     status: 'thinking',
     minDelay: 5000, maxDelay: 11000,
-    headline: { en: 'Sofia is deciding...', gr: 'Η Sofia αποφασίζει...' },
+    headline: { en: 'Someone is deciding...', gr: 'Κάποιος αποφασίζει...' },
     sub: { en: 'longer than expected.', gr: 'πιο πολύ απ\' όσο περίμενες.' },
     avatarPulse: 'none', avatarGlow: 'rgba(255,140,66,0.25)',
     tone: 'tense',
@@ -155,7 +155,7 @@ export const SCRIPT_SLOW: ScriptEntry[] = [
   {
     status: 'typing',
     minDelay: 2000, maxDelay: 4000,
-    headline: { en: 'Sofia is typing...', gr: 'Η Sofia γράφει...' },
+    headline: { en: 'Someone is typing...', gr: 'Κάποιος γράφει...' },
     sub: { en: 'finally.', gr: 'επιτέλους.' },
     avatarPulse: 'strong', avatarGlow: 'rgba(253,41,123,0.5)',
     tone: 'hopeful',
