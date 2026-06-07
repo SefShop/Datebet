@@ -8,7 +8,7 @@ import { getUnreadCount } from '@/lib/unread'
 interface Props { onLogout: () => void }
 
 export default function UserMenu({ onLogout }: Props) {
-  const { navigate } = useApp()
+  const { navigate, lang } = useApp()
   const [open, setOpen] = useState(false)
   const [unread, setUnread] = useState(0)
 
@@ -43,6 +43,7 @@ export default function UserMenu({ onLogout }: Props) {
 
   const items = [
     { icon: '👤', label: 'Profile', action: () => { setOpen(false); setTimeout(() => navigate('edit_profile'), 50) } },
+    { icon: '⚔️', label: lang==='gr'?'Προκλήσεις':'Challenges', action: () => { setOpen(false); setTimeout(() => navigate('activity'), 50) } },
     { icon: '💬', label: `Messages${unread > 0 ? ` (${unread})` : ''}`, action: () => { setOpen(false); setTimeout(() => navigate('inbox'), 50) }, badge: unread },
     { icon: '⚙️', label: 'Settings', action: () => setOpen(false) },
     { icon: '🚪', label: 'Logout', action: logout, danger: true },

@@ -1,191 +1,170 @@
 'use client'
-
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { ACTIVITY_FEED } from '@/lib/activity'
-import { ActivityEvent } from '@/types'
-
-const URGENCY_DOT: Record<ActivityEvent['urgency'], string> = {
-  high: '#fd297b',
-  mid:  '#ff8c42',
-  low:  '#6c63ff',
-}
-
-const URGENCY_GLOW: Record<ActivityEvent['urgency'], string> = {
-  high: 'rgba(253,41,123,0.12)',
-  mid:  'rgba(255,140,66,0.08)',
-  low:  'rgba(109,99,255,0.08)',
-}
+import { getIncomingChallenges, getOutgoingChallenges, respondChallenge, Challenge } from '@/lib/challenges'
+import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
 export default function ActivityScreen() {
-  const { navigate, resetGame, lang } = useApp()
-  const [feed, setFeed] = useState(ACTIVITY_FEED)
-  const [visible, setVisible] = useState(true)
+  const { navigate, lang } = useApp()
+  const [incoming, setIncoming] = useState<Challenge[]>([])
+  const [outgoing, setOutgoing] = useState<Challenge[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [tab, setTab]           = useState<'in'|'out'>('in')
 
-  const markSeen = (id: string) => {
-    setFeed(prev => prev.map(e => e.id === id ? { ...e, seen: true } : e))
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    const [inc, out] = await Promise.all([getIncomingChallenges(), getOutgoingChallenges()])
+    setIncoming(inc); setOutgoing(out); setLoading(false)
   }
 
-  const handleTap = (event: ActivityEvent) => {
-    markSeen(event.id)
-    // Route to game for action-oriented events
-    if (['waiting_to_play', 'incomplete_game', 'played_your_vibe', 'answered_question'].includes(event.type)) {
-      resetGame()
-      navigate('profile')
+  async function respond(c: Challenge, accept: boolean) {
+    const { ok } = await respondChallenge(c.id, accept)
+    if (!ok) return
+    if (accept) {
+      const profile: UserProfile = {
+        id: c.challenger_id, name: c.challenger_name || 'Player', age: 0,
+        photo: c.challenger_photo || '', gradient: 'linear-gradient(135deg,#fd297b,#ff655b)',
+        location: { en: '', gr: '' }, online: true, interests: [], bio: { en: '', gr: '' },
+      }
+      setCurrentMatch(profile)
+      navigate('game_select')
+    } else {
+      setIncoming(prev => prev.filter(x => x.id !== c.id))
     }
   }
 
-  const unseen = feed.filter(e => !e.seen).length
+  function timeAgo(iso: string): string {
+    const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+    if (mins < 1) return lang === 'gr' ? 'τώρα' : 'now'
+    if (mins < 60) return `${mins}m`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h`
+    return `${Math.floor(hrs / 24)}d`
+  }
+
+  const t = {
+    title:    lang === 'gr' ? 'Προκλήσεις' : 'Challenges',
+    incoming: lang === 'gr' ? 'Εισερχόμενες' : 'Incoming',
+    outgoing: lang === 'gr' ? 'Απεσταλμένες' : 'Sent',
+    accept:   lang === 'gr' ? 'Αποδοχή' : 'Accept',
+    decline:  lang === 'gr' ? 'Όχι' : 'Decline',
+    empty:    lang === 'gr' ? 'Δεν υπάρχουν προκλήσεις ακόμα.' : 'No challenges yet.',
+    emptySub: lang === 'gr' ? 'Πρόκληνε κάποιον να παίξει!' : 'Challenge someone to play!',
+    pending:  lang === 'gr' ? 'αναμονή...' : 'pending...',
+    wants:    lang === 'gr' ? 'θέλει να παίξει μαζί σου' : 'wants to play with you',
+    sentTo:   lang === 'gr' ? 'πρόκληση σταλμένη' : 'challenge sent',
+  }
 
   return (
-    <div className="flex flex-col h-full"
-      style={{ background: 'linear-gradient(170deg, #0a0a10 0%, #100814 60%, #080a14 100%)' }}>
+    <div className="flex flex-col h-full" style={{ background: '#06060a' }}>
 
-      {/* Header */}
-      <div className="px-6 pt-14 pb-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-1">
-          <button onClick={() => navigate('profile')}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-[18px]
-              active:scale-90 transition-transform cursor-pointer"
-            style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            ←
+      <div className="flex items-center justify-between px-5 pt-14 pb-4"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <button onClick={() => navigate('profile')} className="text-white/40 text-[14px] active:opacity-60 cursor-pointer">←</button>
+        <h1 className="text-[18px] font-extrabold text-white" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+          ⚔️ {t.title}
+        </h1>
+        <div style={{ width: 24 }} />
+      </div>
+
+      {/* Tabs */}
+      <div className="flex mx-5 mt-3 mb-2 rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        {(['in', 'out'] as const).map(tb => (
+          <button key={tb} onClick={() => setTab(tb)}
+            className="flex-1 py-2.5 text-[13px] font-bold transition-all cursor-pointer relative"
+            style={{ color: tab === tb ? '#fff' : 'rgba(255,255,255,0.35)' }}>
+            {tb === 'in' ? `${t.incoming}${incoming.length > 0 ? ` (${incoming.length})` : ''}` : `${t.outgoing}${outgoing.length > 0 ? ` (${outgoing.length})` : ''}`}
+            {tab === tb && <div className="absolute bottom-0 left-[20%] right-[20%] h-[2px] rounded-full" style={{ background: 'linear-gradient(90deg,#fd297b,#c850c0)' }} />}
           </button>
-          {unseen > 0 && (
-            <div className="text-[12px] font-bold px-3 py-1.5 rounded-full cursor-pointer active:opacity-60"
-              style={{ background: 'rgba(253,41,123,0.12)', color: '#fd297b', border: '1px solid rgba(253,41,123,0.2)' }}
-              onClick={() => setFeed(f => f.map(e => ({ ...e, seen: true })))}>
-              mark all read
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+
+        {loading && (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-[28px]" style={{ animation: 'pulse 1s infinite' }}>⚔️</div>
+          </div>
+        )}
+
+        {!loading && tab === 'in' && incoming.length === 0 && tab === 'in' && (
+          <div className="text-center px-8 py-16">
+            <div className="text-[40px] mb-3">⚔️</div>
+            <div className="text-[15px] font-semibold text-white/50 mb-1">{t.empty}</div>
+            <div className="text-[13px] text-white/30">{t.emptySub}</div>
+          </div>
+        )}
+
+        {!loading && tab === 'out' && outgoing.length === 0 && (
+          <div className="text-center px-8 py-16">
+            <div className="text-[40px] mb-3">📤</div>
+            <div className="text-[15px] font-semibold text-white/50">{t.empty}</div>
+          </div>
+        )}
+
+        {/* Incoming */}
+        {tab === 'in' && incoming.map((c, i) => (
+          <div key={c.id} className="flex items-center gap-3 px-5 py-4"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', animation: `fadeSlide 0.3s ${i * 50}ms ease both` }}>
+            <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0"
+              style={{ border: '2px solid rgba(253,41,123,0.3)' }}>
+              {c.challenger_photo ? (
+                <img src={c.challenger_photo} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[20px]"
+                  style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)' }}>👤</div>
+              )}
             </div>
-          )}
-        </div>
-
-        <div className="mt-5">
-          <div className="text-[28px] font-extrabold text-white tracking-tight"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            activity
+            <div className="flex-1 min-w-0">
+              <div className="text-[14px] font-bold text-white">{c.challenger_name}</div>
+              <div className="text-[12px] text-white/40">{t.wants} · {timeAgo(c.created_at)}</div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => respond(c, true)}
+                className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer"
+                style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff' }}>
+                {t.accept}
+              </button>
+              <button onClick={() => respond(c, false)}
+                className="rounded-full px-3 py-2 text-[12px] font-medium active:scale-95 cursor-pointer"
+                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}>
+                {t.decline}
+              </button>
+            </div>
           </div>
-          <div className="text-[14px] mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
-            {unseen > 0
-              ? <>{unseen} things happened while you were gone.</>
-              : <>{lang==='gr' ? 'είσαι ενημερωμένος. προς το παρόν.' : "you're all caught up. for now."}</>
-            }
+        ))}
+
+        {/* Outgoing */}
+        {tab === 'out' && outgoing.map((c, i) => (
+          <div key={c.id} className="flex items-center gap-3 px-5 py-4"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', animation: `fadeSlide 0.3s ${i * 50}ms ease both` }}>
+            <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0"
+              style={{ border: '2px solid rgba(108,99,255,0.3)' }}>
+              {c.challenged_photo ? (
+                <img src={c.challenged_photo} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[20px]"
+                  style={{ background: 'linear-gradient(135deg,#6c63ff,#a855f7)' }}>👤</div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[14px] font-bold text-white">{c.challenged_name}</div>
+              <div className="text-[12px] text-white/40">{t.sentTo} · {timeAgo(c.created_at)}</div>
+            </div>
+            <span className="text-[11px] font-medium px-3 py-1.5 rounded-full"
+              style={{ background: 'rgba(253,41,123,0.1)', color: 'rgba(253,41,123,0.6)' }}>
+              {t.pending}
+            </span>
           </div>
-        </div>
+        ))}
       </div>
 
-      {/* Feed */}
-      <div className="flex-1 overflow-y-auto px-5 pb-8">
-        {/* Section: unread */}
-        {feed.some(e => !e.seen) && (
-          <>
-            <div className="text-[10px] font-bold tracking-[2px] uppercase mb-3 mt-1"
-              style={{ color: 'rgba(255,255,255,0.2)' }}>new</div>
-            {feed.filter(e => !e.seen).map((event, i) => (
-              <ActivityCard key={event.id} event={event} onTap={handleTap} delay={i * 60} />
-            ))}
-          </>
-        )}
-
-        {/* Section: earlier */}
-        {feed.some(e => e.seen) && (
-          <>
-            <div className="text-[10px] font-bold tracking-[2px] uppercase mb-3 mt-5"
-              style={{ color: 'rgba(255,255,255,0.12)' }}>{lang==='gr' ? 'παλαιότερα' : 'earlier'}</div>
-            {feed.filter(e => e.seen).map((event, i) => (
-              <ActivityCard key={event.id} event={event} onTap={handleTap} delay={i * 40} dimmed />
-            ))}
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Activity Card ─────────────────────────────────────────────
-
-interface CardProps {
-  event: ActivityEvent
-  onTap: (e: ActivityEvent) => void
-  delay?: number
-  dimmed?: boolean
-}
-
-function ActivityCard({ event, onTap, delay = 0, dimmed = false }: CardProps) {
-  const { lang } = useApp()
-  const [pressed, setPressed] = useState(false)
-  const isActionable = ['waiting_to_play', 'incomplete_game', 'played_your_vibe', 'answered_question'].includes(event.type)
-  const dotColor  = URGENCY_DOT[event.urgency]
-  const glowColor = URGENCY_GLOW[event.urgency]
-
-  return (
-    <div
-      onClick={() => onTap(event)}
-      onPointerDown={() => setPressed(true)}
-      onPointerUp={() => setPressed(false)}
-      onPointerLeave={() => setPressed(false)}
-      className="flex items-start gap-3.5 rounded-2xl p-4 mb-2.5 cursor-pointer transition-all"
-      style={{
-        background: dimmed
-          ? 'rgba(255,255,255,0.02)'
-          : event.seen ? 'rgba(255,255,255,0.03)' : glowColor,
-        border: dimmed
-          ? '1px solid rgba(255,255,255,0.04)'
-          : event.seen
-            ? '1px solid rgba(255,255,255,0.06)'
-            : `1px solid ${dotColor}30`,
-        transform: pressed ? 'scale(0.98)' : 'scale(1)',
-        opacity: dimmed ? 0.55 : 1,
-        animationDelay: `${delay}ms`,
-      }}
-    >
-      {/* Avatar */}
-      <div className="relative flex-shrink-0 mt-0.5">
-        <div className="w-11 h-11 rounded-full flex items-center justify-center text-[22px]"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          {event.emoji}
-        </div>
-        {/* Urgency dot */}
-        {!event.seen && (
-          <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
-            style={{
-              background: dotColor,
-              borderColor: '#0a0a10',
-              boxShadow: `0 0 6px ${dotColor}`,
-            }} />
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="text-[14px] font-bold leading-tight mb-1"
-          style={{
-            color: dimmed ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.92)',
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-          }}>
-          {event.headline[lang]}
-        </div>
-        <div className="text-[12px] leading-snug"
-          style={{ color: dimmed ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.38)' }}>
-          {event.sub[lang]}
-        </div>
-      </div>
-
-      {/* Right side */}
-      <div className="flex flex-col items-end gap-2 flex-shrink-0">
-        <div className="text-[11px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
-          {event.timestamp[lang]}
-        </div>
-        {isActionable && !dimmed && (
-          <div className="text-[10px] font-bold px-2 py-1 rounded-full"
-            style={{
-              background: `${dotColor}18`,
-              color: dotColor,
-              border: `1px solid ${dotColor}30`,
-            }}>
-            tap →
-          </div>
-        )}
-      </div>
+      <style>{`
+        @keyframes fadeSlide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+      `}</style>
     </div>
   )
 }

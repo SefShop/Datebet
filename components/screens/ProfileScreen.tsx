@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
+import { sendChallenge } from '@/lib/challenges'
 
 
 
@@ -19,6 +20,7 @@ export default function ProfileScreen() {
   const [anim, setAnim]         = useState<'in'|'out-left'|'out-right'>('in')
   const [locked, setLocked]     = useState(false)
   const [checking, setChecking] = useState(false)
+  const [challengeMsg, setChallengeMsg] = useState<string|null>(null)
 
   useEffect(() => {
     loadProfiles()
@@ -45,18 +47,19 @@ export default function ProfileScreen() {
 
   function pass() { transition('left', () => setIdx(i => i + 1)) }
 
-  function like() {
+  async function like() {
     if (!p) return
     setCurrentMatch(p)
     setChecking(true)
-    setTimeout(() => {
-      setChecking(false)
-      const isConnect = Math.random() < 0.35
-      transition('right', () => {
-        if (isConnect) navigate('match')
-        else setIdx(i => i + 1)
-      })
-    }, 1000 + Math.random() * 1000)
+    const result = await sendChallenge(p.id)
+    setChecking(false)
+    if (result.ok) {
+      setChallengeMsg(lang === 'gr' ? 'Πρόκληση στάλθηκε! ⚔️' : 'Challenge sent! ⚔️')
+      setTimeout(() => { setChallengeMsg(null); transition('right', () => setIdx(i => i + 1)) }, 1500)
+    } else {
+      setChallengeMsg(result.error || 'Error')
+      setTimeout(() => setChallengeMsg(null), 2000)
+    }
   }
 
   function playDirect() {
@@ -74,6 +77,14 @@ export default function ProfileScreen() {
 
       {/* Top spacer */}
       <div className="pt-12 pb-1" />
+
+      {/* Challenge sent toast */}
+      {challengeMsg && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-2xl text-[13px] font-bold text-white"
+          style={{ background:'rgba(253,41,123,0.9)', backdropFilter:'blur(12px)', boxShadow:'0 8px 24px rgba(253,41,123,0.4)', animation:'fadeSlide 0.3s ease both' }}>
+          {challengeMsg}
+        </div>
+      )}
 
       {/* Checking overlay */}
       {checking && (
@@ -219,6 +230,7 @@ export default function ProfileScreen() {
       )}
 
       <style>{`
+        @keyframes fadeSlide { from{opacity:0;transform:translate(-50%,-8px)} to{opacity:1;transform:translate(-50%,0)} }
         @keyframes cardReveal { from{opacity:0;transform:translateY(24px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
       `}</style>
