@@ -12,6 +12,7 @@ interface Conversation {
   lastMessage: string
   lastTime: string
   isUnread: boolean
+  unreadCount: number
 }
 
 export default function InboxScreen() {
@@ -40,14 +41,19 @@ export default function InboxScreen() {
       if (!msgs || msgs.length === 0) { setConvos([]); setLoading(false); return }
 
       // Group by partner
-      const partnerMap = new Map<string, { lastMsg: any; isUnread: boolean }>()
+      const partnerMap = new Map<string, { lastMsg: any; isUnread: boolean; unreadCount: number }>()
       for (const m of msgs) {
         const partnerId = m.sender_id === user.id ? m.receiver_id : m.sender_id
-        if (!partnerMap.has(partnerId)) {
+        const existing = partnerMap.get(partnerId)
+        const isFromThem = m.sender_id !== user.id && !m.read_at
+        if (!existing) {
           partnerMap.set(partnerId, {
             lastMsg: m,
-            isUnread: m.sender_id !== user.id, // last msg from them = unread
+            isUnread: m.sender_id !== user.id && !m.read_at,
+            unreadCount: isFromThem ? 1 : 0,
           })
+        } else {
+          if (isFromThem) existing.unreadCount++
         }
       }
 
@@ -79,6 +85,7 @@ export default function InboxScreen() {
           lastMessage: data.lastMsg.text,
           lastTime: formatTime(data.lastMsg.created_at),
           isUnread: data.isUnread,
+          unreadCount: data.unreadCount,
         }
       })
 
@@ -196,10 +203,18 @@ export default function InboxScreen() {
                   style={{ color: c.isUnread ? '#fff' : 'rgba(255,255,255,0.7)' }}>
                   {c.partnerName}
                 </span>
-                <span className="text-[11px] flex-shrink-0 ml-2"
-                  style={{ color: c.isUnread ? '#fd297b' : 'rgba(255,255,255,0.25)' }}>
-                  {c.lastTime}
-                </span>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  {c.unreadCount > 0 && (
+                    <span className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-1"
+                      style={{ background: '#fd297b', boxShadow: '0 0 8px rgba(253,41,123,0.4)' }}>
+                      {c.unreadCount}
+                    </span>
+                  )}
+                  <span className="text-[11px]"
+                    style={{ color: c.isUnread ? '#fd297b' : 'rgba(255,255,255,0.25)' }}>
+                    {c.lastTime}
+                  </span>
+                </div>
               </div>
               <div className="text-[13px] truncate"
                 style={{ color: c.isUnread ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.3)' }}>

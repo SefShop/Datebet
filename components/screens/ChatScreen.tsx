@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentMatch } from '@/lib/profiles'
+import { markAsRead } from '@/lib/unread'
 
 interface Message {
   id: string
@@ -46,6 +47,9 @@ export default function ChatScreen() {
         .limit(100)
 
       console.log('CHAT: loaded', data?.length ?? 0, 'messages')
+
+      // Mark messages from this partner as read
+      markAsRead(receiverId)
       if (e) { console.error('CHAT error:', e); setError(e.message) }
       if (data) setMsgs(data)
       setLoading(false)
@@ -65,6 +69,7 @@ export default function ChatScreen() {
             (newMsg.sender_id === receiverId && newMsg.receiver_id === user.id)
           ) {
             console.log('CHAT: realtime msg from', newMsg.sender_id)
+            if (newMsg.sender_id === receiverId) markAsRead(receiverId)
             setMsgs(prev => {
               if (prev.some(m => m.id === newMsg.id)) return prev
               return [...prev, newMsg]

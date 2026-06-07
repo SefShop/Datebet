@@ -3,12 +3,20 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/lib/AppContext'
 import { clearProfileState } from '@/lib/profiles'
+import { getUnreadCount } from '@/lib/unread'
 
 interface Props { onLogout: () => void }
 
 export default function UserMenu({ onLogout }: Props) {
   const { navigate } = useApp()
   const [open, setOpen] = useState(false)
+  const [unread, setUnread] = useState(0)
+
+  useEffect(() => {
+    getUnreadCount().then(setUnread)
+    const t = setInterval(() => getUnreadCount().then(setUnread), 10000)
+    return () => clearInterval(t)
+  }, [])
   const ref = useRef<HTMLDivElement>(null)
 
   // Close on outside click
@@ -30,7 +38,7 @@ export default function UserMenu({ onLogout }: Props) {
 
   const items = [
     { icon: '👤', label: 'Profile', action: () => { setOpen(false); setTimeout(() => navigate('edit_profile'), 50) } },
-    { icon: '💬', label: 'Messages', action: () => { setOpen(false); setTimeout(() => navigate('inbox'), 50) } },
+    { icon: '💬', label: `Messages${unread > 0 ? ` (${unread})` : ''}`, action: () => { setOpen(false); setTimeout(() => navigate('inbox'), 50) }, badge: unread },
     { icon: '⚙️', label: 'Settings', action: () => setOpen(false) },
     { icon: '🚪', label: 'Logout', action: logout, danger: true },
   ]
@@ -46,6 +54,7 @@ export default function UserMenu({ onLogout }: Props) {
           backdropFilter: 'blur(12px)',
         }}>
         <span className="text-[14px]">👤</span>
+        {unread > 0 && <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full" style={{ background:'#fd297b', boxShadow:'0 0 6px #fd297b', border:'2px solid #08080f' }} />}
       </button>
 
       {/* Dropdown */}
