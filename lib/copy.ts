@@ -89,9 +89,9 @@ const en: Copy = {
 
   hero: {
     eyebrow:    'no escape. just show up.',
-    h1:         ['Most dating apps start with chatting.', 'DateDuel starts with', '.'],
-    accentWord: 'playing',
-    sub:        'Play first. Connect later.',
+    h1:         ['Meet someone without knowing', 'what they', '.'],
+    accentWord: 'look like',
+    sub:        'Play games, chat together, and unlock the reveal when a real connection is formed.',
     typewriter: ['ghosting.', 'maybe.', 'disappearing.', 'excuses.'],
     ctaPrimary: 'Start Playing',
     ctaSecond:  'See How It Works',
@@ -160,7 +160,7 @@ const en: Copy = {
   cta: {
     label:       'get in',
     headline:    "See if you'd\nactually show up.",
-    sub:         'Early access is open. No algorithms. No ads.\nJust real people connecting through games.',
+    sub:         'Early access is open. No algorithms. No ads.\nPersonality first. Photos when both are ready.',
     placeholder: 'your@email.com',
     button:      'Join early access →',
     fine:        'No spam. No pressure. Just decisions.',
@@ -188,9 +188,9 @@ const gr: Copy = {
 
   hero: {
     eyebrow:    'Δεν υπάρχει έξοδος. Απλά δείξου.',
-    h1:         ['Τα περισσότερα dating apps ξεκινούν με chat.', 'Το DateDuel ξεκινά με', '.'],
-    accentWord: 'παιχνίδι',
-    sub:        'Πρώτα παίξε. Μετά συνδέσου.',
+    h1:         ['Γνώρισε κάποιον χωρίς να ξέρεις', 'πώς', '.'],
+    accentWord: 'μοιάζει',
+    sub:        'Παίξε παιχνίδια, μίλα και ξεκλείδωσε το reveal όταν υπάρξει πραγματική σύνδεση.',
     typewriter: ['ghosting.', 'ίσως.', 'εξαφανίσεις.', 'δικαιολογίες.'],
     ctaPrimary: 'Ξεκίνα να παίζεις',
     ctaSecond:  'Δες πώς λειτουργεί',
@@ -259,7 +259,7 @@ const gr: Copy = {
   cta: {
     label:       'μπες μέσα',
     headline:    'Δες αν θα\nεμφανιζόσουν πραγματικά.',
-    sub:         'Πρόωρη πρόσβαση ανοιχτή. Χωρίς αλγόριθμους. Χωρίς διαφημίσεις.\nΠραγματικοί άνθρωποι που συνδέονται μέσα από παιχνίδια.',
+    sub:         'Πρόωρη πρόσβαση ανοιχτή. Χωρίς αλγόριθμους. Χωρίς διαφημίσεις.\nΠρώτα η προσωπικότητα. Φωτογραφίες όταν είστε έτοιμοι.',
     placeholder: 'το@email.σου',
     button:      'Πρόωρη πρόσβαση →',
     fine:        'Χωρίς spam. Χωρίς πίεση. Μόνο αποφάσεις.',

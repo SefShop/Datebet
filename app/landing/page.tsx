@@ -280,8 +280,8 @@ export default function Landing() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 36, animation: 'fadeUp 0.7s 0.3s ease both', flexWrap: 'wrap' as const }}>
             {[
               { emoji: '🎮', label: lang === 'gr' ? 'Παίξε' : 'Play' },
-              { emoji: '🤝', label: lang === 'gr' ? 'Σύνδεση' : 'Connect' },
               { emoji: '💬', label: 'Chat' },
+              { emoji: '🔓', label: 'Reveal' },
               { emoji: '❤️', label: lang === 'gr' ? 'Ραντεβού' : 'Date' },
             ].map((step, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -327,6 +327,32 @@ export default function Landing() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── WHY DATEDUEL ── */}
+      <section style={{ padding: '60px 24px', maxWidth: 680, margin: '0 auto' }}>
+        <h2 style={{ fontSize: 'clamp(22px,5vw,32px)', fontWeight: 900, textAlign: 'center' as const, color: '#fff', letterSpacing: '-1px', marginBottom: 32 }}>
+          {lang === 'gr' ? 'Γιατί DateDuel;' : 'Why DateDuel?'}
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+          {[
+            { emoji: '❤️', en: 'Personality before appearance', gr: 'Προσωπικότητα πριν την εμφάνιση' },
+            { emoji: '🎮', en: 'Play instead of endless swiping', gr: 'Παιχνίδι αντί για ατελείωτο swipe' },
+            { emoji: '💬', en: 'Real conversations', gr: 'Αληθινές συζητήσεις' },
+            { emoji: '🔓', en: 'Reveal when both are ready', gr: 'Reveal όταν είστε κι οι δύο έτοιμοι' },
+          ].map((item, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '18px 20px',
+              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: 18, backdropFilter: 'blur(12px)',
+            }}>
+              <span style={{ fontSize: 24 }}>{item.emoji}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>
+                {lang === 'gr' ? item.gr : item.en}
+              </span>
+            </div>
+          ))}
         </div>
       </section>
 
