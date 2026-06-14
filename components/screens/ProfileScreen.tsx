@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
-import { sendGameInvite } from '@/lib/gameInvites'
+import { sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 
 
 
@@ -62,16 +62,10 @@ export default function ProfileScreen() {
     setChecking(true)
     const result = await sendGameInvite(pickerProfile.id, gameType)
     setChecking(false)
-    if (result.ok) {
-      console.log('INVITE CREATED:', gameType)
-      setChallengeMsg(lang === 'gr' ? 'Πρόσκληση στάλθηκε! 🎮' : 'Game invite sent! 🎮')
-      setTimeout(() => {
-        setChallengeMsg(null)
-        transition('right', () => {
-          const next = idx + 1
-          if (next >= profiles.length) { loadProfiles() } else { setIdx(next) }
-        })
-      }, 1500)
+    if (result.ok && result.inviteId) {
+      console.log('INVITE SENT:', result.inviteId)
+      setPendingInvite({ id: result.inviteId, receiverName: pickerProfile.name, gameType })
+      navigate('waiting')
     } else {
       setChallengeMsg(result.error || 'Error')
       setTimeout(() => setChallengeMsg(null), 2000)

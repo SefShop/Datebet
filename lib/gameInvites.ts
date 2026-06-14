@@ -14,7 +14,7 @@ export interface GameInvite {
   receiver_name?: string
 }
 
-export async function sendGameInvite(receiverId: string, gameType = 'mystery'): Promise<{ ok: boolean; error?: string }> {
+export async function sendGameInvite(receiverId: string, gameType = 'mystery'): Promise<{ ok: boolean; error?: string; inviteId?: string }> {
   if (!isSupabaseConfigured()) return { ok: false, error: 'Not configured' }
   try {
     const { data: { user } } = await supabase.auth.getUser()
@@ -34,17 +34,17 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
       .maybeSingle()
     if (existing) return { ok: false, error: 'Invite already sent' }
 
-    const { error } = await supabase.from('game_invites').insert({
+    const { data, error } = await supabase.from('game_invites').insert({
       sender_id: user.id,
       receiver_id: receiverId,
       game_type: gameType,
       status: 'pending',
       message: `${senderName} invited you to play`,
-    })
+    }).select().single()
 
     if (error) { console.error('GAME INVITE error:', error); return { ok: false, error: error.message } }
     console.log('GAME INVITE SENT:', receiverId, gameType)
-    return { ok: true }
+    return { ok: true, inviteId: data.id }
   } catch (e: any) { return { ok: false, error: e.message } }
 }
 
@@ -205,3 +205,8 @@ export function getCurrentSession(): GameSession | null { return _session }
 let _opponentName: string | null = null
 export function setOpponentName(n: string) { _opponentName = n; console.log('OPPONENT PROFILE:', n) }
 export function getOpponentName(): string | null { return _opponentName }
+
+// ── Pending invite holder (for waiting screen) ──────────────────
+let _pendingInvite: { id: string; receiverName: string; gameType: string } | null = null
+export function setPendingInvite(p: { id: string; receiverName: string; gameType: string }) { _pendingInvite = p }
+export function getPendingInvite() { return _pendingInvite }
