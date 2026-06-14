@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getPendingInvite, loadSessionByInvite, createGameSession,
-         setCurrentSession, setOpponentName, GameInvite } from '@/lib/gameInvites'
+         setCurrentSession, setOpponentName, gameScreenFor, GameInvite } from '@/lib/gameInvites'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
 const GAME_NAMES: Record<string, string> = { tic_tac_toe: '⭕ Tic Tac Toe', connect_4: '🔴 Connect 4', mystery: '🎮 Game' }
@@ -17,7 +17,7 @@ export default function WaitingScreen() {
   useEffect(() => {
     console.log('WAITING SCREEN DATA:', pending)
     if (!pending) { console.log('WAITING SCREEN ERROR: no pending invite'); return }
-    console.log('WAITING SCREEN OPENED:', pending.id)
+    console.log('A WAITING INVITE ID:', pending.id)
 
     channelRef.current = supabase
       .channel(`waiting-${pending.id}`)
@@ -25,7 +25,7 @@ export default function WaitingScreen() {
         event: 'UPDATE', schema: 'public', table: 'game_invites', filter: `id=eq.${pending.id}`,
       }, async (payload: any) => {
         const inv = payload.new as GameInvite
-        console.log('INVITE STATUS UPDATED:', inv.status)
+        console.log('A INVITE STATUS UPDATE:', inv.status)
         if (inv.status === 'accepted') {
           await enterRoom(inv)
         } else if (inv.status === 'declined') {
@@ -39,14 +39,14 @@ export default function WaitingScreen() {
   }, [pending])
 
   async function enterRoom(inv: GameInvite) {
-    console.log('ACCEPTED - ENTERING GAME ROOM:', inv.id)
     let session = await loadSessionByInvite(inv.id)
     if (!session) {
       const created = await createGameSession(inv)
       session = created.session || null
     }
-    if (!session) { console.error('No session'); return }
-    console.log('SESSION ID:', session.id)
+    if (!session) { console.error('Could not start Tic Tac Toe.'); setStatus('declined'); return }
+    console.log('A TICTACTOE SESSION LOADED:', session.id)
+    console.log('SAME SESSION ID:', session.id)
     setCurrentSession(session)
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -62,7 +62,9 @@ export default function WaitingScreen() {
       setCurrentMatch(profile)
       setOpponentName(opp.name || 'Player')
     }
-    navigate('game_room')
+    const screen = gameScreenFor(session.game_type)
+    console.log('NAVIGATE TO TICTACTOE:', screen)
+    navigate(screen as any)
   }
 
   async function cancelInvite() {

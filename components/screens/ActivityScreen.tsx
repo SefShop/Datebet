@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getIncomingInvites, getOutgoingInvites, respondInvite, createGameSession,
-         loadSessionByInvite, setCurrentSession, setOpponentName, GameInvite } from '@/lib/gameInvites'
+         loadSessionByInvite, setCurrentSession, setOpponentName, gameScreenFor, GameInvite } from '@/lib/gameInvites'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
 export default function ActivityScreen() {
@@ -57,29 +57,29 @@ export default function ActivityScreen() {
   }
 
   async function respond(c: GameInvite, accept: boolean) {
+    if (accept) console.log('B ACCEPT CLICKED:', c.id)
     const { ok } = await respondInvite(c.id, accept)
     if (!ok) return
     if (accept) {
-      // Create session + enter immediately
       const { session, error } = await createGameSession(c)
-      if (error || !session) { alert(lang === 'gr' ? 'Σφάλμα.' : 'Could not start game.'); load(); return }
-      await enterRoom(c, session.id)
+      if (error || !session) { alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το Tic Tac Toe.' : 'Could not start Tic Tac Toe.'); load(); return }
+      console.log('TICTACTOE SESSION CREATED:', session.id)
+      await enterGame(c)
     } else {
       load()
     }
   }
 
-  async function enterRoom(c: GameInvite, knownSessionId?: string) {
-    console.log('ENTER GAME ROOM FROM CHALLENGES:', c.id)
-    let session = knownSessionId ? await loadSessionByInvite(c.id) : await loadSessionByInvite(c.id)
+  async function enterGame(c: GameInvite) {
+    let session = await loadSessionByInvite(c.id)
     if (!session) {
       const created = await createGameSession(c)
       session = created.session || null
     }
-    if (!session) { alert(lang === 'gr' ? 'Δεν βρέθηκε παιχνίδι.' : 'No session found.'); return }
+    if (!session) { alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το Tic Tac Toe.' : 'Could not start Tic Tac Toe.'); return }
+    console.log('SAME SESSION ID:', session.id)
     setCurrentSession(session)
 
-    // Resolve opponent
     const oppId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
     const { data: opp } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
     if (opp) {
@@ -92,7 +92,9 @@ export default function ActivityScreen() {
       setCurrentMatch(profile)
       setOpponentName(opp.name || 'Player')
     }
-    navigate('game_room')
+    const screen = gameScreenFor(session.game_type)
+    console.log('NAVIGATE TO TICTACTOE:', screen)
+    navigate(screen as any)
   }
 
   function timeAgo(iso: string): string {
@@ -168,7 +170,7 @@ export default function ActivityScreen() {
               </div>
             )}
             {c.status === 'accepted' && (
-              <button onClick={() => enterRoom(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#06060a' }}>{t.enter}</button>
+              <button onClick={() => enterGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#06060a' }}>{t.enter}</button>
             )}
             {c.status === 'declined' && <span className="text-[12px] px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }}>{t.declined}</span>}
           </div>
@@ -186,7 +188,7 @@ export default function ActivityScreen() {
             </div>
             {c.status === 'pending' && <span className="text-[11px] font-medium px-3 py-1.5 rounded-full" style={{ background: 'rgba(253,41,123,0.1)', color: 'rgba(253,41,123,0.6)' }}>{t.waiting}</span>}
             {c.status === 'accepted' && (
-              <button onClick={() => enterRoom(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#06060a' }}>{t.enter}</button>
+              <button onClick={() => enterGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#06060a' }}>{t.enter}</button>
             )}
             {c.status === 'declined' && <span className="text-[12px] px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }}>{t.declined}</span>}
           </div>

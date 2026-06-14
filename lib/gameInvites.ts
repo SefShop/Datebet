@@ -172,7 +172,7 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
         player_two_id: invite.receiver_id,
         game_type: invite.game_type,
         status: 'active',
-        state: initStateFor(invite.game_type),
+        state: { ...initStateFor(invite.game_type), currentTurn: invite.sender_id },
       })
       .select()
       .single()
@@ -210,3 +210,10 @@ export function getOpponentName(): string | null { return _opponentName }
 let _pendingInvite: { id: string; receiverName: string; gameType: string } | null = null
 export function setPendingInvite(p: { id: string; receiverName: string; gameType: string }) { _pendingInvite = p }
 export function getPendingInvite() { return _pendingInvite }
+
+
+// ── Map game_type → screen name ─────────────────────────────────
+export function gameScreenFor(gameType: string): string {
+  if (gameType === 'connect_4') return 'connect4'
+  return 'tictactoe'  // tic_tac_toe + default
+}
