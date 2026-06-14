@@ -34,7 +34,11 @@ export default function UserMenu({ onLogout }: Props) {
       if (!user) return
       channel = supabase
         .channel(`menu-invites-${user.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_invites' }, (payload: any) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_invites' }, (payload: any) => {
+          const inv = payload.new
+          if (inv && inv.receiver_id === user.id) { console.log('BADGE: new invite'); getInviteCount().then(setInvites) }
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_invites' }, (payload: any) => {
           const inv = payload.new
           if (inv && inv.receiver_id === user.id) getInviteCount().then(setInvites)
         })

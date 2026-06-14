@@ -23,14 +23,21 @@ export default function ActivityScreen() {
       setMyId(user.id)
       channel = supabase
         .channel(`challenges-${user.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_invites' }, (payload: any) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_invites' }, (payload: any) => {
           const inv = payload.new
-          if (!inv) return
-          if (inv.receiver_id === user.id) console.log('INCOMING INVITE UPDATED:', inv.status)
-          if (inv.sender_id === user.id) console.log('SENT INVITE UPDATED:', inv.status)
-          if (inv.receiver_id === user.id || inv.sender_id === user.id) load()
+          if (inv && inv.receiver_id === user.id) {
+            console.log('INVITE INSERT RECEIVED:', inv.id)
+            load()
+          }
         })
-        .subscribe((status: string) => { if (status === 'SUBSCRIBED') console.log('CHALLENGES SUBSCRIPTION ACTIVE') })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_invites' }, (payload: any) => {
+          const inv = payload.new
+          if (inv && (inv.receiver_id === user.id || inv.sender_id === user.id)) {
+            console.log('INVITE UPDATE RECEIVED:', inv.status)
+            load()
+          }
+        })
+        .subscribe((status: string) => { if (status === 'SUBSCRIBED') console.log('INVITE REALTIME SUBSCRIBED:', user.id) })
     }
     sub()
     function onVisible() { if (document.visibilityState === 'visible') load() }
@@ -45,7 +52,7 @@ export default function ActivityScreen() {
     const { data: { user } } = await supabase.auth.getUser()
     setMyId(user?.id || null)
     const [inc, out] = await Promise.all([getIncomingInvites(), getOutgoingInvites()])
-    console.log('CHALLENGES REFRESHED:', inc.length, 'in,', out.length, 'out')
+    console.log('INVITES REFRESHED LIVE:', inc.length, 'in,', out.length, 'out')
     setIncoming(inc); setOutgoing(out); setLoading(false)
   }
 
