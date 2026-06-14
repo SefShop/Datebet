@@ -57,7 +57,7 @@ export default function TicTacToeScreen() {
       // Load or initialize state
       const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
       let gs: GameState
-      if (sess?.state && sess.state.board) {
+      if (sess?.state && sess.state.board && sess.state.board.length === 9) {
         gs = sess.state as GameState
         if (!gs.currentTurn) { gs.currentTurn = sess0.player_one_id; await supabase.from('game_sessions').update({ state: gs }).eq('id', sess0.id) }
         console.log('TICTACTOE SESSION LOADED: existing state')
@@ -84,6 +84,7 @@ export default function TicTacToeScreen() {
           const newState = payload.new?.state
           if (newState && newState.board) {
             console.log('TICTACTOE REALTIME UPDATE:', newState.moves, 'moves')
+            newState.board = Array.from({ length: 9 }, (_, k) => newState.board?.[k] || '')
             setState(newState)
           }
         })
@@ -100,7 +101,7 @@ export default function TicTacToeScreen() {
     if (state.currentTurn !== myId) { console.log('Not your turn'); return }
     if (state.board[i] !== '') return
 
-    const board = [...state.board]
+    const board = Array.from({ length: 9 }, (_, k) => state.board?.[k] || '')
     board[i] = mySymbol
 
     const win = checkWinner(board)
@@ -226,9 +227,10 @@ export default function TicTacToeScreen() {
           gridTemplateRows: 'repeat(3, 1fr)',
           gap: 12,
           width: '100%',
-          maxWidth: 320,
+          maxWidth: 360,
+          margin: '0 auto',
         }}>
-          {state.board.map((cell, i) => {
+          {Array.from({ length: 9 }, (_, i) => state.board?.[i] || '').map((cell, i) => {
             const clickable = isMyTurn && cell === ''
             return (
               <button key={i} onClick={() => play(i)} disabled={!clickable}
