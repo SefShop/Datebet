@@ -43,14 +43,15 @@ export default function ActivityScreen() {
     function onVisible() { if (document.visibilityState === 'visible') { console.log('INVITES REFRESHED: visibility'); load() } }
     document.addEventListener('visibilitychange', onVisible)
 
-    // Polling fallback (realtime is primary)
-    const poll = setInterval(() => load(), 5000)
+    // Polling (reliable, every 3s)
+    console.log('INVITE POLLING STARTED:')
+    const poll = setInterval(() => load(), 3000)
 
     return () => {
       if (channel) supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', onVisible)
       clearInterval(poll)
-      console.log('REALTIME SUBSCRIPTION CLEANED:')
+      console.log('INVITE POLLING STOPPED:')
     }
   }, [])
 
@@ -58,7 +59,10 @@ export default function ActivityScreen() {
     const { data: { user } } = await supabase.auth.getUser()
     setMyId(user?.id || null)
     const [inc, out] = await Promise.all([getIncomingInvites(), getOutgoingInvites()])
-    console.log('INVITES STATE UPDATED:', inc.length, 'in,', out.length, 'out')
+    const pending = inc.filter(i => i.status === 'pending')
+    console.log('INVITE POLL RESULT:', inc.length, 'total')
+    console.log('PENDING INVITES COUNT:', pending.length)
+    console.log('INVITES STATE UPDATED FROM POLL:', pending.length, 'pending')
     setIncoming(inc); setOutgoing(out); setLoading(false)
   }
 
