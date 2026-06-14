@@ -104,15 +104,8 @@ const en: Copy = {
   },
 
   scenario: {
-    label: 'the flow',
-    lines: [
-      'You discover someone new.',
-      'You play together.',
-      'You start talking.',
-      'Curiosity builds.',
-      'A real connection forms.',
-      '→ Then, and only then, you reveal.',
-    ],
+    label: '',
+    lines: [],
   },
 
   why: {
@@ -207,15 +200,8 @@ const gr: Copy = {
   },
 
   scenario: {
-    label: 'η ροή',
-    lines: [
-      'Ανακαλύπτεις κάποιον νέο.',
-      'Παίζετε μαζί.',
-      'Αρχίζετε να μιλάτε.',
-      'Η περιέργεια μεγαλώνει.',
-      'Δημιουργείται πραγματική σύνδεση.',
-      '→ Τότε, μόνο τότε, κάνετε reveal.',
-    ],
+    label: '',
+    lines: [],
   },
 
   why: {
