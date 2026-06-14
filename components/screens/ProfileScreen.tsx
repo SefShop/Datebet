@@ -4,6 +4,7 @@ import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
 import { sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
+import { getPairProgress, PairProgress } from '@/lib/pairProgress'
 
 
 
@@ -22,6 +23,7 @@ export default function ProfileScreen() {
   const [checking, setChecking] = useState(false)
   const [challengeMsg, setChallengeMsg] = useState<string|null>(null)
   const [showPicker, setShowPicker] = useState(false)
+  const [progress, setProgress] = useState<PairProgress>({ games_completed: 0, photo_unlocked: false, chat_unlocked: false })
   const [pickerProfile, setPickerProfile] = useState<UserProfile|null>(null)
 
   useEffect(() => {
@@ -39,6 +41,11 @@ export default function ProfileScreen() {
   }
 
   const p = profiles.length > 0 ? profiles[idx % profiles.length] : null
+
+  useEffect(() => {
+    if (p?.id) getPairProgress(p.id).then(setProgress)
+    else setProgress({ games_completed: 0, photo_unlocked: false, chat_unlocked: false })
+  }, [p?.id])
 
   function transition(dir: 'left'|'right', then: () => void) {
     if (locked) return
@@ -186,21 +193,28 @@ export default function ProfileScreen() {
                 boxShadow: '0 16px 60px rgba(0,0,0,0.6)',
               }}>
 
-              {/* Photo — HIDDEN in Mystery Mode */}
+              {/* Photo — revealed at 5 games, else Mystery Mode */}
               <div className="relative h-[340px] overflow-hidden flex items-center justify-center"
                 style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.25) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.2) 0%, transparent 55%), linear-gradient(160deg, #14101f 0%, #0a0612 100%)' }}>
 
-                {/* Mystery glow orbs */}
-                <div className="absolute" style={{ width: 180, height: 180, top: '20%', left: '50%', transform: 'translateX(-50%)', borderRadius: '50%', background: 'radial-gradient(circle, rgba(253,41,123,0.2) 0%, transparent 70%)', filter: 'blur(30px)', animation: 'mysteryPulse 4s ease-in-out infinite' }} />
+                {progress.photo_unlocked && p.photo ? (
+                  /* Revealed photo */
+                  <img src={p.photo} alt={p.name} className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <>
+                    {/* Mystery glow orbs */}
+                    <div className="absolute" style={{ width: 180, height: 180, top: '20%', left: '50%', transform: 'translateX(-50%)', borderRadius: '50%', background: 'radial-gradient(circle, rgba(253,41,123,0.2) 0%, transparent 70%)', filter: 'blur(30px)', animation: 'mysteryPulse 4s ease-in-out infinite' }} />
 
-                {/* Mask icon */}
-                <div className="relative z-10 flex flex-col items-center">
-                  <div className="text-[80px]" style={{ filter: 'drop-shadow(0 6px 24px rgba(253,41,123,0.4))', animation: 'mysteryFloat 5s ease-in-out infinite' }}>🎭</div>
-                  <div className="mt-3 text-[11px] font-bold uppercase tracking-[2px] px-3 py-1 rounded-full"
-                    style={{ background: 'rgba(253,41,123,0.12)', color: 'rgba(253,41,123,0.8)', border: '1px solid rgba(253,41,123,0.2)' }}>
-                    {lang === 'gr' ? 'Μυστήριο' : 'Mystery Player'}
-                  </div>
-                </div>
+                    {/* Mask icon */}
+                    <div className="relative z-10 flex flex-col items-center">
+                      <div className="text-[80px]" style={{ filter: 'drop-shadow(0 6px 24px rgba(253,41,123,0.4))', animation: 'mysteryFloat 5s ease-in-out infinite' }}>🎭</div>
+                      <div className="mt-3 text-[11px] font-bold uppercase tracking-[2px] px-3 py-1 rounded-full"
+                        style={{ background: 'rgba(253,41,123,0.12)', color: 'rgba(253,41,123,0.8)', border: '1px solid rgba(253,41,123,0.2)' }}>
+                        {lang === 'gr' ? 'Μυστήριο' : 'Mystery Player'}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Gradient bottom */}
                 <div className="absolute inset-0" style={{
@@ -271,15 +285,25 @@ export default function ProfileScreen() {
                       </span>
                     </div>
                     <span className="text-[12px] font-extrabold" style={{ color: '#fd297b' }}>
-                      0 / 10 {lang === 'gr' ? 'παιχνίδια' : 'games'}
+                      {progress.games_completed} / 10 {lang === 'gr' ? 'παιχνίδια' : 'games'}
                     </span>
                   </div>
                   {/* Progress bar */}
-                  <div className="w-full h-1.5 rounded-full overflow-hidden mb-2.5" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div className="h-full rounded-full" style={{ width: '4%', background: 'linear-gradient(90deg, #fd297b, #c850c0)', boxShadow: '0 0 8px rgba(253,41,123,0.5)' }} />
+                  <div className="w-full h-1.5 rounded-full overflow-hidden mb-3" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, progress.games_completed * 10)}%`, background: 'linear-gradient(90deg, #fd297b, #c850c0)', boxShadow: '0 0 8px rgba(253,41,123,0.5)', transition: 'width 0.4s' }} />
                   </div>
-                  <div className="text-[11px] text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    🎮 {lang === 'gr' ? 'Ξεκλειδώστε τη φωτογραφία παίζοντας μαζί.' : 'Play together to unlock the photo.'}
+                  {/* Unlock states */}
+                  <div className="flex gap-2">
+                    <div className="flex-1 text-center text-[10px] font-bold py-1.5 rounded-lg"
+                      style={{ background: progress.photo_unlocked ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.04)',
+                               color: progress.photo_unlocked ? '#4ade80' : 'rgba(255,255,255,0.35)' }}>
+                      {progress.photo_unlocked ? '📸 ' + (lang === 'gr' ? 'Φωτό ξεκλείδωτη' : 'Photo unlocked') : '🔒 ' + (lang === 'gr' ? 'Φωτό (5)' : 'Photo (5)')}
+                    </div>
+                    <div className="flex-1 text-center text-[10px] font-bold py-1.5 rounded-lg"
+                      style={{ background: progress.chat_unlocked ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.04)',
+                               color: progress.chat_unlocked ? '#4ade80' : 'rgba(255,255,255,0.35)' }}>
+                      {progress.chat_unlocked ? '💬 ' + (lang === 'gr' ? 'Chat ξεκλείδωτο' : 'Chat unlocked') : '🔒 ' + (lang === 'gr' ? 'Chat (10)' : 'Chat (10)')}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -298,10 +322,10 @@ export default function ProfileScreen() {
               style={{ background:'rgba(56,189,248,0.15)', border:'2px solid rgba(56,189,248,0.3)' }}>
               ⚡
             </button>
-            <button onClick={() => { if(!p||locked)return; setCurrentMatch(p); navigate('chat') }} disabled={locked}
+            <button onClick={() => { if(!p||locked)return; if(!progress.chat_unlocked){ setChallengeMsg(lang==='gr'?'Παίξε περισσότερα για chat (10)':'Play more games to unlock chat.'); setTimeout(()=>setChallengeMsg(null),2200); return } setCurrentMatch(p); navigate('chat') }} disabled={locked}
               className="w-12 h-12 rounded-full flex items-center justify-center text-[16px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"
-              style={{ background:'rgba(167,139,250,0.15)', border:'2px solid rgba(167,139,250,0.3)' }}>
-              💬
+              style={{ background: progress.chat_unlocked ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.04)', border: progress.chat_unlocked ? '2px solid rgba(167,139,250,0.3)' : '2px solid rgba(255,255,255,0.08)', opacity: progress.chat_unlocked ? 1 : 0.5 }}>
+              {progress.chat_unlocked ? '💬' : '🔒'}
             </button>
             <button onClick={like} disabled={locked}
               className="w-16 h-16 rounded-full flex items-center justify-center text-[22px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"

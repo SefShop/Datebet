@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentSession } from '@/lib/gameInvites'
+import { incrementPairGames } from '@/lib/pairProgress'
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
@@ -127,6 +128,12 @@ export default function TicTacToeScreen() {
     const { error: e } = await supabase.from('game_sessions').update({ state: newState }).eq('id', session.id)
     if (e) console.error('SESSION UPDATE error:', e)
     else console.log('MOVE SAVED:', session.id)
+
+    // If this move finished the game, increment pair progress (mover records it once)
+    if (status === 'finished') {
+      const otherId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
+      await incrementPairGames(otherId)
+    }
   }
 
   async function rematch() {
