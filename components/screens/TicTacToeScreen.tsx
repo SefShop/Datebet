@@ -33,6 +33,8 @@ export default function TicTacToeScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState<string | null>(null)
   const channelRef = useRef<any>(null)
+  const [progressError, setProgressError] = useState<string | null>(null)
+  const [pairCount, setPairCount] = useState<number>(0)
 
   // My symbol: player_one = X, player_two = O
   const mySymbol = session && myId === session.player_one_id ? 'X' : 'O'
@@ -132,13 +134,23 @@ export default function TicTacToeScreen() {
 
     // If this move finished the game, count progress once (the finishing mover records it)
     if (status === 'finished') {
-      console.log('GAME FINISHED:', winner)
+      console.log('GAME ENDED')
+      console.log('winner:', winner)
+      console.log('status:', status)
+      console.log('session_id:', session.id)
+      console.log('player_one_id:', session.player_one_id)
+      console.log('player_two_id:', session.player_two_id)
+      console.log('state:', JSON.stringify(newState))
       await countProgress(newState)
     }
   }
 
   async function countProgress(finishedState: GameState) {
     if (!session || !myId) return
+    console.log('ABOUT TO COUNT PROGRESS')
+    console.log('progressCounted:', finishedState.progressCounted)
+    console.log('session_id:', session.id)
+
     if (finishedState.progressCounted) { console.log('SESSION ALREADY COUNTED:', session.id); return }
 
     // Re-read latest from DB to avoid double count across both clients
@@ -148,16 +160,20 @@ export default function TicTacToeScreen() {
     console.log('COUNTING PROGRESS:', session.id)
     const otherId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
 
-    const before = await getPairProgress(otherId)
-    console.log('PROGRESS BEFORE:', before.games_completed)
-
     // Mark counted FIRST (so the other client sees it and skips)
     const marked = { ...finishedState, progressCounted: true }
     await supabase.from('game_sessions').update({ state: marked }).eq('id', session.id)
     setState(marked)
 
     const after = await incrementPairGames(otherId)
-    console.log('PROGRESS AFTER:', after.games_completed)
+    if (after.error) {
+      console.error('PROGRESS UPDATE FAILED:', after.error)
+      setProgressError(after.error)
+    } else {
+      console.log('PROGRESS AFTER:', after.games_completed)
+      setPairCount(after.games_completed)
+      setProgressError(null)
+    }
   }
 
   async function rematch() {
@@ -267,6 +283,14 @@ export default function TicTacToeScreen() {
           }}>
           {statusMsg}
         </span>
+      </div>
+
+      {/* DEBUG BOX (temporary) */}
+      <div className="mx-6 mb-3 rounded-xl p-2.5 text-[10px] font-mono" style={{ background: progressError ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${progressError ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.06)'}` }}>
+        <div style={{ color: 'rgba(255,255,255,0.4)' }}>Session: {session.id.slice(0,12)}...</div>
+        <div style={{ color: 'rgba(255,255,255,0.4)' }}>Progress counted: {String(state.progressCounted || false)}</div>
+        <div style={{ color: 'rgba(255,255,255,0.4)' }}>Pair progress: {pairCount}/10</div>
+        {progressError && <div style={{ color: '#f87171', marginTop: 2 }}>Progress update failed: {progressError}</div>}
       </div>
 
       {/* Board */}
