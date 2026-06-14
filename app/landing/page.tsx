@@ -209,7 +209,7 @@ export default function Landing() {
 
   const f = {
     s0:   useFadeIn(0),
-    why0: useFadeIn(0),   why1: useFadeIn(100), why2: useFadeIn(200),
+    why0: useFadeIn(0),   why1: useFadeIn(100), why2: useFadeIn(200), why3: useFadeIn(300),
     st0:  useFadeIn(0),   st1:  useFadeIn(100), st2:  useFadeIn(200),
     q0:   useFadeIn(0),   q1:   useFadeIn(120),
     fil:  useFadeIn(0),
@@ -338,7 +338,6 @@ export default function Landing() {
             { emoji: '❤️', en: 'Personality before appearance', gr: 'Προσωπικότητα πριν την εμφάνιση' },
             { emoji: '🎮', en: 'Play instead of endless swiping', gr: 'Παιχνίδι αντί για ατελείωτο swipe' },
             { emoji: '💬', en: 'Real conversations', gr: 'Αληθινές συζητήσεις' },
-            { emoji: '🔓', en: 'Reveal when both are ready', gr: 'Reveal όταν είστε κι οι δύο έτοιμοι' },
           ].map((item, i) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '18px 20px',
@@ -378,11 +377,11 @@ export default function Landing() {
           <h2 ref={f.s0.ref} style={{ ...f.s0.style, fontSize: 'clamp(28px,5vw,52px)', fontWeight: 900, letterSpacing: '-1.5px', textAlign: 'center' as const, marginBottom: 52, lineHeight: 1.1, whiteSpace: 'pre-line' as const }}>
             {c.why.headline}
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 2 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 10 }}>
             {c.why.cards.map((card, i) => {
-              const fade = [f.why0, f.why1, f.why2][i]
+              const fade = [f.why0, f.why1, f.why2, f.why3][i] || f.why0
               return (
-                <div key={i} ref={fade.ref} style={{ ...fade.style, padding: '36px 32px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: i === 0 ? '16px 0 0 16px' : i === 2 ? '0 16px 16px 0' : 0, cursor: 'default', transition: `${fade.style.transition}, background 0.25s` }}
+                <div key={i} ref={fade.ref} style={{ ...fade.style, padding: '36px 32px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, cursor: 'default', transition: `${fade.style.transition}, background 0.25s` }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')}>
                   <div style={{ fontSize: 30, marginBottom: 16 }}>{card.icon}</div>

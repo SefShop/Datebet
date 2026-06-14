@@ -85,13 +85,13 @@ export interface Copy {
 
 // ── ENGLISH ────────────────────────────────────────────────────
 const en: Copy = {
-  nav: { cta: 'get early access' },
+  nav: { cta: 'Start Playing' },
 
   hero: {
-    eyebrow:    'play. connect. discover.',
+    eyebrow:    'mystery dating through play',
     h1:         ['Meet someone without knowing', 'what they', '.'],
     accentWord: 'look like',
-    sub:        'Play games, chat together, and unlock the reveal when a real connection is formed.',
+    sub:        'Play. Connect. Discover who they really are.',
     typewriter: ['ghosting.', 'maybe.', 'disappearing.', 'excuses.'],
     ctaPrimary: 'Start Playing',
     ctaSecond:  'See How It Works',
@@ -116,23 +116,28 @@ const en: Copy = {
   },
 
   why: {
-    label:    'why this is different',
-    headline: 'Built for people tired\nof the game.',
+    label:    'why dateduel',
+    headline: 'Curiosity comes\nbefore appearance.',
     cards: [
       {
-        icon:  '🚫',
-        title: 'No ghosting',
-        body:  "Once you lock in, leaving has a price. Your credits walk out with you.",
+        icon:  '🎭',
+        title: 'Mystery before appearance',
+        body:  'Get to know the person before you see the photo.',
       },
       {
-        icon:  '🎯',
-        title: 'Real stakes',
-        body:  'Not points. Not trophies. Real credits — earned, spent, lost.',
+        icon:  '🎮',
+        title: 'Play before judging',
+        body:  "Your first impression isn't based on looks.",
       },
       {
-        icon:  '🧠',
-        title: 'Real decisions',
-        body:  "No swiping. No maybe. You play, you connect, you decide. Done.",
+        icon:  '💬',
+        title: 'Real connections',
+        body:  'Conversations that start from genuine curiosity.',
+      },
+      {
+        icon:  '✨',
+        title: 'Discovery over swiping',
+        body:  'Less scrolling. More meeting people.',
       },
     ],
   },
@@ -157,17 +162,17 @@ const en: Copy = {
   },
 
   cta: {
-    label:       'get in',
+    label:       'ready?',
     headline:    "Meet someone\nworth discovering.",
-    sub:         'Early access is open. No algorithms. No ads.\nPersonality first. Photos when both are ready.',
+    sub:         'No algorithms. No endless swiping.\nJust curiosity, play, and real discovery.',
     placeholder: 'your@email.com',
-    button:      'Join early access →',
+    button:      'Start Playing →',
     fine:        'No spam. No pressure. Just decisions.',
   },
 
   hook: {
-    line: "Next time… it's real.",
-    cta:  'See why →',
+    line: "The best connections begin when you don't know everything at first.",
+    cta:  'Start playing →',
   },
 
   footer: {
@@ -183,13 +188,13 @@ const en: Copy = {
 // - Avoid literal translations where they sound stiff
 // - The scenario should read like a countdown, not a description
 const gr: Copy = {
-  nav: { cta: 'Πρόωρη πρόσβαση' },
+  nav: { cta: 'Ξεκίνα' },
 
   hero: {
     eyebrow:    'Δεν υπάρχει έξοδος. Απλά δείξου.',
     h1:         ['Γνώρισε κάποιον χωρίς να ξέρεις', 'πώς', '.'],
     accentWord: 'μοιάζει',
-    sub:        'Παίξε παιχνίδια, μίλα και ξεκλείδωσε το reveal όταν υπάρξει πραγματική σύνδεση.',
+    sub:        'Παίξε. Συνδέσου. Ανακάλυψε ποιος είναι πραγματικά.',
     typewriter: ['ghosting.', 'ίσως.', 'εξαφανίσεις.', 'δικαιολογίες.'],
     ctaPrimary: 'Ξεκίνα να παίζεις',
     ctaSecond:  'Δες πώς λειτουργεί',
@@ -214,23 +219,28 @@ const gr: Copy = {
   },
 
   why: {
-    label:    'γιατί είναι διαφορετικό',
-    headline: 'Για ανθρώπους που\nβαρέθηκαν τα παιχνίδια.',
+    label:    'γιατί dateduel',
+    headline: 'Η περιέργεια έρχεται\nπριν την εμφάνιση.',
     cards: [
       {
-        icon:  '🚫',
-        title: 'Χωρίς εξαφανίσεις',
-        body:  'Μόλις κλειδώσει, αλλάζει η δυναμική. Το να εξαφανιστείς έχει τίμημα — και το στοίχημά σου φεύγει μαζί σου.',
+        icon:  '🎭',
+        title: 'Μυστήριο πριν την εμφάνιση',
+        body:  'Γνώρισε τον άνθρωπο πριν δεις τη φωτογραφία.',
       },
       {
-        icon:  '🎯',
-        title: 'Αληθινά credits',
-        body:  'Όχι πόντοι. Όχι badges. Πραγματικά credits — αρκετά μικρά για να είναι διασκεδαστικό, αρκετά μεγάλα για να μετράει.',
+        icon:  '🎮',
+        title: 'Παίξε πριν κρίνεις',
+        body:  'Η πρώτη εντύπωση δεν βασίζεται στην εμφάνιση.',
       },
       {
-        icon:  '🧠',
-        title: 'Αληθινές αποφάσεις',
-        body:  'Χωρίς ατελείωτο swipe. Χωρίς "ίσως". Παίζεις, συνδέεσαι, αποφασίζεις. Τόσο απλό.',
+        icon:  '💬',
+        title: 'Αληθινές συνδέσεις',
+        body:  'Οι συζητήσεις ξεκινούν από την περιέργεια.',
+      },
+      {
+        icon:  '✨',
+        title: 'Ανακάλυψη αντί για swipe',
+        body:  'Λιγότερο scrolling. Περισσότερη γνωριμία.',
       },
     ],
   },
@@ -255,17 +265,17 @@ const gr: Copy = {
   },
 
   cta: {
-    label:       'μπες μέσα',
+    label:       'έτοιμος;',
     headline:    'Δες αν θα\nεμφανιζόσουν πραγματικά.',
-    sub:         'Πρόωρη πρόσβαση ανοιχτή. Χωρίς αλγόριθμους. Χωρίς διαφημίσεις.\nΠρώτα η προσωπικότητα. Φωτογραφίες όταν είστε έτοιμοι.',
+    sub:         'Χωρίς αλγόριθμους. Χωρίς ατελείωτο swipe.\nΜόνο περιέργεια, παιχνίδι και αληθινή ανακάλυψη.',
     placeholder: 'το@email.σου',
-    button:      'Πρόωρη πρόσβαση →',
+    button:      'Ξεκίνα να παίζεις →',
     fine:        'Χωρίς spam. Χωρίς πίεση. Μόνο αποφάσεις.',
   },
 
   hook: {
-    line: 'Την επόμενη φορά… θα είναι αληθινό.',
-    cta:  'Δες γιατί →',
+    line: 'Οι καλύτερες γνωριμίες ξεκινούν όταν δεν ξέρεις τα πάντα από την πρώτη στιγμή.',
+    cta:  'Ξεκίνα να παίζεις →',
   },
 
   footer: {
