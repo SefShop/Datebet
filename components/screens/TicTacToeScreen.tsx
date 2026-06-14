@@ -60,7 +60,7 @@ export default function TicTacToeScreen() {
       if (sess?.state && sess.state.board) {
         gs = sess.state as GameState
         if (!gs.currentTurn) { gs.currentTurn = sess0.player_one_id; await supabase.from('game_sessions').update({ state: gs }).eq('id', sess0.id) }
-        console.log('TICTACTOE: loaded existing state')
+        console.log('TICTACTOE SESSION LOADED: existing state')
       } else {
         gs = {
           board: ['','','','','','','','',''],
@@ -68,7 +68,7 @@ export default function TicTacToeScreen() {
           winner: null, status: 'active', moves: 0,
         }
         await supabase.from('game_sessions').update({ state: gs }).eq('id', sess0.id)
-        console.log('TICTACTOE: initialized new state')
+        console.log('TICTACTOE STATE INIT:')
       }
       setState(gs)
       console.log('CURRENT TURN:', gs.currentTurn)
@@ -83,7 +83,7 @@ export default function TicTacToeScreen() {
         }, (payload: any) => {
           const newState = payload.new?.state
           if (newState && newState.board) {
-            console.log('REALTIME GAME UPDATE:', newState.moves, 'moves')
+            console.log('TICTACTOE REALTIME UPDATE:', newState.moves, 'moves')
             setState(newState)
           }
         })
@@ -112,20 +112,20 @@ export default function TicTacToeScreen() {
     if (win) {
       winner = myId
       status = 'finished'
-      console.log('WINNER:', myId)
+      console.log('WINNER FOUND:', myId)
     } else if (moves >= 9) {
       winner = 'draw'
       status = 'finished'
-      console.log('WINNER: draw')
+      console.log('DRAW FOUND:')
     }
 
     const newState: GameState = { board, currentTurn, winner, status, moves }
     setState(newState) // optimistic
-    console.log('MOVE SENT:', i, mySymbol)
+    console.log('MOVE ATTEMPT:', i, mySymbol)
 
     const { error: e } = await supabase.from('game_sessions').update({ state: newState }).eq('id', session.id)
     if (e) console.error('SESSION UPDATE error:', e)
-    else console.log('SESSION UPDATED:', session.id)
+    else console.log('MOVE SAVED:', session.id)
   }
 
   async function rematch() {
