@@ -197,36 +197,58 @@ export default function ProfileScreen() {
               </div>
 
               {/* Info */}
-              <div className="px-5 py-4" style={{ background:'rgba(6,6,10,1)' }}>
-                {/* Mystery reveal status */}
-                <div className="flex items-center justify-between mb-3 px-3 py-2 rounded-xl"
-                  style={{ background: 'rgba(253,41,123,0.06)', border: '1px solid rgba(253,41,123,0.12)' }}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px]">🔓</span>
-                    <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                      {lang === 'gr' ? 'Πρόοδος reveal' : 'Reveal progress'}
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-bold" style={{ color: 'rgba(253,41,123,0.8)' }}>
-                    {lang === 'gr' ? '0/10 παιχνίδια' : '0/10 games'}
-                  </span>
-                </div>
+              <div className="px-5 py-5" style={{ background:'rgba(6,6,10,1)' }}>
 
-                {p.interests.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {p.interests.map(tag => (
-                      <span key={tag} className="text-[11px] font-medium px-3 py-1 rounded-full"
-                        style={{ background:'rgba(255,255,255,0.06)', color:'rgba(255,255,255,0.55)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                {/* Interests */}
+                <div className="mb-4">
+                  <div className="text-[11px] font-bold uppercase tracking-[1.5px] mb-2 flex items-center gap-1.5"
+                    style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    🏷 {lang === 'gr' ? 'Ενδιαφέροντα' : 'Interests'}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(p.interests.length > 0 ? p.interests : ['☕ Coffee', '✈️ Travel', '🎬 Movies']).map(tag => (
+                      <span key={tag} className="text-[12px] font-medium px-3 py-1.5 rounded-full"
+                        style={{ background:'rgba(108,99,255,0.1)', color:'rgba(255,255,255,0.7)', border:'1px solid rgba(108,99,255,0.2)' }}>
                         {tag}
                       </span>
                     ))}
                   </div>
-                )}
-                {p.bio[lang] && <p className="text-[14px] leading-relaxed mb-2" style={{ color:'rgba(255,255,255,0.6)' }}>{p.bio[lang]}</p>}
+                </div>
 
-                {/* Photo hidden notice */}
-                <div className="text-[11px] italic text-center mt-2" style={{ color: 'rgba(255,255,255,0.25)' }}>
-                  🔒 {lang === 'gr' ? 'Η φωτογραφία ξεκλειδώνει αργότερα.' : 'Photo hidden until reveal.'}
+                {/* Bio */}
+                {p.bio[lang] && (
+                  <div className="mb-4">
+                    <div className="text-[11px] font-bold uppercase tracking-[1.5px] mb-2 flex items-center gap-1.5"
+                      style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      📝 Bio
+                    </div>
+                    <p className="text-[14px] leading-relaxed italic" style={{ color:'rgba(255,255,255,0.65)' }}>
+                      "{p.bio[lang]}"
+                    </p>
+                  </div>
+                )}
+
+                {/* Reveal progress */}
+                <div className="rounded-2xl p-4 mt-4"
+                  style={{ background: 'linear-gradient(135deg, rgba(253,41,123,0.08), rgba(108,99,255,0.06))', border: '1px solid rgba(253,41,123,0.15)' }}>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[15px]">🔓</span>
+                      <span className="text-[12px] font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                        {lang === 'gr' ? 'Πρόοδος Reveal' : 'Reveal Progress'}
+                      </span>
+                    </div>
+                    <span className="text-[12px] font-extrabold" style={{ color: '#fd297b' }}>
+                      0 / 10 {lang === 'gr' ? 'παιχνίδια' : 'games'}
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 rounded-full overflow-hidden mb-2.5" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <div className="h-full rounded-full" style={{ width: '4%', background: 'linear-gradient(90deg, #fd297b, #c850c0)', boxShadow: '0 0 8px rgba(253,41,123,0.5)' }} />
+                  </div>
+                  <div className="text-[11px] text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    🎮 {lang === 'gr' ? 'Ξεκλειδώστε τη φωτογραφία παίζοντας μαζί.' : 'Play together to unlock the photo.'}
+                  </div>
                 </div>
               </div>
             </div>

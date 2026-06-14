@@ -185,25 +185,6 @@ export default function Landing() {
             {c.hero.sub}
           </p>
 
-          {/* Flow */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 36, animation: 'fadeUp 0.7s 0.3s ease both', flexWrap: 'wrap' as const }}>
-            {[
-              { emoji: '🎮', label: lang === 'gr' ? 'Παίξε' : 'Play' },
-              { emoji: '💬', label: 'Chat' },
-              { emoji: '🔓', label: 'Reveal' },
-              { emoji: '❤️', label: lang === 'gr' ? 'Ραντεβού' : 'Date' },
-            ].map((step, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {i > 0 && <span style={{ color: 'rgba(253,41,123,0.35)', fontSize: 11 }}>→</span>}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 16,
-                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <span style={{ fontSize: 12 }}>{step.emoji}</span>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>{step.label}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' as const, marginBottom: 32, animation: 'fadeUp 0.7s 0.4s ease both' }}>
             <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 700, padding: '17px 36px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
