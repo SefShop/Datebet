@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
+import { getOpponentName } from '@/lib/gameInvites'
 import { APP_COPY } from '@/lib/copy'
 import { setLastGameResult } from '@/lib/chatAI'
 import GameChat from '@/components/ui/GameChat'
@@ -37,6 +38,7 @@ function nearWinTTT(b:Cell[]):boolean {
 
 export default function TicTacToeScreen() {
   const { navigate, lang } = useApp()
+  const oppName = getOpponentName() || (lang==='gr'?'Αντίπαλος':'Opponent')
   const t = APP_COPY[lang].games
   const [board, setBoard] = useState<Cell[]>(Array(9).fill(EMPTY))
   const [turn, setTurn]   = useState<'X'|'O'>('X')
@@ -107,7 +109,7 @@ export default function TicTacToeScreen() {
         </div>
         <span className="text-white/20 text-[12px] font-bold">{t.vs}</span>
         <div className="flex items-center gap-2">
-          <span className="text-white/40 text-[12px]">{t.sofia}</span>
+          <span className="text-white/40 text-[12px]">{oppName}</span>
           <span className="text-white font-bold text-[18px]">{score[1]}</span>
           <span className="text-[22px] font-black" style={{color:'#38bdf8'}}>○</span>
         </div>

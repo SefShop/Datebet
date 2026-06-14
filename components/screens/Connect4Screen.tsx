@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
+import { getOpponentName } from '@/lib/gameInvites'
 import { APP_COPY } from '@/lib/copy'
 import { setLastGameResult } from '@/lib/chatAI'
 import GameChat from '@/components/ui/GameChat'
@@ -51,6 +52,7 @@ function nearWin(b:Board,player:number):boolean {
 
 export default function Connect4Screen() {
   const { navigate, lang } = useApp()
+  const oppName = getOpponentName() || (lang==='gr'?'Αντίπαλος':'Opponent')
   const t = APP_COPY[lang].games
   const [board, setBoard] = useState<Board>(mk)
   const [turn, setTurn]   = useState<1|2>(1)
@@ -134,7 +136,7 @@ export default function Connect4Screen() {
         </div>
         <span className="text-white/20 text-[12px] font-bold">{t.vs}</span>
         <div className="flex items-center gap-2">
-          <span className="text-white/40 text-[12px]">{t.sofia}</span>
+          <span className="text-white/40 text-[12px]">{oppName}</span>
           <span className="text-white font-bold text-[18px]">{score[1]}</span>
           <div className="w-6 h-6 rounded-full" style={{background:'#facc15'}} />
         </div>

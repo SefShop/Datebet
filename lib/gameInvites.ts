@@ -194,3 +194,8 @@ export async function loadSessionByInvite(inviteId: string): Promise<GameSession
 let _session: GameSession | null = null
 export function setCurrentSession(s: GameSession) { _session = s; console.log('SESSION ID:', s.id) }
 export function getCurrentSession(): GameSession | null { return _session }
+
+// ── Opponent name holder (for game screens) ─────────────────────
+let _opponentName: string | null = null
+export function setOpponentName(n: string) { _opponentName = n; console.log('OPPONENT PROFILE:', n) }
+export function getOpponentName(): string | null { return _opponentName }

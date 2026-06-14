@@ -55,7 +55,13 @@ export default function ProfileScreen() {
     setChecking(false)
     if (result.ok) {
       setChallengeMsg(lang === 'gr' ? 'Πρόσκληση στάλθηκε! 🎮' : 'Game invite sent! 🎮')
-      setTimeout(() => { setChallengeMsg(null); transition('right', () => setIdx(i => i + 1)) }, 1500)
+      setTimeout(() => {
+        setChallengeMsg(null)
+        transition('right', () => {
+          const next = idx + 1
+          if (next >= profiles.length) { loadProfiles() } else { setIdx(next) }
+        })
+      }, 1500)
     } else {
       setChallengeMsg(result.error || 'Error')
       setTimeout(() => setChallengeMsg(null), 2000)

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession } from '@/lib/gameInvites'
+import { getCurrentSession, setOpponentName } from '@/lib/gameInvites'
 import { getCurrentMatch } from '@/lib/profiles'
 
 export default function GameRoomScreen() {
@@ -23,10 +23,14 @@ export default function GameRoomScreen() {
         const { data } = await supabase.from('profiles').select('id, name')
           .in('id', [session.player_one_id, session.player_two_id])
         const map = new Map(data?.map(p => [p.id, p.name]) || [])
-        setBothNames({
-          one: map.get(session.player_one_id) || 'Player 1',
-          two: map.get(session.player_two_id) || 'Player 2',
-        })
+        const oneName = map.get(session.player_one_id) || 'Player 1'
+        const twoName = map.get(session.player_two_id) || 'Player 2'
+        setBothNames({ one: oneName, two: twoName })
+        // Determine opponent relative to current user
+        console.log('CURRENT USER:', user?.id)
+        const oppName = user?.id === session.player_one_id ? twoName : oneName
+        setOpponentName(oppName)
+        console.log('NAVIGATING TO REAL GAME: opponent =', oppName)
       }
     }
     init()

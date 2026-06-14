@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
+import { supabase } from '@/lib/supabase'
 import { getIncomingInvites, getOutgoingInvites, respondInvite, createGameSession, setCurrentSession, GameInvite } from '@/lib/gameInvites'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
@@ -11,17 +12,44 @@ export default function ActivityScreen() {
   const [loading, setLoading]   = useState(true)
   const [tab, setTab]           = useState<'in'|'out'>('in')
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    // Realtime subscription for new invites
+    let channel: any = null
+    async function sub() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      channel = supabase
+        .channel(`invites-${user.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_invites' }, (payload: any) => {
+          const inv = payload.new
+          if (inv && inv.receiver_id === user.id) {
+            console.log('NEW INVITE RECEIVED:', inv)
+            load()
+          }
+          if (inv && inv.sender_id === user.id) {
+            console.log('INVITE STATUS CHANGE:', inv.status)
+            load()
+          }
+        })
+        .subscribe()
+    }
+    sub()
+    return () => { if (channel) supabase.removeChannel(channel) }
+  }, [])
 
   async function load() {
     setLoading(true)
     const [inc, out] = await Promise.all([getIncomingInvites(), getOutgoingInvites()])
+    console.log('INVITES REFRESHED:', inc.length, 'incoming')
     setIncoming(inc); setOutgoing(out); setLoading(false)
   }
 
   async function respond(c: GameInvite, accept: boolean) {
+    console.log('ACCEPTING INVITE:', c.id)
     const { ok } = await respondInvite(c.id, accept)
     if (!ok) return
+    setIncoming(prev => prev.filter(x => x.id !== c.id))  // remove from pending
     if (accept) {
       // Set the sender as current match
       const profile: UserProfile = {
