@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { getIncomingInvites, getOutgoingInvites, respondInvite, GameInvite } from '@/lib/gameInvites'
+import { getIncomingInvites, getOutgoingInvites, respondInvite, createGameSession, setCurrentSession, GameInvite } from '@/lib/gameInvites'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
 export default function ActivityScreen() {
@@ -23,13 +23,21 @@ export default function ActivityScreen() {
     const { ok } = await respondInvite(c.id, accept)
     if (!ok) return
     if (accept) {
+      // Set the sender as current match
       const profile: UserProfile = {
         id: c.sender_id, name: c.sender_name || 'Player', age: 0,
         photo: c.sender_photo || '', gradient: 'linear-gradient(135deg,#fd297b,#ff655b)',
         location: { en: '', gr: '' }, online: true, interests: [], bio: { en: '', gr: '' },
       }
       setCurrentMatch(profile)
-      navigate('game_select')
+      // Create shared game session
+      const { session, error } = await createGameSession(c)
+      if (error || !session) {
+        alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start game session.')
+        return
+      }
+      setCurrentSession(session)
+      navigate('game_room')
     } else {
       setIncoming(prev => prev.filter(x => x.id !== c.id))
     }

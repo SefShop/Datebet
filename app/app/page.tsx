@@ -14,6 +14,7 @@ import LockDateScreen   from '@/components/screens/LockDateScreen'
 import EditProfileScreen from '@/components/screens/EditProfileScreen'
 import InboxScreen       from '@/components/screens/InboxScreen'
 import ActivityScreen    from '@/components/screens/ActivityScreen'
+import GameRoomScreen    from '@/components/screens/GameRoomScreen'
 // ReturnScreen removed
 import LangToggle      from '@/components/ui/LangToggle'
 import UserMenu        from '@/components/ui/UserMenu'
@@ -36,6 +37,7 @@ const SCREENS = {
   edit_profile: <EditProfileScreen />,
   inbox:        <InboxScreen />,
   activity:     <ActivityScreen />,
+  game_room:    <GameRoomScreen />,
 }
 
 function AppShell() {

@@ -130,3 +130,67 @@ export async function getInviteCount(): Promise<number> {
     return count ?? 0
   } catch { return 0 }
 }
+
+// ── Game Sessions ──────────────────────────────────────────────
+export interface GameSession {
+  id: string
+  created_at: string
+  invite_id: string
+  player_one_id: string
+  player_two_id: string
+  game_type: string
+  status: string
+  state: any
+}
+
+// Create a session when an invite is accepted (receiver side)
+export async function createGameSession(invite: GameInvite): Promise<{ session?: GameSession; error?: string }> {
+  try {
+    // Check if session already exists for this invite
+    const { data: existing } = await supabase
+      .from('game_sessions')
+      .select('*')
+      .eq('invite_id', invite.id)
+      .maybeSingle()
+
+    if (existing) {
+      console.log('GAME SESSION LOADED:', existing.id)
+      return { session: existing }
+    }
+
+    const { data, error } = await supabase
+      .from('game_sessions')
+      .insert({
+        invite_id: invite.id,
+        player_one_id: invite.sender_id,
+        player_two_id: invite.receiver_id,
+        game_type: invite.game_type,
+        status: 'active',
+        state: {},
+      })
+      .select()
+      .single()
+
+    if (error) { console.error('GAME SESSION error:', error); return { error: error.message } }
+    console.log('GAME SESSION CREATED:', data.id)
+    return { session: data }
+  } catch (e: any) { return { error: e.message } }
+}
+
+// Load session by invite (sender side, after acceptance)
+export async function loadSessionByInvite(inviteId: string): Promise<GameSession | null> {
+  try {
+    const { data } = await supabase
+      .from('game_sessions')
+      .select('*')
+      .eq('invite_id', inviteId)
+      .maybeSingle()
+    if (data) console.log('GAME SESSION LOADED:', data.id)
+    return data
+  } catch { return null }
+}
+
+// ── Current session holder (in-memory) ──────────────────────────
+let _session: GameSession | null = null
+export function setCurrentSession(s: GameSession) { _session = s; console.log('SESSION ID:', s.id) }
+export function getCurrentSession(): GameSession | null { return _session }
