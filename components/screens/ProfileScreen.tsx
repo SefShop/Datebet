@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
-import { sendChallenge } from '@/lib/challenges'
+import { sendGameInvite } from '@/lib/gameInvites'
 
 
 
@@ -51,10 +51,10 @@ export default function ProfileScreen() {
     if (!p) return
     setCurrentMatch(p)
     setChecking(true)
-    const result = await sendChallenge(p.id)
+    const result = await sendGameInvite(p.id, 'mystery')
     setChecking(false)
     if (result.ok) {
-      setChallengeMsg(lang === 'gr' ? 'Πρόκληση στάλθηκε! ⚔️' : 'Challenge sent! ⚔️')
+      setChallengeMsg(lang === 'gr' ? 'Πρόσκληση στάλθηκε! 🎮' : 'Game invite sent! 🎮')
       setTimeout(() => { setChallengeMsg(null); transition('right', () => setIdx(i => i + 1)) }, 1500)
     } else {
       setChallengeMsg(result.error || 'Error')

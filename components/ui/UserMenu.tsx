@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useApp } from '@/lib/AppContext'
 import { clearProfileState } from '@/lib/profiles'
 import { getUnreadCount } from '@/lib/unread'
+import { getInviteCount } from '@/lib/gameInvites'
 
 interface Props { onLogout: () => void }
 
@@ -11,16 +12,18 @@ export default function UserMenu({ onLogout }: Props) {
   const { navigate, lang } = useApp()
   const [open, setOpen] = useState(false)
   const [unread, setUnread] = useState(0)
+  const [invites, setInvites] = useState(0)
 
   useEffect(() => {
     getUnreadCount().then(n => { console.log('MENU UNREAD:', n); setUnread(n) })
-    const t = setInterval(() => getUnreadCount().then(setUnread), 8000)
+    getInviteCount().then(setInvites)
+    const t = setInterval(() => { getUnreadCount().then(setUnread); getInviteCount().then(setInvites) }, 8000)
     return () => clearInterval(t)
   }, [])
 
   // Refresh when menu opens
   useEffect(() => {
-    if (open) getUnreadCount().then(setUnread)
+    if (open) { getUnreadCount().then(setUnread); getInviteCount().then(setInvites) }
   }, [open])
   const ref = useRef<HTMLDivElement>(null)
 
@@ -43,7 +46,7 @@ export default function UserMenu({ onLogout }: Props) {
 
   const items = [
     { icon: '👤', label: 'Profile', action: () => { setOpen(false); setTimeout(() => navigate('edit_profile'), 50) } },
-    { icon: '⚔️', label: lang==='gr'?'Προκλήσεις':'Challenges', action: () => { setOpen(false); setTimeout(() => navigate('activity'), 50) } },
+    { icon: '⚔️', label: `${lang==='gr'?'Προκλήσεις':'Challenges'}${invites > 0 ? ` (${invites})` : ''}`, action: () => { setOpen(false); setTimeout(() => navigate('activity'), 50) } },
     { icon: '💬', label: `Messages${unread > 0 ? ` (${unread})` : ''}`, action: () => { setOpen(false); setTimeout(() => navigate('inbox'), 50) }, badge: unread },
     { icon: '⚙️', label: 'Settings', action: () => setOpen(false) },
     { icon: '🚪', label: 'Logout', action: logout, danger: true },
@@ -60,11 +63,11 @@ export default function UserMenu({ onLogout }: Props) {
           backdropFilter: 'blur(12px)',
         }}>
         <span className="text-[14px]">👤</span>
-        {unread > 0 && <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full" style={{ background:'#fd297b', boxShadow:'0 0 6px #fd297b', border:'2px solid #08080f' }} />}
+        {(unread > 0 || invites > 0) && <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full" style={{ background:'#fd297b', boxShadow:'0 0 6px #fd297b', border:'2px solid #08080f' }} />}
       </button>
       {/* Debug: visible unread count */}
       <span className="text-[9px] font-bold" style={{ color:'rgba(253,41,123,0.7)' }}>
-        {unread > 0 ? unread : ''}
+        {(unread + invites) > 0 ? (unread + invites) : ''}
       </span>
 
       {/* Dropdown */}

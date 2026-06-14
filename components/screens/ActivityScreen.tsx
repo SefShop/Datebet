@@ -1,13 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { getIncomingChallenges, getOutgoingChallenges, respondChallenge, Challenge } from '@/lib/challenges'
+import { getIncomingInvites, getOutgoingInvites, respondInvite, GameInvite } from '@/lib/gameInvites'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
 export default function ActivityScreen() {
   const { navigate, lang } = useApp()
-  const [incoming, setIncoming] = useState<Challenge[]>([])
-  const [outgoing, setOutgoing] = useState<Challenge[]>([])
+  const [incoming, setIncoming] = useState<GameInvite[]>([])
+  const [outgoing, setOutgoing] = useState<GameInvite[]>([])
   const [loading, setLoading]   = useState(true)
   const [tab, setTab]           = useState<'in'|'out'>('in')
 
@@ -15,17 +15,17 @@ export default function ActivityScreen() {
 
   async function load() {
     setLoading(true)
-    const [inc, out] = await Promise.all([getIncomingChallenges(), getOutgoingChallenges()])
+    const [inc, out] = await Promise.all([getIncomingInvites(), getOutgoingInvites()])
     setIncoming(inc); setOutgoing(out); setLoading(false)
   }
 
-  async function respond(c: Challenge, accept: boolean) {
-    const { ok } = await respondChallenge(c.id, accept)
+  async function respond(c: GameInvite, accept: boolean) {
+    const { ok } = await respondInvite(c.id, accept)
     if (!ok) return
     if (accept) {
       const profile: UserProfile = {
-        id: c.challenger_id, name: c.challenger_name || 'Player', age: 0,
-        photo: c.challenger_photo || '', gradient: 'linear-gradient(135deg,#fd297b,#ff655b)',
+        id: c.sender_id, name: c.sender_name || 'Player', age: 0,
+        photo: c.sender_photo || '', gradient: 'linear-gradient(135deg,#fd297b,#ff655b)',
         location: { en: '', gr: '' }, online: true, interests: [], bio: { en: '', gr: '' },
       }
       setCurrentMatch(profile)
@@ -110,15 +110,15 @@ export default function ActivityScreen() {
             style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', animation: `fadeSlide 0.3s ${i * 50}ms ease both` }}>
             <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0"
               style={{ border: '2px solid rgba(253,41,123,0.3)' }}>
-              {c.challenger_photo ? (
-                <img src={c.challenger_photo} alt="" className="w-full h-full object-cover" />
+              {c.sender_photo ? (
+                <img src={c.sender_photo} alt="" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[20px]"
                   style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)' }}>👤</div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-bold text-white">{c.challenger_name}</div>
+              <div className="text-[14px] font-bold text-white">{c.sender_name}</div>
               <div className="text-[12px] text-white/40">{t.wants} · {timeAgo(c.created_at)}</div>
             </div>
             <div className="flex gap-2">
@@ -142,15 +142,15 @@ export default function ActivityScreen() {
             style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', animation: `fadeSlide 0.3s ${i * 50}ms ease both` }}>
             <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0"
               style={{ border: '2px solid rgba(108,99,255,0.3)' }}>
-              {c.challenged_photo ? (
-                <img src={c.challenged_photo} alt="" className="w-full h-full object-cover" />
+              {c.receiver_name ? (
+                <img src={c.receiver_name} alt="" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[20px]"
                   style={{ background: 'linear-gradient(135deg,#6c63ff,#a855f7)' }}>👤</div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-bold text-white">{c.challenged_name}</div>
+              <div className="text-[14px] font-bold text-white">{c.receiver_name}</div>
               <div className="text-[12px] text-white/40">{t.sentTo} · {timeAgo(c.created_at)}</div>
             </div>
             <span className="text-[11px] font-medium px-3 py-1.5 rounded-full"
