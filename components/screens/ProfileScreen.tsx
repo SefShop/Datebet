@@ -21,6 +21,8 @@ export default function ProfileScreen() {
   const [locked, setLocked]     = useState(false)
   const [checking, setChecking] = useState(false)
   const [challengeMsg, setChallengeMsg] = useState<string|null>(null)
+  const [showPicker, setShowPicker] = useState(false)
+  const [pickerProfile, setPickerProfile] = useState<UserProfile|null>(null)
 
   useEffect(() => {
     loadProfiles()
@@ -47,13 +49,21 @@ export default function ProfileScreen() {
 
   function pass() { transition('left', () => setIdx(i => i + 1)) }
 
-  async function like() {
+  function like() {
     if (!p) return
-    setCurrentMatch(p)
+    setPickerProfile(p)
+    setShowPicker(true)
+  }
+
+  async function pickGame(gameType: string) {
+    if (!pickerProfile) return
+    console.log('GAME PICKED:', gameType)
+    setShowPicker(false)
     setChecking(true)
-    const result = await sendGameInvite(p.id, 'mystery')
+    const result = await sendGameInvite(pickerProfile.id, gameType)
     setChecking(false)
     if (result.ok) {
+      console.log('INVITE CREATED:', gameType)
       setChallengeMsg(lang === 'gr' ? 'Πρόσκληση στάλθηκε! 🎮' : 'Game invite sent! 🎮')
       setTimeout(() => {
         setChallengeMsg(null)
@@ -83,6 +93,27 @@ export default function ProfileScreen() {
 
       {/* Top spacer */}
       <div className="pt-12 pb-1" />
+
+      {/* Game picker modal */}
+      {showPicker && (
+        <>
+          <div className="absolute inset-0 z-[110]" style={{ background:'rgba(6,6,10,0.7)', backdropFilter:'blur(6px)', animation:'fadeIn 0.25s ease both' }} onClick={() => setShowPicker(false)} />
+          <div className="absolute bottom-0 left-0 right-0 z-[111] px-4 pb-6" style={{ animation:'sheetUp 0.4s cubic-bezier(0.34,1.4,0.64,1) both' }}>
+            <div className="rounded-3xl p-6" style={{ background:'rgba(15,12,25,0.96)', backdropFilter:'blur(28px)', border:'1px solid rgba(253,41,123,0.25)', boxShadow:'0 -8px 60px rgba(253,41,123,0.2)' }}>
+              <div className="text-center mb-5">
+                <div className="text-[32px] mb-2">🎮</div>
+                <h2 className="text-[18px] font-extrabold text-white">{lang==='gr'?'Διάλεξε παιχνίδι':'Choose a game'}</h2>
+                <p className="text-[12px] mt-1" style={{ color:'rgba(255,255,255,0.4)' }}>{lang==='gr'?`Πρόσκληση προς ${pickerProfile?.name}`:`Invite ${pickerProfile?.name}`}</p>
+              </div>
+              <div className="flex flex-col gap-2.5">
+                <button onClick={() => pickGame('tic_tac_toe')} className="w-full rounded-2xl py-4 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer" style={{ background:'linear-gradient(135deg,#fd297b,#c850c0)', color:'#fff', boxShadow:'0 8px 24px rgba(253,41,123,0.3)' }}>⭕ Tic Tac Toe</button>
+                <button onClick={() => pickGame('connect_4')} className="w-full rounded-2xl py-4 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer" style={{ background:'rgba(108,99,255,0.15)', color:'#a78bfa', border:'1px solid rgba(108,99,255,0.25)' }}>🔴 Connect 4</button>
+                <button onClick={() => setShowPicker(false)} className="w-full py-2.5 text-[13px] font-medium active:opacity-60 cursor-pointer" style={{ color:'rgba(255,255,255,0.35)' }}>{lang==='gr'?'Άκυρο':'Cancel'}</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Challenge sent toast */}
       {challengeMsg && (
@@ -287,6 +318,8 @@ export default function ProfileScreen() {
       )}
 
       <style>{`
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes sheetUp { from{opacity:0;transform:translateY(60px)} to{opacity:1;transform:translateY(0)} }
         @keyframes fadeSlide { from{opacity:0;transform:translate(-50%,-8px)} to{opacity:1;transform:translate(-50%,0)} }
         @keyframes mysteryPulse { 0%,100%{opacity:0.5;transform:translateX(-50%) scale(1)} 50%{opacity:0.9;transform:translateX(-50%) scale(1.15)} }
         @keyframes mysteryFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }

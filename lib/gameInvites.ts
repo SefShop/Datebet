@@ -141,6 +141,14 @@ export interface GameSession {
   state: any
 }
 
+function initStateFor(gameType: string): any {
+  if (gameType === 'connect_4') {
+    return { board: Array(42).fill(''), currentTurn: null, winner: null, status: 'active', moves: 0 }
+  }
+  // tic_tac_toe / default
+  return { board: ['','','','','','','','',''], currentTurn: null, winner: null, status: 'active', moves: 0 }
+}
+
 // Create a session when an invite is accepted (receiver side)
 export async function createGameSession(invite: GameInvite): Promise<{ session?: GameSession; error?: string }> {
   try {
@@ -164,7 +172,7 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
         player_two_id: invite.receiver_id,
         game_type: invite.game_type,
         status: 'active',
-        state: {},
+        state: initStateFor(invite.game_type),
       })
       .select()
       .single()

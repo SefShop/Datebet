@@ -59,6 +59,7 @@ export default function TicTacToeScreen() {
       let gs: GameState
       if (sess?.state && sess.state.board) {
         gs = sess.state as GameState
+        if (!gs.currentTurn) { gs.currentTurn = sess0.player_one_id; await supabase.from('game_sessions').update({ state: gs }).eq('id', sess0.id) }
         console.log('TICTACTOE: loaded existing state')
       } else {
         gs = {
