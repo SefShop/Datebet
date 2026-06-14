@@ -63,35 +63,6 @@ function Count({ n, suffix = '' }: { n: number; suffix?: string }) {
 }
 
 // ── Scenario line ───────────────────────────────────────────────
-function ScenarioLine({ text, delay, last }: { text: string; delay: number; last: boolean }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [vis, setVis] = useState(false)
-  useEffect(() => {
-    const el = ref.current; if (!el) return
-    const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVis(true) }, { threshold: 0.5 })
-    ob.observe(el)
-    return () => ob.disconnect()
-  }, [])
-  return (
-    <div ref={ref} style={{
-      fontSize:      last ? 'clamp(18px,3.5vw,24px)' : 'clamp(15px,2.5vw,18px)',
-      fontWeight:    last ? 800 : 400,
-      color:         last ? '#fff' : 'rgba(255,255,255,0.38)',
-      lineHeight:    1.55,
-      padding:       last ? '24px 0 0' : '9px 0',
-      borderTop:     last ? '1px solid rgba(255,255,255,0.07)' : 'none',
-      letterSpacing: last ? '-0.3px' : '0',
-      opacity:       vis ? 1 : 0,
-      transform:     vis ? 'translateX(0)' : 'translateX(-12px)',
-      transition:    `opacity 0.5s ease ${delay}ms, transform 0.5s ease ${delay}ms`,
-    }}>
-      {last
-        ? <><span style={{ color: '#fd297b', marginRight: 8 }}>→</span>{text.replace('→ ', '')}</>
-        : text}
-    </div>
-  )
-}
-
 // ── Lang toggle ─────────────────────────────────────────────────
 function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
   return (
@@ -289,18 +260,6 @@ export default function Landing() {
                 {lang === 'gr' ? item.gr : item.en}
               </span>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── SCENARIO ── */}
-      <section id="how" style={{ padding: '110px 24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ maxWidth: 520, margin: '0 auto' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.65)', marginBottom: 44, textAlign: 'center' as const }}>
-            {c.scenario.label}
-          </div>
-          {c.scenario.lines.map((line, i) => (
-            <ScenarioLine key={`${lang}-${i}`} text={line} delay={i * 80} last={i === c.scenario.lines.length - 1} />
           ))}
         </div>
       </section>
