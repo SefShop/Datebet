@@ -62,66 +62,6 @@ function Count({ n, suffix = '' }: { n: number; suffix?: string }) {
   return <span ref={ref}>{v}{suffix}</span>
 }
 
-// ── Mini Flow — cinematic step preview ─────────────────────────
-const FLOW_STEPS = [
-  { text: 'Play',     small: false, accent: false },
-  { text: '↓',        small: true,  accent: false },
-  { text: 'Connect',  small: false, accent: false },
-  { text: '↓',        small: true,  accent: false },
-  { text: 'Discover', small: false, accent: true  },
-]
-
-function MiniFlow() {
-  const ref  = useRef<HTMLDivElement>(null)
-  const [vis, setVis] = useState(false)
-  useEffect(() => {
-    const el = ref.current; if (!el) return
-    const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVis(true) }, { threshold: 0.2 })
-    ob.observe(el)
-    return () => ob.disconnect()
-  }, [])
-
-  return (
-    <section ref={ref} style={{ padding: '80px 24px', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' as const }}>
-      <div style={{ maxWidth: 360, margin: '0 auto' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.5)', marginBottom: 36 }}>
-          how it works
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
-          {FLOW_STEPS.map((step, i) => (
-            <div key={i} style={{
-              fontSize:   step.small ? 13 : step.accent ? 'clamp(16px,3vw,20px)' : 'clamp(15px,2.5vw,17px)',
-              fontWeight: step.accent ? 800 : step.small ? 400 : 500,
-              color:      step.accent ? '#fd297b' : step.small ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.65)',
-              padding:    step.small ? '3px 0' : '9px 0',
-              letterSpacing: step.accent ? '-0.3px' : '0',
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              opacity:    vis ? 1 : 0,
-              transform:  vis ? 'translateY(0)' : 'translateY(12px)',
-              transition: `opacity 0.5s ease ${i * 80}ms, transform 0.5s ease ${i * 80}ms`,
-            }}>
-              {step.text}
-            </div>
-          ))}
-        </div>
-        <a href="/app" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          marginTop: 32, color: 'rgba(255,255,255,0.35)', textDecoration: 'none',
-          fontSize: 13, fontWeight: 600, padding: '11px 22px', borderRadius: 100,
-          border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s',
-          opacity: vis ? 1 : 0, transform: vis ? 'translateY(0)' : 'translateY(8px)',
-          transitionDelay: '560ms',
-        }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
-        >
-          play now →
-        </a>
-      </div>
-    </section>
-  )
-}
-
 // ── Scenario line ───────────────────────────────────────────────
 function ScenarioLine({ text, delay, last }: { text: string; delay: number; last: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -352,9 +292,6 @@ export default function Landing() {
           ))}
         </div>
       </section>
-
-      {/* ── MINI FLOW ── */}
-      <MiniFlow />
 
       {/* ── SCENARIO ── */}
       <section id="how" style={{ padding: '110px 24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
