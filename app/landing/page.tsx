@@ -307,18 +307,59 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ── */}
-      <section style={{ padding: '100px 24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ maxWidth: 620, margin: '0 auto', display: 'flex', flexDirection: 'column' as const, gap: 24 }}>
-          {c.testimonials.map((t, i) => {
-            const fade = [f.q0, f.q1][i]
-            return (
-              <div key={i} ref={fade.ref} style={{ ...fade.style, padding: '28px 32px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 20 }}>
-                <p style={{ fontSize: 17, lineHeight: 1.65, color: 'rgba(255,255,255,0.65)', fontStyle: 'italic', marginBottom: 12 }}>{t.quote}</p>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', fontWeight: 600, letterSpacing: '0.5px' }}>— {t.name}</p>
+      {/* ── COMMUNITY REACTIONS ── */}
+      <section style={{ padding: '90px 24px 40px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ maxWidth: 680, margin: '0 auto' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.65)', marginBottom: 28, textAlign: 'center' as const }}>
+            {lang === 'gr' ? 'Αντιδράσεις κοινότητας' : 'Community Reactions'}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 10, justifyContent: 'center' }}>
+            {[
+              { e: '💬', en: 'This feels different.', gr: 'Αυτό είναι διαφορετικό.' },
+              { e: '🎭', en: 'Finally, personality first.', gr: 'Επιτέλους, η προσωπικότητα πρώτα.' },
+              { e: '❤️', en: 'Curiosity makes everything more exciting.', gr: 'Η περιέργεια κάνει τα πάντα πιο συναρπαστικά.' },
+              { e: '🎮', en: 'Games make starting conversations easier.', gr: 'Τα παιχνίδια κάνουν πιο εύκολη την αρχή.' },
+            ].map((r, i) => (
+              <div key={i} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 100,
+                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)',
+              }}>
+                <span style={{ fontSize: 15 }}>{r.e}</span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)' }}>"{lang === 'gr' ? r.gr : r.en}"</span>
               </div>
-            )
-          })}
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── WHAT PLAYERS SAY ── */}
+      <section style={{ padding: '40px 24px 100px' }}>
+        <div style={{ maxWidth: 760, margin: '0 auto' }}>
+          <h2 style={{ fontSize: 'clamp(22px,5vw,34px)', fontWeight: 900, textAlign: 'center' as const, color: '#fff', letterSpacing: '-1px', marginBottom: 36 }}>
+            {lang === 'gr' ? 'Τι λένε οι παίκτες' : 'What Players Say'}
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
+            {[
+              { en: 'For the first time, I cared more about the conversation than the photo.', gr: 'Για πρώτη φορά, με ένοιαζε πιο πολύ η κουβέντα παρά η φωτογραφία.', label_en: 'Early Beta Tester', label_gr: 'Early Beta Tester' },
+              { en: 'The mystery makes every interaction more exciting.', gr: 'Το μυστήριο κάνει κάθε αλληλεπίδραση πιο συναρπαστική.', label_en: 'Beta User', label_gr: 'Beta User' },
+              { en: 'It feels like meeting people, not collecting matches.', gr: 'Νιώθεις ότι γνωρίζεις ανθρώπους, όχι ότι μαζεύεις matches.', label_en: 'Early Access Member', label_gr: 'Early Access Member' },
+            ].map((t, i) => (
+              <div key={i} style={{
+                padding: '28px 26px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: 20, backdropFilter: 'blur(16px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03)',
+                display: 'flex', flexDirection: 'column' as const,
+              }}>
+                <div style={{ fontSize: 28, color: 'rgba(253,41,123,0.3)', lineHeight: 1, marginBottom: 8, fontFamily: 'Georgia, serif' }}>"</div>
+                <p style={{ fontSize: 15, lineHeight: 1.6, color: 'rgba(255,255,255,0.7)', fontStyle: 'italic', marginBottom: 16, flex: 1 }}>
+                  {lang === 'gr' ? t.gr : t.en}
+                </p>
+                <p style={{ fontSize: 12, color: 'rgba(253,41,123,0.6)', fontWeight: 600, letterSpacing: '0.3px' }}>
+                  — {lang === 'gr' ? t.label_gr : t.label_en}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
