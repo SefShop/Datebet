@@ -154,26 +154,36 @@ export default function ProfileScreen() {
                 boxShadow: '0 16px 60px rgba(0,0,0,0.6)',
               }}>
 
-              {/* Photo / placeholder */}
-              <div className="relative h-[340px] overflow-hidden" style={{ background: p.gradient }}>
-                {p.photo ? (
-                  <img src={p.photo} alt={p.name} className="w-full h-full object-cover"
-                    style={{ filter: 'brightness(0.85) saturate(0.9)' }}
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: p.gradient }}>
-                    <div className="text-[72px]" style={{ filter:'drop-shadow(0 6px 20px rgba(0,0,0,0.3))' }}>👤</div>
+              {/* Photo — HIDDEN in Mystery Mode */}
+              <div className="relative h-[340px] overflow-hidden flex items-center justify-center"
+                style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.25) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.2) 0%, transparent 55%), linear-gradient(160deg, #14101f 0%, #0a0612 100%)' }}>
+
+                {/* Mystery glow orbs */}
+                <div className="absolute" style={{ width: 180, height: 180, top: '20%', left: '50%', transform: 'translateX(-50%)', borderRadius: '50%', background: 'radial-gradient(circle, rgba(253,41,123,0.2) 0%, transparent 70%)', filter: 'blur(30px)', animation: 'mysteryPulse 4s ease-in-out infinite' }} />
+
+                {/* Mask icon */}
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className="text-[80px]" style={{ filter: 'drop-shadow(0 6px 24px rgba(253,41,123,0.4))', animation: 'mysteryFloat 5s ease-in-out infinite' }}>🎭</div>
+                  <div className="mt-3 text-[11px] font-bold uppercase tracking-[2px] px-3 py-1 rounded-full"
+                    style={{ background: 'rgba(253,41,123,0.12)', color: 'rgba(253,41,123,0.8)', border: '1px solid rgba(253,41,123,0.2)' }}>
+                    {lang === 'gr' ? 'Μυστήριο' : 'Mystery Player'}
                   </div>
-                )}
+                </div>
+
+                {/* Gradient bottom */}
                 <div className="absolute inset-0" style={{
                   background: 'linear-gradient(180deg, transparent 40%, rgba(6,6,10,0.85) 90%, rgba(6,6,10,1) 100%)'
                 }} />
+
+                {/* Online status */}
                 <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full"
                   style={{ background:'rgba(0,0,0,0.5)', backdropFilter:'blur(8px)' }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: p.online ? '#4ade80' : '#555',
                     boxShadow: p.online ? '0 0 6px #4ade80' : 'none' }} />
                   <span className="text-[10px] font-bold text-white/70">{p.online ? 'online' : 'offline'}</span>
                 </div>
+
+                {/* Name/age/location */}
                 <div className="absolute bottom-0 left-0 right-0 px-5 pb-3">
                   <div className="flex items-baseline gap-2">
                     <span className="text-[28px] font-extrabold text-white tracking-tight"
@@ -188,6 +198,20 @@ export default function ProfileScreen() {
 
               {/* Info */}
               <div className="px-5 py-4" style={{ background:'rgba(6,6,10,1)' }}>
+                {/* Mystery reveal status */}
+                <div className="flex items-center justify-between mb-3 px-3 py-2 rounded-xl"
+                  style={{ background: 'rgba(253,41,123,0.06)', border: '1px solid rgba(253,41,123,0.12)' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px]">🔓</span>
+                    <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      {lang === 'gr' ? 'Πρόοδος reveal' : 'Reveal progress'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold" style={{ color: 'rgba(253,41,123,0.8)' }}>
+                    {lang === 'gr' ? '0/10 παιχνίδια' : '0/10 games'}
+                  </span>
+                </div>
+
                 {p.interests.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {p.interests.map(tag => (
@@ -198,7 +222,12 @@ export default function ProfileScreen() {
                     ))}
                   </div>
                 )}
-                {p.bio[lang] && <p className="text-[14px] leading-relaxed" style={{ color:'rgba(255,255,255,0.6)' }}>{p.bio[lang]}</p>}
+                {p.bio[lang] && <p className="text-[14px] leading-relaxed mb-2" style={{ color:'rgba(255,255,255,0.6)' }}>{p.bio[lang]}</p>}
+
+                {/* Photo hidden notice */}
+                <div className="text-[11px] italic text-center mt-2" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                  🔒 {lang === 'gr' ? 'Η φωτογραφία ξεκλειδώνει αργότερα.' : 'Photo hidden until reveal.'}
+                </div>
               </div>
             </div>
           </div>
@@ -231,6 +260,8 @@ export default function ProfileScreen() {
 
       <style>{`
         @keyframes fadeSlide { from{opacity:0;transform:translate(-50%,-8px)} to{opacity:1;transform:translate(-50%,0)} }
+        @keyframes mysteryPulse { 0%,100%{opacity:0.5;transform:translateX(-50%) scale(1)} 50%{opacity:0.9;transform:translateX(-50%) scale(1.15)} }
+        @keyframes mysteryFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
         @keyframes cardReveal { from{opacity:0;transform:translateY(24px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
       `}</style>
