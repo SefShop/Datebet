@@ -64,13 +64,11 @@ function Count({ n, suffix = '' }: { n: number; suffix?: string }) {
 
 // ── Mini Flow — cinematic step preview ─────────────────────────
 const FLOW_STEPS = [
-  { text: 'Answer a question',         small: false, accent: false },
-  { text: '↓',                         small: true,  accent: false },
-  { text: 'Match',                      small: false, accent: false },
-  { text: '↓',                         small: true,  accent: false },
-  { text: 'Lock the duel',             small: false, accent: false },
-  { text: '↓',                         small: true,  accent: false },
-  { text: 'Show up — or lose credits', small: false, accent: true  },
+  { text: 'Play',     small: false, accent: false },
+  { text: '↓',        small: true,  accent: false },
+  { text: 'Connect',  small: false, accent: false },
+  { text: '↓',        small: true,  accent: false },
+  { text: 'Discover', small: false, accent: true  },
 ]
 
 function MiniFlow() {
@@ -87,7 +85,7 @@ function MiniFlow() {
     <section ref={ref} style={{ padding: '80px 24px', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' as const }}>
       <div style={{ maxWidth: 360, margin: '0 auto' }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.5)', marginBottom: 36 }}>
-          the game
+          how it works
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
           {FLOW_STEPS.map((step, i) => (

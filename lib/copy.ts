@@ -88,7 +88,7 @@ const en: Copy = {
   nav: { cta: 'get early access' },
 
   hero: {
-    eyebrow:    'no escape. just show up.',
+    eyebrow:    'play. connect. discover.',
     h1:         ['Meet someone without knowing', 'what they', '.'],
     accentWord: 'look like',
     sub:        'Play games, chat together, and unlock the reveal when a real connection is formed.',
@@ -106,13 +106,12 @@ const en: Copy = {
   scenario: {
     label: 'the flow',
     lines: [
-      'You both answer the same question.',
-      'You connect.',
-      'You lock it in.',
-      'She pauses.',
-      'You wait.',
-      'She commits.',
-      '→ Now you either show up — or you lose.',
+      'You discover someone new.',
+      'You play together.',
+      'You start talking.',
+      'Curiosity builds.',
+      'A real connection forms.',
+      '→ Then, and only then, you reveal.',
     ],
   },
 
@@ -141,13 +140,13 @@ const en: Copy = {
   stats: {
     items: [
       { suffix: '%', label: 'of duels result in a real date' },
-      { suffix: 'x', label: 'more likely to show up when money is on the line' },
+      { suffix: '%', label: 'say personality matters more than photos' },
       { suffix: '%', label: 'ghosting rate among confirmed duels' },
     ],
   },
 
   testimonials: [
-    { quote: '"This is the first time I actually showed up to a date."', name: 'Alex, 27' },
+    { quote: '"I fell for who they were before I saw them."', name: 'Alex, 27' },
     { quote: '"It feels intense… but in a good way."',                   name: 'Maria, 24' },
   ],
 
@@ -159,7 +158,7 @@ const en: Copy = {
 
   cta: {
     label:       'get in',
-    headline:    "See if you'd\nactually show up.",
+    headline:    "Meet someone\nworth discovering.",
     sub:         'Early access is open. No algorithms. No ads.\nPersonality first. Photos when both are ready.',
     placeholder: 'your@email.com',
     button:      'Join early access →',
@@ -205,13 +204,12 @@ const gr: Copy = {
   scenario: {
     label: 'η ροή',
     lines: [
-      'Απαντάτε την ίδια ερώτηση.',
-      'Συνδέεστε.',
-      'Το κλειδώνεις.',
-      'Αυτή διστάζει.',
-      'Περιμένεις.',
-      'Αποφασίζει.',
-      '→ Τώρα ή θα πας… ή θα χάσεις.',
+      'Ανακαλύπτεις κάποιον νέο.',
+      'Παίζετε μαζί.',
+      'Αρχίζετε να μιλάτε.',
+      'Η περιέργεια μεγαλώνει.',
+      'Δημιουργείται πραγματική σύνδεση.',
+      '→ Τότε, μόνο τότε, κάνετε reveal.',
     ],
   },
 
@@ -271,7 +269,7 @@ const gr: Copy = {
   },
 
   footer: {
-    tagline: 'Γνωριμία μέσα από παιχνίδι.',
+    tagline: 'Παίξε. Συνδέσου. Ανακάλυψε.',
     copy:    '© 2026 DateDuel',
   },
 }
