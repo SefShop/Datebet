@@ -26,25 +26,31 @@ export default function ActivityScreen() {
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_invites' }, (payload: any) => {
           const inv = payload.new
           if (inv && inv.receiver_id === user.id) {
-            console.log('INVITE INSERT RECEIVED:', inv.id)
+            console.log('GAME INVITE INSERT RECEIVED:', inv.id)
             load()
           }
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_invites' }, (payload: any) => {
           const inv = payload.new
           if (inv && (inv.receiver_id === user.id || inv.sender_id === user.id)) {
-            console.log('INVITE UPDATE RECEIVED:', inv.status)
+            console.log('GAME INVITE UPDATE RECEIVED:', inv.status)
             load()
           }
         })
-        .subscribe((status: string) => { if (status === 'SUBSCRIBED') console.log('INVITE REALTIME SUBSCRIBED:', user.id) })
+        .subscribe((status: string) => { if (status === 'SUBSCRIBED') console.log('GAME INVITE REALTIME SUBSCRIBED:', user.id) })
     }
     sub()
-    function onVisible() { if (document.visibilityState === 'visible') load() }
+    function onVisible() { if (document.visibilityState === 'visible') { console.log('INVITES REFRESHED: visibility'); load() } }
     document.addEventListener('visibilitychange', onVisible)
+
+    // Polling fallback (realtime is primary)
+    const poll = setInterval(() => load(), 5000)
+
     return () => {
       if (channel) supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(poll)
+      console.log('REALTIME SUBSCRIPTION CLEANED:')
     }
   }, [])
 
@@ -52,7 +58,7 @@ export default function ActivityScreen() {
     const { data: { user } } = await supabase.auth.getUser()
     setMyId(user?.id || null)
     const [inc, out] = await Promise.all([getIncomingInvites(), getOutgoingInvites()])
-    console.log('INVITES REFRESHED LIVE:', inc.length, 'in,', out.length, 'out')
+    console.log('INVITES STATE UPDATED:', inc.length, 'in,', out.length, 'out')
     setIncoming(inc); setOutgoing(out); setLoading(false)
   }
 

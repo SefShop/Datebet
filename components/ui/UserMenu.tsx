@@ -17,7 +17,7 @@ export default function UserMenu({ onLogout }: Props) {
   useEffect(() => {
     getUnreadCount().then(n => { console.log('MENU UNREAD:', n); setUnread(n) })
     getInviteCount().then(setInvites)
-    const t = setInterval(() => { getUnreadCount().then(setUnread); getInviteCount().then(setInvites) }, 8000)
+    const t = setInterval(() => { getUnreadCount().then(setUnread); getInviteCount().then(setInvites) }, 5000)
     return () => clearInterval(t)
   }, [])
 
