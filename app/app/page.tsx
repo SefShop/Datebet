@@ -18,7 +18,6 @@ import GameRoomScreen    from '@/components/screens/GameRoomScreen'
 // ReturnScreen removed
 import LangToggle      from '@/components/ui/LangToggle'
 import UserMenu        from '@/components/ui/UserMenu'
-import AcceptedToast    from '@/components/ui/AcceptedToast'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { clearProfileState } from '@/lib/profiles'
@@ -81,7 +80,6 @@ function AppShell() {
         <div className="absolute z-[60]" style={{ top: 16, right: 16 }}>
           <LangToggle />
           {authed && <UserMenu onLogout={() => setAuthed(false)} />}
-        {authed && <AcceptedToast />}
         </div>
 
 

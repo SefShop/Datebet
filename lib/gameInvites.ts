@@ -58,9 +58,8 @@ export async function getIncomingInvites(): Promise<GameInvite[]> {
       .from('game_invites')
       .select('*')
       .eq('receiver_id', user.id)
-      .eq('status', 'pending')
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(30)
 
     if (error || !data) { console.error('INCOMING INVITES error:', error); return [] }
 
@@ -88,9 +87,8 @@ export async function getOutgoingInvites(): Promise<GameInvite[]> {
       .from('game_invites')
       .select('*')
       .eq('sender_id', user.id)
-      .in('status', ['pending', 'accepted'])
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(30)
 
     if (error || !data) return []
 
