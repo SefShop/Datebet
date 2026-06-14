@@ -2,8 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession } from '@/lib/gameInvites'
-import { incrementPairGames } from '@/lib/pairProgress'
+import { getCurrentSession, setCurrentSession } from '@/lib/gameInvites'
+import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
@@ -20,6 +20,7 @@ interface GameState {
   winner: string | null
   status: string
   moves: number
+  progressCounted?: boolean
 }
 
 export default function TicTacToeScreen() {
@@ -121,7 +122,7 @@ export default function TicTacToeScreen() {
       console.log('DRAW FOUND:')
     }
 
-    const newState: GameState = { board, currentTurn, winner, status, moves }
+    const newState: GameState = { board, currentTurn, winner, status, moves, progressCounted: state.progressCounted }
     setState(newState) // optimistic
     console.log('MOVE ATTEMPT:', i, mySymbol)
 
@@ -129,22 +130,64 @@ export default function TicTacToeScreen() {
     if (e) console.error('SESSION UPDATE error:', e)
     else console.log('MOVE SAVED:', session.id)
 
-    // If this move finished the game, increment pair progress (mover records it once)
+    // If this move finished the game, count progress once (the finishing mover records it)
     if (status === 'finished') {
-      const otherId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
-      await incrementPairGames(otherId)
+      console.log('GAME FINISHED:', winner)
+      await countProgress(newState)
     }
   }
 
+  async function countProgress(finishedState: GameState) {
+    if (!session || !myId) return
+    if (finishedState.progressCounted) { console.log('SESSION ALREADY COUNTED:', session.id); return }
+
+    // Re-read latest from DB to avoid double count across both clients
+    const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
+    if (fresh?.state?.progressCounted) { console.log('SESSION ALREADY COUNTED:', session.id); return }
+
+    console.log('COUNTING PROGRESS:', session.id)
+    const otherId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
+
+    const before = await getPairProgress(otherId)
+    console.log('PROGRESS BEFORE:', before.games_completed)
+
+    // Mark counted FIRST (so the other client sees it and skips)
+    const marked = { ...finishedState, progressCounted: true }
+    await supabase.from('game_sessions').update({ state: marked }).eq('id', session.id)
+    setState(marked)
+
+    const after = await incrementPairGames(otherId)
+    console.log('PROGRESS AFTER:', after.games_completed)
+  }
+
   async function rematch() {
-    if (!session) return
-    const gs: GameState = {
+    if (!session || !myId) return
+    // Alternate starter: previous starter was player_one, new starter player_two
+    const newStarter = session.player_one_id  // keep player_one (X) starting; could alternate
+    const newStateObj = {
       board: ['','','','','','','','',''],
-      currentTurn: session.player_one_id,
-      winner: null, status: 'active', moves: 0,
+      currentTurn: newStarter,
+      winner: null, status: 'active', moves: 0, progressCounted: false,
     }
-    setState(gs)
-    await supabase.from('game_sessions').update({ state: gs }).eq('id', session.id)
+
+    // Create a NEW session (do not reset the old one)
+    const { data, error } = await supabase.from('game_sessions').insert({
+      invite_id: session.invite_id,
+      player_one_id: session.player_one_id,
+      player_two_id: session.player_two_id,
+      game_type: 'tic_tac_toe',
+      status: 'active',
+      state: newStateObj,
+    }).select().single()
+
+    if (error || !data) { console.error('Rematch error:', error); return }
+    console.log('REMATCH CREATED NEW SESSION:', data.id)
+    console.log('NEW SESSION ID:', data.id)
+
+    setCurrentSession(data)
+    // Remount: navigate away and back to reload with new session
+    navigate('game_room')
+    setTimeout(() => navigate('tictactoe'), 50)
   }
 
   // ── No session ──
