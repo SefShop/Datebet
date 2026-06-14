@@ -220,16 +220,32 @@ export default function TicTacToeScreen() {
 
       {/* Board */}
       <div className="flex items-center justify-center px-6">
-        <div className="grid grid-cols-3 gap-2" style={{ width: 300, height: 300 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gridTemplateRows: 'repeat(3, 1fr)',
+          gap: 12,
+          width: '100%',
+          maxWidth: 320,
+        }}>
           {state.board.map((cell, i) => {
             const clickable = isMyTurn && cell === ''
             return (
               <button key={i} onClick={() => play(i)} disabled={!clickable}
-                className="rounded-2xl flex items-center justify-center text-[40px] font-black transition-all"
                 style={{
+                  aspectRatio: '1 / 1',
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 44,
+                  fontWeight: 900,
+                  borderRadius: 18,
+                  transition: 'all 0.15s',
                   background: cell ? 'rgba(255,255,255,0.04)' : clickable ? 'rgba(253,41,123,0.06)' : 'rgba(255,255,255,0.02)',
-                  border: `1px solid ${clickable ? 'rgba(253,41,123,0.2)' : 'rgba(255,255,255,0.06)'}`,
+                  border: `1px solid ${clickable ? 'rgba(253,41,123,0.25)' : 'rgba(255,255,255,0.08)'}`,
                   color: cell === 'X' ? '#fd297b' : '#6c63ff',
+                  textShadow: cell === 'X' ? '0 0 16px rgba(253,41,123,0.5)' : cell === 'O' ? '0 0 16px rgba(108,99,255,0.5)' : 'none',
                   cursor: clickable ? 'pointer' : 'default',
                 }}>
                 {cell}
