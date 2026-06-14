@@ -63,7 +63,8 @@ export default function ProfileScreen() {
     const result = await sendGameInvite(pickerProfile.id, gameType)
     setChecking(false)
     if (result.ok && result.inviteId) {
-      console.log('INVITE SENT:', result.inviteId)
+      console.log('INVITE CREATED:', result.inviteId)
+      console.log('NAVIGATING TO WAITING:', { id: result.inviteId, name: pickerProfile.name, gameType })
       setPendingInvite({ id: result.inviteId, receiverName: pickerProfile.name, gameType })
       navigate('waiting')
     } else {

@@ -15,7 +15,8 @@ export default function WaitingScreen() {
   const channelRef = useRef<any>(null)
 
   useEffect(() => {
-    if (!pending) { navigate('profile'); return }
+    console.log('WAITING SCREEN DATA:', pending)
+    if (!pending) { console.log('WAITING SCREEN ERROR: no pending invite'); return }
     console.log('WAITING SCREEN OPENED:', pending.id)
 
     channelRef.current = supabase
@@ -71,7 +72,36 @@ export default function WaitingScreen() {
     navigate('profile')
   }
 
-  if (!pending) return null
+  if (!pending) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#06060a' }}>
+        <div className="text-[40px] mb-3">⚠️</div>
+        <div className="text-[16px] font-bold text-white mb-4 text-center">
+          {lang === 'gr' ? 'Λείπει η πρόσκληση.' : 'Missing invite.'}
+        </div>
+        <button onClick={() => navigate('profile')} className="rounded-full px-6 py-3 text-[14px] font-bold cursor-pointer"
+          style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff' }}>
+          {lang === 'gr' ? 'Πίσω στο Discover' : 'Back to Discover'}
+        </button>
+      </div>
+    )
+  }
+
+  // Guard: missing fields
+  if (!pending.id || !pending.receiverName || !pending.gameType) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#06060a' }}>
+        <div className="text-[40px] mb-3">⚠️</div>
+        <div className="text-[16px] font-bold text-white mb-4 text-center">
+          {lang === 'gr' ? 'Ελλιπή στοιχεία πρόσκλησης.' : 'Missing invite data.'}
+        </div>
+        <button onClick={() => navigate('profile')} className="rounded-full px-6 py-3 text-[14px] font-bold cursor-pointer"
+          style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff' }}>
+          {lang === 'gr' ? 'Πίσω στο Discover' : 'Back to Discover'}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full items-center justify-center px-8"
