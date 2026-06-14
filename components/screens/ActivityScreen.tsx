@@ -24,7 +24,7 @@ export default function ActivityScreen() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'game_invites' }, (payload: any) => {
           const inv = payload.new
           if (inv && inv.receiver_id === user.id) {
-            console.log('NEW INVITE RECEIVED:', inv)
+            console.log('NEW INCOMING INVITE LIVE:', inv.id)
             load()
           }
           if (inv && inv.sender_id === user.id) {
@@ -32,16 +32,24 @@ export default function ActivityScreen() {
             load()
           }
         })
-        .subscribe()
+        .subscribe((status: string) => { if (status === 'SUBSCRIBED') console.log('INVITE SUBSCRIPTION ACTIVE:', user.id) })
     }
     sub()
-    return () => { if (channel) supabase.removeChannel(channel) }
+
+    // Refetch on tab focus / return from background
+    function onVisible() { if (document.visibilityState === 'visible') { console.log('VISIBILITY: refetch'); load() } }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
   async function load() {
     setLoading(true)
     const [inc, out] = await Promise.all([getIncomingInvites(), getOutgoingInvites()])
-    console.log('INVITES REFRESHED:', inc.length, 'incoming')
+    console.log('PENDING INVITES UPDATED:', inc.length, 'incoming')
     setIncoming(inc); setOutgoing(out); setLoading(false)
   }
 

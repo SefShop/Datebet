@@ -25,6 +25,24 @@ export default function UserMenu({ onLogout }: Props) {
   useEffect(() => {
     if (open) { getUnreadCount().then(setUnread); getInviteCount().then(setInvites) }
   }, [open])
+
+  // Realtime invite badge
+  useEffect(() => {
+    let channel: any = null
+    async function sub() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      channel = supabase
+        .channel(`menu-invites-${user.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_invites' }, (payload: any) => {
+          const inv = payload.new
+          if (inv && inv.receiver_id === user.id) getInviteCount().then(setInvites)
+        })
+        .subscribe()
+    }
+    sub()
+    return () => { if (channel) supabase.removeChannel(channel) }
+  }, [])
   const ref = useRef<HTMLDivElement>(null)
 
   // Close on outside click

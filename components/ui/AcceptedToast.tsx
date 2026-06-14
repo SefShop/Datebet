@@ -23,14 +23,13 @@ export default function AcceptedToast() {
           event: 'UPDATE', schema: 'public', table: 'game_invites',
         }, async (payload: any) => {
           const inv = payload.new
-          // Only react if I'm the sender and it just got accepted
           if (inv && inv.sender_id === user.id && inv.status === 'accepted') {
             console.log('SENDER INVITE ACCEPTED:', inv.id)
-            // Fetch receiver name
             const { data: prof } = await supabase.from('profiles').select('name').eq('id', inv.receiver_id).maybeSingle()
             setName(prof?.name || 'Player')
             setInviteId(inv.id)
             setShow(true)
+            console.log('ACCEPTED POPUP SHOWN:', inv.id)
           }
         })
         .subscribe()
@@ -47,7 +46,6 @@ export default function AcceptedToast() {
     console.log('SENDER GAME SESSION LOADED:', session.id)
     setCurrentSession(session)
 
-    // Set receiver as current match + opponent
     const { data: { user } } = await supabase.auth.getUser()
     const oppId = user?.id === session.player_one_id ? session.player_two_id : session.player_one_id
     const { data: oppProfile } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
@@ -69,27 +67,57 @@ export default function AcceptedToast() {
   if (!show) return null
 
   return (
-    <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[120] w-[90%] max-w-[340px]"
-      style={{ animation: 'acceptSlide 0.4s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-      <div className="rounded-2xl p-4 flex items-center gap-3"
-        style={{ background: 'rgba(15,12,25,0.95)', backdropFilter: 'blur(20px)',
-                 border: '1px solid rgba(253,41,123,0.3)', boxShadow: '0 16px 48px rgba(253,41,123,0.2)' }}>
-        <div className="text-[28px]">🎮</div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[14px] font-bold text-white">
-            {name} {lang === 'gr' ? 'δέχτηκε!' : 'accepted!'}
-          </div>
-          <div className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
-            {lang === 'gr' ? 'Η πρόσκλησή σου έγινε δεκτή' : 'Your invite was accepted'}
+    <>
+      {/* Backdrop */}
+      <div className="absolute inset-0 z-[120]"
+        style={{ background: 'rgba(6,6,10,0.6)', backdropFilter: 'blur(4px)', animation: 'fadeIn 0.25s ease both' }}
+        onClick={() => setShow(false)} />
+
+      {/* Bottom sheet */}
+      <div className="absolute bottom-0 left-0 right-0 z-[121] px-4 pb-6"
+        style={{ animation: 'sheetUp 0.4s cubic-bezier(0.34,1.4,0.64,1) both' }}>
+        <div className="rounded-3xl p-7 text-center relative overflow-hidden"
+          style={{
+            background: 'rgba(15,12,25,0.96)', backdropFilter: 'blur(28px)',
+            border: '1px solid rgba(253,41,123,0.25)',
+            boxShadow: '0 -8px 60px rgba(253,41,123,0.2), inset 0 1px 0 rgba(255,255,255,0.05)',
+          }}>
+          {/* Glow */}
+          <div className="absolute pointer-events-none" style={{
+            top: '-30%', left: '50%', transform: 'translateX(-50%)', width: 200, height: 200,
+            background: 'radial-gradient(circle, rgba(253,41,123,0.25) 0%, transparent 70%)', filter: 'blur(30px)',
+          }} />
+
+          <div className="relative z-10">
+            <div className="text-[44px] mb-3">🎮</div>
+            <h2 className="text-[20px] font-extrabold text-white mb-1.5"
+              style={{ fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+              {lang === 'gr' ? 'Παιχνίδι αποδεκτό' : 'Game accepted'}
+            </h2>
+            <p className="text-[14px] mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              <span style={{ color: '#fd297b', fontWeight: 700 }}>{name}</span>{' '}
+              {lang === 'gr' ? 'δέχτηκε την πρόσκλησή σου.' : 'accepted your invite.'}
+            </p>
+
+            <button onClick={enterRoom}
+              className="w-full rounded-2xl py-4 text-[16px] font-bold active:scale-[0.97] transition-transform cursor-pointer mb-2.5"
+              style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff',
+                       boxShadow: '0 8px 30px rgba(253,41,123,0.35)' }}>
+              {lang === 'gr' ? 'Είσοδος στο Δωμάτιο' : 'Enter Game Room'}
+            </button>
+            <button onClick={() => setShow(false)}
+              className="w-full py-2.5 text-[13px] font-medium active:opacity-60 transition-opacity cursor-pointer"
+              style={{ color: 'rgba(255,255,255,0.35)' }}>
+              {lang === 'gr' ? 'Αργότερα' : 'Later'}
+            </button>
           </div>
         </div>
-        <button onClick={enterRoom}
-          className="flex-shrink-0 rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 transition-transform cursor-pointer"
-          style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff' }}>
-          {lang === 'gr' ? 'Είσοδος' : 'Enter'}
-        </button>
       </div>
-      <style>{`@keyframes acceptSlide { from{opacity:0;transform:translate(-50%,-16px)} to{opacity:1;transform:translate(-50%,0)} }`}</style>
-    </div>
+
+      <style>{`
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes sheetUp { from{opacity:0;transform:translateY(60px)} to{opacity:1;transform:translateY(0)} }
+      `}</style>
+    </>
   )
 }
