@@ -4,11 +4,13 @@ export interface PairProgress {
   games_completed: number
   photo_unlocked: boolean
   chat_unlocked: boolean
-  error?: string  // for debugging
+  error?: string
 }
 
-function orderPair(a: string, b: string): [string, string] {
-  return a < b ? [a, b] : [b, a]
+// Normalize pair ids — identical ordering for both users
+function sortPair(a: string, b: string): [string, string] {
+  const sorted = [a, b].sort()
+  return [sorted[0], sorted[1]]
 }
 
 export async function getPairProgress(otherUserId: string): Promise<PairProgress> {
@@ -17,20 +19,24 @@ export async function getPairProgress(otherUserId: string): Promise<PairProgress
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ...fallback, error: 'no user' }
-    const [one, two] = orderPair(user.id, otherUserId)
-    console.log('PAIR IDS: user_one_id:', one, 'user_two_id:', two)
+    const [one, two] = sortPair(user.id, otherUserId)
+    console.log('PAIR IDS SORTED:', one, two)
 
+    // Read ALL rows for this pair (in case duplicates exist), pick highest
     const { data, error } = await supabase
       .from('pair_progress')
       .select('games_completed, photo_unlocked, chat_unlocked')
       .eq('user_one_id', one)
       .eq('user_two_id', two)
-      .maybeSingle()
+      .order('games_completed', { ascending: false })
 
     if (error) { console.error('PAIR PROGRESS error:', error.message); return { ...fallback, error: error.message } }
-    const result = { ...(data || fallback) }
-    console.log('PAIR PROGRESS BEFORE:', result.games_completed)
-    return result
+    if (data && data.length > 1) console.log('DUPLICATE PAIR ROWS FOUND:', data.length)
+
+    const best = data && data.length > 0 ? data[0] : fallback
+    console.log('PAIR PROGRESS LOADED:', best.games_completed)
+    console.log('PROGRESS PRIVATE ROW:', one, two)
+    return { games_completed: best.games_completed, photo_unlocked: best.photo_unlocked, chat_unlocked: best.chat_unlocked }
   } catch (e: any) { return { ...fallback, error: e.message } }
 }
 
@@ -40,24 +46,32 @@ export async function incrementPairGames(otherUserId: string): Promise<PairProgr
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ...fallback, error: 'no user' }
-    const [one, two] = orderPair(user.id, otherUserId)
+    const [one, two] = sortPair(user.id, otherUserId)
+    console.log('PAIR IDS SORTED:', one, two)
 
-    console.log('PAIR IDS: user_one_id:', one, 'user_two_id:', two)
-
-    // Load existing
-    const { data: existing, error: selErr } = await supabase
+    // Read all rows for this pair, ordered by highest
+    const { data: rows, error: selErr } = await supabase
       .from('pair_progress')
       .select('*')
       .eq('user_one_id', one)
       .eq('user_two_id', two)
-      .maybeSingle()
+      .order('games_completed', { ascending: false })
 
     if (selErr) { console.error('SELECT ERROR:', selErr.message); return { ...fallback, error: 'select: ' + selErr.message } }
 
+    if (rows && rows.length > 1) {
+      console.log('DUPLICATE PAIR ROWS FOUND:', rows.length)
+      // Clean up duplicates: keep the highest, delete the rest
+      const keep = rows[0]
+      const dupeIds = rows.slice(1).map(r => r.id)
+      if (dupeIds.length > 0) await supabase.from('pair_progress').delete().in('id', dupeIds)
+    }
+
+    const existing = rows && rows.length > 0 ? rows[0] : null
+    console.log('PROGRESS BEFORE:', existing?.games_completed || 0)
     const newCount = (existing?.games_completed || 0) + 1
     const photo_unlocked = newCount >= 5
     const chat_unlocked = newCount >= 10
-    console.log('PAIR PROGRESS BEFORE:', existing?.games_completed || 0)
 
     let updErr: any = null
     if (existing) {
@@ -73,12 +87,9 @@ export async function incrementPairGames(otherUserId: string): Promise<PairProgr
       updErr = error
     }
 
-    if (updErr) {
-      console.error('UPDATE ERROR:', updErr.message)
-      return { ...fallback, error: updErr.message }
-    }
+    if (updErr) { console.error('UPDATE ERROR:', updErr.message); return { ...fallback, error: updErr.message } }
 
-    console.log('PAIR PROGRESS AFTER:', newCount)
+    console.log('PROGRESS AFTER:', newCount)
     if (photo_unlocked && (!existing || !existing.photo_unlocked)) console.log('PHOTO UNLOCKED:')
     if (chat_unlocked && (!existing || !existing.chat_unlocked)) console.log('CHAT UNLOCKED:')
 

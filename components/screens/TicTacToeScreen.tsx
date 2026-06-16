@@ -151,13 +151,25 @@ export default function TicTacToeScreen() {
     console.log('progressCounted:', finishedState.progressCounted)
     console.log('session_id:', session.id)
 
+    // WINNER CHECK — only real wins count, draws do NOT
+    console.log('WINNER CHECK:', finishedState.winner)
+    const isRealWin = finishedState.winner === session.player_one_id || finishedState.winner === session.player_two_id
+    if (!isRealWin) {
+      console.log('DRAW NO POINT:', finishedState.winner)
+      // Still mark counted so we don't re-check, but do NOT increment
+      const marked = { ...finishedState, progressCounted: true }
+      await supabase.from('game_sessions').update({ state: marked }).eq('id', session.id)
+      setState(marked)
+      return
+    }
+
     if (finishedState.progressCounted) { console.log('SESSION ALREADY COUNTED:', session.id); return }
 
     // Re-read latest from DB to avoid double count across both clients
     const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
     if (fresh?.state?.progressCounted) { console.log('SESSION ALREADY COUNTED:', session.id); return }
 
-    console.log('COUNTING PROGRESS:', session.id)
+    console.log('COUNTING WIN POINT:', session.id)
     const otherId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
 
     // Mark counted FIRST (so the other client sees it and skips)
