@@ -117,6 +117,14 @@ export default function TicTacToeScreen() {
     return () => { if (channelRef.current) supabase.removeChannel(channelRef.current) }
   }, [session])
 
+  // Poll fallback while waiting for the other player (hook stays above any early return)
+  useEffect(() => {
+    if (!iAmReady || !session) return
+    const t = setInterval(() => { checkAndCreate() }, 2000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iAmReady, session])
+
   async function play(i: number) {
     if (!state || !session || !myId) return
     if (state.status === 'finished') return
@@ -238,11 +246,14 @@ export default function TicTacToeScreen() {
 
   // Runs on tap, realtime update, and poll. Only player_one creates.
   async function checkAndCreate() {
-    if (!session || !myId) return
-    const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
-    const cur = (fresh?.state || state) as GameState
-    const pa = cur.playAgain
-    if (!pa) return
+    try {
+      if (!session || !myId) return
+      console.log('APP CRASH FIX CHECK')
+      const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
+      const cur = (fresh?.state || state) as GameState
+      console.log('PLAY AGAIN SAFE STATE:', JSON.stringify(cur?.playAgain || null))
+      const pa = cur?.playAgain
+      if (!pa) return
     console.log('RELOADED PLAY AGAIN STATE:', JSON.stringify(pa))
 
     // If next session exists, navigate
@@ -261,6 +272,7 @@ export default function TicTacToeScreen() {
         console.log('CURRENT USER WAITING FOR CREATOR:')
       }
     }
+    } catch (e: any) { console.error('PLAY AGAIN ERROR:', e.message) }
   }
 
   async function createNextSession(cur: GameState) {
@@ -331,14 +343,6 @@ export default function TicTacToeScreen() {
       </div>
     )
   }
-
-  // Poll fallback while waiting for the other player to be ready
-  useEffect(() => {
-    if (!iAmReady || !session) return
-    const t = setInterval(() => { checkAndCreate() }, 2000)
-    return () => clearInterval(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [iAmReady, session])
 
   const isMyTurn = state.currentTurn === myId && state.status === 'active'
   const myName = myId === session.player_one_id ? names.one : names.two
