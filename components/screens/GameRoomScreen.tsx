@@ -72,16 +72,12 @@ export default function GameRoomScreen() {
         </div>
       </div>
 
-      {/* Session info */}
+      {/* Game info */}
       <div className="px-6 mb-6">
         <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <div className="flex justify-between text-[12px] mb-1.5">
+          <div className="flex justify-between text-[12px]">
             <span style={{ color: 'rgba(255,255,255,0.4)' }}>{lang === 'gr' ? 'Παιχνίδι' : 'Game'}</span>
             <span className="font-bold" style={{ color: '#fd297b' }}>{game ? `${game.emoji} ${game.name}` : session.game_type}</span>
-          </div>
-          <div className="flex justify-between text-[12px]">
-            <span style={{ color: 'rgba(255,255,255,0.4)' }}>Session</span>
-            <span className="font-mono" style={{ color: 'rgba(255,255,255,0.5)' }}>{session.id.slice(0, 8)}...</span>
           </div>
         </div>
       </div>
