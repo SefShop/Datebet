@@ -35,6 +35,7 @@ export default function TicTacToeScreen() {
   const channelRef = useRef<any>(null)
   const [progressError, setProgressError] = useState<string | null>(null)
   const [pairCount, setPairCount] = useState<number>(0)
+  const [rematchSession, setRematchSession] = useState<any>(null)
 
   // My symbol: player_one = X, player_two = O
   const mySymbol = session && myId === session.player_one_id ? 'X' : 'O'
@@ -90,6 +91,16 @@ export default function TicTacToeScreen() {
             console.log('TICTACTOE REALTIME UPDATE:', newState.moves, 'moves')
             newState.board = Array.from({ length: 9 }, (_, k) => newState.board?.[k] || '')
             setState(newState)
+          }
+        })
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'game_sessions',
+        }, (payload: any) => {
+          // Detect a rematch created off THIS session by the other player
+          const ns = payload.new
+          if (ns?.state?.rematchOf === sess0.id) {
+            console.log('REMATCH SESSION FOUND:', ns.id)
+            setRematchSession(ns)
           }
         })
         .subscribe()
@@ -190,30 +201,61 @@ export default function TicTacToeScreen() {
 
   async function rematch() {
     if (!session || !myId) return
-    // Alternate starter: previous starter was player_one, new starter player_two
-    const newStarter = session.player_one_id  // keep player_one (X) starting; could alternate
-    const newStateObj = {
-      board: ['','','','','','','','',''],
-      currentTurn: newStarter,
-      winner: null, status: 'active', moves: 0, progressCounted: false,
+    console.log('REMATCH CLICKED:', session.id)
+
+    // Guard: check if a rematch session already exists for this old session
+    console.log('CHECK EXISTING REMATCH:', session.id)
+    const { data: existing } = await supabase
+      .from('game_sessions')
+      .select('*')
+      .eq('game_type', 'tic_tac_toe')
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    const found = existing?.find((s: any) => s.state?.rematchOf === session.id)
+    if (found) {
+      console.log('REMATCH SESSION FOUND:', found.id)
+      console.log('JOINING REMATCH SESSION:', found.id)
+      setCurrentSession(found)
+      navigate('game_room')
+      setTimeout(() => navigate('tictactoe'), 50)
+      return
     }
 
-    // Create a NEW session (do not reset the old one)
+    // Alternate starter: previous player_one becomes player_two (swap who starts)
+    const newPlayerOne = session.player_two_id
+    const newPlayerTwo = session.player_one_id
+    const newStateObj = {
+      board: ['','','','','','','','',''],
+      currentTurn: newPlayerOne,
+      winner: null, status: 'active', moves: 0,
+      progressCounted: false,
+      rematchOf: session.id,
+    }
+
     const { data, error } = await supabase.from('game_sessions').insert({
       invite_id: session.invite_id,
-      player_one_id: session.player_one_id,
-      player_two_id: session.player_two_id,
+      player_one_id: newPlayerOne,
+      player_two_id: newPlayerTwo,
       game_type: 'tic_tac_toe',
       status: 'active',
       state: newStateObj,
     }).select().single()
 
     if (error || !data) { console.error('Rematch error:', error); return }
-    console.log('REMATCH CREATED NEW SESSION:', data.id)
-    console.log('NEW SESSION ID:', data.id)
+    console.log('REMATCH SESSION CREATED:', data.id)
+    console.log('REMATCH NEW SESSION ID:', data.id)
 
     setCurrentSession(data)
-    // Remount: navigate away and back to reload with new session
+    navigate('game_room')
+    setTimeout(() => navigate('tictactoe'), 50)
+  }
+
+  function joinRematch() {
+    if (!rematchSession) return
+    console.log('JOINING REMATCH SESSION:', rematchSession.id)
+    setCurrentSession(rematchSession)
+    setRematchSession(null)
     navigate('game_room')
     setTimeout(() => navigate('tictactoe'), 50)
   }
@@ -338,11 +380,19 @@ export default function TicTacToeScreen() {
       {/* Finished actions */}
       {state.status === 'finished' && (
         <div className="px-6 mt-6 flex flex-col gap-2.5">
-          <button onClick={rematch}
-            className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer"
-            style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff' }}>
-            {lang === 'gr' ? 'Ρεβάνς' : 'Rematch'}
-          </button>
+          {rematchSession ? (
+            <button onClick={joinRematch}
+              className="w-full rounded-2xl py-4 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer"
+              style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#06060a', boxShadow: '0 8px 24px rgba(74,222,128,0.3)' }}>
+              🎮 {lang === 'gr' ? 'Μπες στη Ρεβάνς' : 'Join Rematch'}
+            </button>
+          ) : (
+            <button onClick={rematch}
+              className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer"
+              style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff' }}>
+              {lang === 'gr' ? 'Ρεβάνς' : 'Rematch'}
+            </button>
+          )}
           <button onClick={() => navigate('chat')}
             className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
             style={{ background: 'rgba(108,99,255,0.12)', color: '#a78bfa', border: '1px solid rgba(108,99,255,0.2)' }}>
