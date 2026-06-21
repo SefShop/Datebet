@@ -100,6 +100,7 @@ export default function TicTacToeScreen() {
             if (newState.playAgain) {
               if (newState.playAgain.next_session_id) {
                 const nextId = newState.playAgain.next_session_id
+                console.log('NEXT SESSION DETECTED AFTER WINNER:', nextId)
                 console.log('NAVIGATING TO NEXT SESSION:', nextId)
                 supabase.from('game_sessions').select('*').eq('id', nextId).maybeSingle().then(({ data }: any) => {
                   if (data) { setCurrentSession(data); navigate('game_room'); setTimeout(() => navigate('tictactoe'), 50) }
@@ -150,7 +151,14 @@ export default function TicTacToeScreen() {
       console.log('DRAW FOUND:')
     }
 
-    const newState: GameState = { board, currentTurn, winner, status, moves, progressCounted: state.progressCounted }
+    const newState: GameState = {
+      board, currentTurn, winner, status, moves,
+      progressCounted: state.progressCounted,
+      // Initialize playAgain whenever the game finishes (winner OR draw)
+      playAgain: status === 'finished'
+        ? (state.playAgain || { player_one_ready: false, player_two_ready: false, next_session_id: null })
+        : state.playAgain,
+    }
     setState(newState) // optimistic
     console.log('MOVE ATTEMPT:', i, mySymbol)
 
@@ -162,11 +170,6 @@ export default function TicTacToeScreen() {
     if (status === 'finished') {
       console.log('GAME ENDED')
       console.log('winner:', winner)
-      console.log('status:', status)
-      console.log('session_id:', session.id)
-      console.log('player_one_id:', session.player_one_id)
-      console.log('player_two_id:', session.player_two_id)
-      console.log('state:', JSON.stringify(newState))
       await countProgress(newState)
     }
   }
@@ -174,34 +177,40 @@ export default function TicTacToeScreen() {
   async function countProgress(finishedState: GameState) {
     if (!session || !myId) return
     console.log('ABOUT TO COUNT PROGRESS')
-    console.log('progressCounted:', finishedState.progressCounted)
-    console.log('session_id:', session.id)
 
     // WINNER CHECK — only real wins count, draws do NOT
     console.log('WINNER CHECK:', finishedState.winner)
     const isRealWin = finishedState.winner === session.player_one_id || finishedState.winner === session.player_two_id
+
+    // Helper: write progressCounted while PRESERVING playAgain (read fresh)
+    async function markCounted() {
+      const { data: f } = await supabase.from('game_sessions').select('state').eq('id', session!.id).maybeSingle()
+      const live = (f?.state || finishedState) as GameState
+      const marked = {
+        ...live,
+        progressCounted: true,
+        playAgain: live.playAgain || finishedState.playAgain || { player_one_ready: false, player_two_ready: false, next_session_id: null },
+      }
+      console.log('PROGRESS COUNTED PRESERVED: playAgain kept')
+      await supabase.from('game_sessions').update({ state: marked }).eq('id', session!.id)
+      setState(marked)
+    }
+
     if (!isRealWin) {
       console.log('DRAW NO POINT:', finishedState.winner)
-      // Still mark counted so we don't re-check, but do NOT increment
-      const marked = { ...finishedState, progressCounted: true }
-      await supabase.from('game_sessions').update({ state: marked }).eq('id', session.id)
-      setState(marked)
+      await markCounted()
       return
     }
 
     if (finishedState.progressCounted) { console.log('SESSION ALREADY COUNTED:', session.id); return }
-
-    // Re-read latest from DB to avoid double count across both clients
     const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
     if (fresh?.state?.progressCounted) { console.log('SESSION ALREADY COUNTED:', session.id); return }
 
     console.log('COUNTING WIN POINT:', session.id)
     const otherId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
 
-    // Mark counted FIRST (so the other client sees it and skips)
-    const marked = { ...finishedState, progressCounted: true }
-    await supabase.from('game_sessions').update({ state: marked }).eq('id', session.id)
-    setState(marked)
+    // Mark counted FIRST (preserving playAgain)
+    await markCounted()
 
     const after = await incrementPairGames(otherId)
     if (after.error) {
@@ -215,12 +224,14 @@ export default function TicTacToeScreen() {
   }
 
   async function playAgain() {
-    if (!session || !myId) return
+    if (!session || !myId || !state) return
+    console.log('PLAY AGAIN AFTER WINNER:', state.winner)
     console.log('PLAY AGAIN CLICKED:', session.id)
 
-    // Read fresh state
+    // Read fresh state (preserves winner, progressCounted, etc.)
     const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
     const cur = (fresh?.state || state) as GameState
+    console.log('STATE BEFORE PLAY AGAIN:', JSON.stringify({ winner: cur.winner, progressCounted: cur.progressCounted, playAgain: cur.playAgain }))
     const pa = cur.playAgain || { player_one_ready: false, player_two_ready: false, next_session_id: null }
 
     // If a next session already exists, just go there
@@ -236,11 +247,11 @@ export default function TicTacToeScreen() {
     console.log('READY FLAGS UPDATED:', pa.player_one_ready, pa.player_two_ready)
     setIAmReady(true)
 
-    const updated = { ...cur, playAgain: pa }
+    const updated = { ...cur, playAgain: pa }  // ...cur preserves winner + progressCounted
     await supabase.from('game_sessions').update({ state: updated }).eq('id', session.id)
     setState(updated)
+    console.log('STATE AFTER PLAY AGAIN:', JSON.stringify({ winner: updated.winner, progressCounted: updated.progressCounted, playAgain: updated.playAgain }))
 
-    // Try to create (only player_one will actually create)
     await checkAndCreate()
   }
 
@@ -264,7 +275,7 @@ export default function TicTacToeScreen() {
     }
 
     if (pa.player_one_ready && pa.player_two_ready) {
-      console.log('BOTH READY TRUE:')
+      console.log('BOTH READY AFTER WINNER:', cur.winner)
       if (myId === session.player_one_id) {
         console.log('CURRENT USER IS CREATOR:')
         await createNextSession(cur)
@@ -301,6 +312,7 @@ export default function TicTacToeScreen() {
     }).select().single()
 
     if (error || !data) { console.error('Play again error:', error); return }
+    console.log('NEXT SESSION CREATED AFTER WINNER:', data.id)
     console.log('NEW PLAY AGAIN SESSION CREATED:', data.id)
 
     // Store next_session_id in OLD session so both detect it
