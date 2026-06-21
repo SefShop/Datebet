@@ -96,13 +96,17 @@ export default function TicTacToeScreen() {
             console.log('TICTACTOE REALTIME UPDATE:', newState.moves, 'moves')
             newState.board = Array.from({ length: 9 }, (_, k) => newState.board?.[k] || '')
             setState(newState)
-            // Detect Play Again next session → auto-navigate both users
-            if (newState.playAgain?.next_session_id) {
-              const nextId = newState.playAgain.next_session_id
-              console.log('NAVIGATING TO PLAY AGAIN SESSION:', nextId)
-              supabase.from('game_sessions').select('*').eq('id', nextId).maybeSingle().then(({ data }: any) => {
-                if (data) { setCurrentSession(data); navigate('game_room'); setTimeout(() => navigate('tictactoe'), 50) }
-              })
+            // Play Again: react to ready flags / next session
+            if (newState.playAgain) {
+              if (newState.playAgain.next_session_id) {
+                const nextId = newState.playAgain.next_session_id
+                console.log('NAVIGATING TO NEXT SESSION:', nextId)
+                supabase.from('game_sessions').select('*').eq('id', nextId).maybeSingle().then(({ data }: any) => {
+                  if (data) { setCurrentSession(data); navigate('game_room'); setTimeout(() => navigate('tictactoe'), 50) }
+                })
+              } else if (newState.playAgain.player_one_ready && newState.playAgain.player_two_ready) {
+                checkAndCreate()
+              }
             }
           }
         })
@@ -213,7 +217,7 @@ export default function TicTacToeScreen() {
 
     // If a next session already exists, just go there
     if (pa.next_session_id) {
-      console.log('NEXT SESSION ID:', pa.next_session_id, '(exists)')
+      console.log('NAVIGATING TO NEXT SESSION:', pa.next_session_id)
       await navigateToNext(pa.next_session_id)
       return
     }
@@ -221,19 +225,40 @@ export default function TicTacToeScreen() {
     // Set my ready flag
     if (myId === session.player_one_id) pa.player_one_ready = true
     if (myId === session.player_two_id) pa.player_two_ready = true
-    console.log('PLAYER READY:', myId)
+    console.log('READY FLAGS UPDATED:', pa.player_one_ready, pa.player_two_ready)
     setIAmReady(true)
 
     const updated = { ...cur, playAgain: pa }
     await supabase.from('game_sessions').update({ state: updated }).eq('id', session.id)
     setState(updated)
-    console.log('PLAY AGAIN STATE:', JSON.stringify(pa))
 
-    // If both ready, create new session (only player_one creates to avoid races)
+    // Try to create (only player_one will actually create)
+    await checkAndCreate()
+  }
+
+  // Runs on tap, realtime update, and poll. Only player_one creates.
+  async function checkAndCreate() {
+    if (!session || !myId) return
+    const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
+    const cur = (fresh?.state || state) as GameState
+    const pa = cur.playAgain
+    if (!pa) return
+    console.log('RELOADED PLAY AGAIN STATE:', JSON.stringify(pa))
+
+    // If next session exists, navigate
+    if (pa.next_session_id) {
+      console.log('NAVIGATING TO NEXT SESSION:', pa.next_session_id)
+      await navigateToNext(pa.next_session_id)
+      return
+    }
+
     if (pa.player_one_ready && pa.player_two_ready) {
-      console.log('BOTH READY:')
+      console.log('BOTH READY TRUE:')
       if (myId === session.player_one_id) {
+        console.log('CURRENT USER IS CREATOR:')
         await createNextSession(cur)
+      } else {
+        console.log('CURRENT USER WAITING FOR CREATOR:')
       }
     }
   }
@@ -265,11 +290,12 @@ export default function TicTacToeScreen() {
 
     if (error || !data) { console.error('Play again error:', error); return }
     console.log('NEW PLAY AGAIN SESSION CREATED:', data.id)
-    console.log('NEXT SESSION ID:', data.id)
 
     // Store next_session_id in OLD session so both detect it
     const pa = { ...(cur.playAgain || {}), player_one_ready: true, player_two_ready: true, next_session_id: data.id }
     await supabase.from('game_sessions').update({ state: { ...cur, playAgain: pa } }).eq('id', session.id)
+    console.log('NEXT SESSION ID SAVED:', data.id)
+    await navigateToNext(data.id)
   }
 
   async function navigateToNext(nextId: string) {
@@ -305,6 +331,14 @@ export default function TicTacToeScreen() {
       </div>
     )
   }
+
+  // Poll fallback while waiting for the other player to be ready
+  useEffect(() => {
+    if (!iAmReady || !session) return
+    const t = setInterval(() => { checkAndCreate() }, 2000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iAmReady, session])
 
   const isMyTurn = state.currentTurn === myId && state.status === 'active'
   const myName = myId === session.player_one_id ? names.one : names.two
