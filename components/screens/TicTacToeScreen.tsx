@@ -297,14 +297,6 @@ export default function TicTacToeScreen() {
         </span>
       </div>
 
-      {/* DEBUG BOX (temporary) */}
-      <div className="mx-6 mb-3 rounded-xl p-2.5 text-[10px] font-mono" style={{ background: progressError ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${progressError ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.06)'}` }}>
-        <div style={{ color: 'rgba(255,255,255,0.4)' }}>Session: {session.id.slice(0,12)}...</div>
-        <div style={{ color: 'rgba(255,255,255,0.4)' }}>Progress counted: {String(state.progressCounted || false)}</div>
-        <div style={{ color: 'rgba(255,255,255,0.4)' }}>Pair progress: {pairCount}/10</div>
-        {progressError && <div style={{ color: '#f87171', marginTop: 2 }}>Progress update failed: {progressError}</div>}
-      </div>
-
       {/* Board */}
       <div className="flex items-center justify-center px-6">
         <div style={{
