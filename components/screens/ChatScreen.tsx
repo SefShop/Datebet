@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '@/lib/AppContext'
+import { refreshMessagesState } from '@/lib/messagesState'
 import { supabase } from '@/lib/supabase'
 import { getCurrentMatch } from '@/lib/profiles'
 import { markAsRead } from '@/lib/unread'
@@ -72,6 +73,7 @@ export default function ChatScreen() {
 
       // Mark messages from this partner as read
       markAsRead(receiverId)
+      refreshMessagesState()
       if (e) { console.error('CHAT error:', e); setError(e.message) }
       if (data) setMsgs(data)
       setLoading(false)
@@ -140,6 +142,7 @@ export default function ChatScreen() {
     })
 
     if (e) { console.error('CHAT send error:', e); setError(e.message) }
+    else { console.log('MESSAGE SENT REFRESH CALLED'); refreshMessagesState() }
   }
 
   // Quick replies

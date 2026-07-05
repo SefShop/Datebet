@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/lib/AppContext'
 import { clearProfileState } from '@/lib/profiles'
-import { getUnreadCount } from '@/lib/unread'
+import { getMessagesState, subscribeMessages, refreshMessagesState } from '@/lib/messagesState'
 import { getInviteCount } from '@/lib/gameInvites'
 
 interface Props { onLogout: () => void }
@@ -11,22 +11,24 @@ interface Props { onLogout: () => void }
 export default function UserMenu({ onLogout }: Props) {
   const { navigate, lang } = useApp()
   const [open, setOpen] = useState(false)
-  const [unread, setUnread] = useState(0)
+  const [unread, setUnread] = useState(getMessagesState().unread)
   const [invites, setInvites] = useState(0)
 
   useEffect(() => {
-    getUnreadCount().then(n => { console.log('MENU UNREAD:', n); setUnread(n) })
+    // Unread comes from the GLOBAL store (single source of truth)
+    setUnread(getMessagesState().unread)
+    const unsub = subscribeMessages(() => setUnread(getMessagesState().unread))
+    // Invites still polled here
     getInviteCount().then(setInvites)
-    console.log('INVITE POLLING STARTED: badge')
-    const t = setInterval(() => { getUnreadCount().then(setUnread); getInviteCount().then(setInvites) }, 3000)
-    return () => clearInterval(t)
+    const t = setInterval(() => { getInviteCount().then(setInvites) }, 3000)
+    return () => { unsub(); clearInterval(t) }
   }, [])
 
   // Refresh when menu opens
   useEffect(() => {
     if (open) {
-      console.log('PROFILE MENU MESSAGE REFRESH')
-      getUnreadCount().then(n => { console.log('UNREAD COUNT UPDATED:', n); setUnread(n) })
+      console.log('PROFILE MENU REFRESH CALLED')
+      refreshMessagesState()
       getInviteCount().then(setInvites)
     }
   }, [open])

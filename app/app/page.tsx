@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { startMessagesPolling, stopMessagesPolling, refreshMessagesState } from '@/lib/messagesState'
 import { useApp, AppProvider } from '@/lib/AppContext'
 import SplashScreen    from '@/components/screens/SplashScreen'
 import GameSelectionScreen from '@/components/screens/GameSelectionScreen'
@@ -67,6 +68,20 @@ function AppShell() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // Global messages polling — single source of truth for inbox/menu/badge
+  useEffect(() => {
+    if (!authed) { stopMessagesPolling(); return }
+    startMessagesPolling()
+    function onVisible() {
+      if (document.visibilityState === 'visible') { console.log('VISIBILITY REFRESH CALLED'); refreshMessagesState() }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      stopMessagesPolling()
+    }
+  }, [authed])
 
   // ReturnScreen handler removed
 

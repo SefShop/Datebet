@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
+import { getMessagesState, subscribeMessages, refreshMessagesState } from '@/lib/messagesState'
 import { supabase } from '@/lib/supabase'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
@@ -18,14 +19,18 @@ interface Conversation {
 export default function InboxScreen() {
   const { navigate, lang } = useApp()
   const [convos, setConvos]   = useState<Conversation[]>([])
+  const [lastRefresh, setLastRefresh] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
 
   useEffect(() => {
     loadConversations()
     console.log('MESSAGES POLLING STARTED')
+    refreshMessagesState()
+    // Re-render when global store updates
+    const unsub = subscribeMessages(() => { setLastRefresh(Date.now()); loadConversations(true) })
     const poll = setInterval(() => loadConversations(true), 3000)
-    return () => { clearInterval(poll); console.log('MESSAGES POLLING STOPPED') }
+    return () => { unsub(); clearInterval(poll); console.log('MESSAGES POLLING STOPPED') }
   }, [])
 
   async function loadConversations(silent = false) {
@@ -143,6 +148,11 @@ export default function InboxScreen() {
           💬 {lang === 'gr' ? 'Μηνύματα' : 'Messages'}
         </h1>
         <div style={{ width: 40 }} />
+      </div>
+
+      {/* TEMP DEBUG — verify polling */}
+      <div className="px-5 py-1.5 text-[10px] font-mono" style={{ background: 'rgba(74,222,128,0.06)', color: 'rgba(74,222,128,0.6)' }}>
+        Last refresh: {lastRefresh ? new Date(lastRefresh).toLocaleTimeString() : '—'} · Unread: {getMessagesState().unread}
       </div>
 
       {/* Content */}
