@@ -15,6 +15,8 @@ function checkWinner(b: string[]): string | null {
 }
 
 interface GameState {
+  gameNumber?: number
+  parentSessionId?: string | null
   board: string[]
   currentTurn: string
   winner: string | null
@@ -38,6 +40,7 @@ export default function TicTacToeScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState<string | null>(null)
   const channelRef = useRef<any>(null)
+  const activeSessionRef = useRef<string | null>(null)
   const [progressError, setProgressError] = useState<string | null>(null)
   const [pairCount, setPairCount] = useState<number>(0)
   const [iAmReady, setIAmReady] = useState(false)
@@ -50,12 +53,16 @@ export default function TicTacToeScreen() {
     const sess0 = session  // non-null capture for closure
 
     // Clear old state when session changes (fresh board for new game)
-    console.log('SESSION ID CHANGED:', sess0.id)
-    console.log('OLD STATE CLEARED:')
+    console.log('SESSION SWITCH DETECTED:', sess0.id)
+    console.log('OLD SESSION CLEANED:')
     setState(null)
     setLoading(true)
     setIAmReady(false)
     if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
+
+    // Hard guard: mark the active session id
+    activeSessionRef.current = sess0.id
+    console.log('ACTIVE SESSION ID:', sess0.id)
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -73,7 +80,7 @@ export default function TicTacToeScreen() {
 
       // Always fetch FRESH state from Supabase by session_id
       const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
-      console.log('NEW SESSION LOADED:', sess0.id)
+      console.log('NEW SESSION FRESH LOADED:', sess0.id)
 
       let gs: GameState
       const raw = sess?.state as any
@@ -86,6 +93,8 @@ export default function TicTacToeScreen() {
       } else {
         // Repair / initialize
         gs = {
+          gameNumber: typeof raw?.gameNumber === 'number' ? raw.gameNumber : 1,
+          parentSessionId: raw?.parentSessionId ?? null,
           board: validBoard ? raw.board : ['','','','','','','','',''],
           currentTurn: validTurn ? raw.currentTurn : sess0.player_one_id,
           winner: raw?.winner ?? null,
@@ -96,6 +105,7 @@ export default function TicTacToeScreen() {
         await supabase.from('game_sessions').update({ state: gs }).eq('id', sess0.id)
         console.log('VALID STATE: repaired/initialized')
       }
+      console.log('GAME NUMBER:', gs.gameNumber ?? 1)
       setState(gs)
       console.log('CURRENT TURN:', gs.currentTurn)
       setLoading(false)
@@ -107,6 +117,13 @@ export default function TicTacToeScreen() {
           event: 'UPDATE', schema: 'public', table: 'game_sessions',
           filter: `id=eq.${sess0.id}`,
         }, (payload: any) => {
+          const updatedId = payload.new?.id
+          console.log('REALTIME UPDATE SESSION ID:', updatedId)
+          // HARD GUARD: ignore updates that aren't for the active session
+          if (updatedId !== activeSessionRef.current) {
+            console.log('IGNORED OLD SESSION UPDATE:', updatedId)
+            return
+          }
           const newState = payload.new?.state
           if (newState && newState.board) {
             console.log('TICTACTOE REALTIME UPDATE:', newState.moves, 'moves')
@@ -148,6 +165,8 @@ export default function TicTacToeScreen() {
     }
 
     const newState: GameState = {
+      gameNumber: state.gameNumber ?? 1,
+      parentSessionId: state.parentSessionId ?? null,
       board, currentTurn, winner, status, moves,
       progressCounted: state.progressCounted,
       // Initialize playAgain whenever the game finishes (winner OR draw)
@@ -160,7 +179,7 @@ export default function TicTacToeScreen() {
 
     const { error: e } = await supabase.from('game_sessions').update({ state: newState }).eq('id', session.id)
     if (e) console.error('SESSION UPDATE error:', e)
-    else console.log('MOVE SAVED:', session.id)
+    else console.log('MOVE SAVED TO SESSION:', session.id)
 
     // If this move finished the game, count progress once (the finishing mover records it)
     if (status === 'finished') {

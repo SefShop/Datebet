@@ -137,10 +137,10 @@ export interface GameSession {
 
 function initStateFor(gameType: string): any {
   if (gameType === 'connect_4') {
-    return { board: Array(42).fill(''), currentTurn: null, winner: null, status: 'active', moves: 0 }
+    return { board: Array(42).fill(''), currentTurn: null, winner: null, status: 'active', moves: 0, gameNumber: 1, parentSessionId: null }
   }
   // tic_tac_toe / default
-  return { board: ['','','','','','','','',''], currentTurn: null, winner: null, status: 'active', moves: 0 }
+  return { board: ['','','','','','','','',''], currentTurn: null, winner: null, status: 'active', moves: 0, progressCounted: false, gameNumber: 1, parentSessionId: null }
 }
 
 // Create a session when an invite is accepted (receiver side)
