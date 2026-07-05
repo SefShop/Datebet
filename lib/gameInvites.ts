@@ -24,15 +24,18 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
     const { data: myProfile } = await supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
     const senderName = myProfile?.name || 'Someone'
 
-    // Avoid duplicate pending
-    const { data: existing } = await supabase
+    // Clean up any old pending invites to this receiver (prevents pile-up blocking Play Again)
+    const { data: oldPending } = await supabase
       .from('game_invites')
       .select('id')
       .eq('sender_id', user.id)
       .eq('receiver_id', receiverId)
       .eq('status', 'pending')
-      .maybeSingle()
-    if (existing) return { ok: false, error: 'Invite already sent' }
+    if (oldPending && oldPending.length > 0) {
+      const ids = oldPending.map(r => r.id)
+      await supabase.from('game_invites').update({ status: 'declined' }).in('id', ids)
+      console.log('CLEANED OLD PENDING INVITES:', ids.length)
+    }
 
     const { data, error } = await supabase.from('game_invites').insert({
       sender_id: user.id,
@@ -163,6 +166,14 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
       console.log('GAME SESSION LOADED:', existing.id)
       return { session: existing }
     }
+
+    // Log how many sessions this pair has (history, no limit)
+    const { count } = await supabase
+      .from('game_sessions')
+      .select('*', { count: 'exact', head: true })
+      .or(`and(player_one_id.eq.${invite.sender_id},player_two_id.eq.${invite.receiver_id}),and(player_one_id.eq.${invite.receiver_id},player_two_id.eq.${invite.sender_id})`)
+    console.log('SESSION COUNT FOR PAIR:', count)
+    console.log('NO LIMIT REACHED')
 
     const { data, error } = await supabase
       .from('game_sessions')

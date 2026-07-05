@@ -205,6 +205,7 @@ export default function TicTacToeScreen() {
   // ── Play Again = new invite (uses working invite flow) ──────────
   async function playAgain() {
     if (!session || !myId) return
+    console.log('PLAY AGAIN REQUESTED')
     console.log('PLAY AGAIN CLICKED:', session.id)
     setIAmReady(true)
 
@@ -217,7 +218,9 @@ export default function TicTacToeScreen() {
       setIAmReady(false)
       return
     }
+    console.log('NEW GAME SESSION CREATED (invite):', result.inviteId)
     console.log('PLAY AGAIN INVITE CREATED:', result.inviteId)
+    console.log('NO LIMIT REACHED')
 
     // Opponent name for waiting screen
     const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()
