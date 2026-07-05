@@ -17,7 +17,7 @@ export default function WaitingScreen() {
   useEffect(() => {
     console.log('WAITING SCREEN DATA:', pending)
     if (!pending) { console.log('WAITING SCREEN ERROR: no pending invite'); return }
-    console.log('A WAITING INVITE ID:', pending.id)
+    console.log('WAITING FOR INVITE ACCEPT:', pending.id)
 
     channelRef.current = supabase
       .channel(`waiting-${pending.id}`)
@@ -27,6 +27,7 @@ export default function WaitingScreen() {
         const inv = payload.new as GameInvite
         console.log('A INVITE STATUS UPDATE:', inv.status)
         if (inv.status === 'accepted') {
+          console.log('INVITE ACCEPTED:', inv.id)
           await enterRoom(inv)
         } else if (inv.status === 'declined') {
           console.log('DECLINED:', inv.id)
@@ -35,7 +36,24 @@ export default function WaitingScreen() {
       })
       .subscribe()
 
-    return () => { if (channelRef.current) supabase.removeChannel(channelRef.current) }
+    // Poll fallback — check THIS invite's status every 2s (realtime may miss)
+    const poll = setInterval(async () => {
+      const { data } = await supabase.from('game_invites').select('*').eq('id', pending.id).maybeSingle()
+      if (!data) return
+      if (data.status === 'accepted') {
+        console.log('INVITE ACCEPTED (poll):', data.id)
+        clearInterval(poll)
+        await enterRoom(data as GameInvite)
+      } else if (data.status === 'declined') {
+        clearInterval(poll)
+        setStatus('declined')
+      }
+    }, 2000)
+
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current)
+      clearInterval(poll)
+    }
   }, [pending])
 
   async function enterRoom(inv: GameInvite) {

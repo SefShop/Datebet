@@ -24,19 +24,8 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
     const { data: myProfile } = await supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
     const senderName = myProfile?.name || 'Someone'
 
-    // Clean up any old pending invites to this receiver (prevents pile-up blocking Play Again)
-    const { data: oldPending } = await supabase
-      .from('game_invites')
-      .select('id')
-      .eq('sender_id', user.id)
-      .eq('receiver_id', receiverId)
-      .eq('status', 'pending')
-    if (oldPending && oldPending.length > 0) {
-      const ids = oldPending.map(r => r.id)
-      await supabase.from('game_invites').update({ status: 'declined' }).in('id', ids)
-      console.log('CLEANED OLD PENDING INVITES:', ids.length)
-    }
-
+    // ALWAYS insert a brand-new invite. No history checks, no dedup.
+    console.log('PLAY AGAIN PRESSED / sending invite')
     const { data, error } = await supabase.from('game_invites').insert({
       sender_id: user.id,
       receiver_id: receiverId,
@@ -46,6 +35,8 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
     }).select().single()
 
     if (error) { console.error('GAME INVITE error:', error); return { ok: false, error: error.message } }
+    console.log('NEW INVITE CREATED')
+    console.log('NEW INVITE ID:', data.id)
     console.log('GAME INVITE SENT:', receiverId, gameType)
     return { ok: true, inviteId: data.id }
   } catch (e: any) { return { ok: false, error: e.message } }
@@ -189,7 +180,7 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
       .single()
 
     if (error) { console.error('GAME SESSION error:', error); return { error: error.message } }
-    console.log('GAME SESSION CREATED:', data.id)
+    console.log('NEW GAME SESSION CREATED:', data.id)
     return { session: data }
   } catch (e: any) { return { error: e.message } }
 }
