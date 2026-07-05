@@ -8,7 +8,7 @@ export interface UserProfile {
   id: string; name: string; age: number
   photo: string; gradient: string
   location: { en: string; gr: string }
-  online: boolean; interests: string[]
+  online: boolean; lastSeen?: string | null; interests: string[]
   bio: { en: string; gr: string }
 }
 
@@ -45,17 +45,23 @@ export async function fetchProfiles(): Promise<FetchResult> {
 
     return {
       error: null,
-      profiles: data.map((row: any, i: number) => ({
-        id: row.id,
-        name: row.name || 'Player',
-        age: row.age || 0,
-        photo: row.photo || '',
-        gradient: GRADIENTS[i % GRADIENTS.length],
-        location: { en: row.location || '', gr: row.location || '' },
-        online: Math.random() < 0.6,
-        interests: [],
-        bio: { en: row.bio || '', gr: row.bio || '' },
-      })),
+      profiles: data.map((row: any, i: number) => {
+        // Real presence: is_online AND last_seen within 2 min
+        const lastSeen = row.last_seen ? new Date(row.last_seen).getTime() : 0
+        const online = !!row.is_online && (Date.now() - lastSeen) <= 2 * 60 * 1000
+        return {
+          id: row.id,
+          name: row.name || 'Player',
+          age: row.age || 0,
+          photo: row.photo || '',
+          gradient: GRADIENTS[i % GRADIENTS.length],
+          location: { en: row.location || '', gr: row.location || '' },
+          online,
+          lastSeen: row.last_seen || null,
+          interests: [],
+          bio: { en: row.bio || '', gr: row.bio || '' },
+        }
+      }),
     }
   } catch (e: any) {
     console.error('PROFILES catch:', e)

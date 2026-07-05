@@ -4,6 +4,7 @@ import { useApp } from '@/lib/AppContext'
 import { refreshMessagesState } from '@/lib/messagesState'
 import { supabase } from '@/lib/supabase'
 import { getCurrentMatch } from '@/lib/profiles'
+import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
 import { markAsRead } from '@/lib/unread'
 
 interface Message {
@@ -24,9 +25,27 @@ export default function ChatScreen() {
   const [userId, setUserId]   = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
+  const [partnerOnline, setPartnerOnline] = useState(false)
+  const [partnerPresence, setPartnerPresence] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const receiverId = match.id !== 'none' ? match.id : null
+
+  // Poll partner presence every 20s
+  useEffect(() => {
+    if (!receiverId) return
+    let active = true
+    async function load() {
+      const p = await getPresence(receiverId!)
+      if (!active) return
+      setPartnerOnline(isOnlineNow(p.isOnline, p.lastSeen))
+      setPartnerPresence(presenceLabel(p.isOnline, p.lastSeen, lang as 'en' | 'gr'))
+    }
+    load()
+    const t = setInterval(load, 20000)
+    return () => { active = false; clearInterval(t) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receiverId, lang])
 
   // Get current user + load messages
   useEffect(() => {
@@ -170,8 +189,9 @@ export default function ChatScreen() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[15px] font-bold text-white truncate">{match.name}</div>
-              <div className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                {lang === 'gr' ? 'Πραγματικός παίκτης' : 'Real player'}
+              <div className="text-[11px] flex items-center gap-1.5" style={{ color: partnerOnline ? '#4ade80' : 'rgba(255,255,255,0.4)' }}>
+                {partnerOnline && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#4ade80', boxShadow: '0 0 4px #4ade80' }} />}
+                {partnerPresence}
               </div>
             </div>
           </>

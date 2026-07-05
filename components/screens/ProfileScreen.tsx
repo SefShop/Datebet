@@ -251,7 +251,7 @@ export default function ProfileScreen() {
                   style={{ background:'rgba(0,0,0,0.5)', backdropFilter:'blur(8px)' }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: p.online ? '#4ade80' : '#555',
                     boxShadow: p.online ? '0 0 6px #4ade80' : 'none' }} />
-                  <span className="text-[10px] font-bold text-white/70">{p.online ? 'online' : 'offline'}</span>
+                  <span className="text-[10px] font-bold text-white/70">{p.online ? (lang === 'gr' ? 'σε σύνδεση' : 'online') : (lang === 'gr' ? 'εκτός' : 'offline')}</span>
                 </div>
 
                 {/* Name/age/location */}

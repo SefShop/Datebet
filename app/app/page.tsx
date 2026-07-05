@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { startMessagesPolling, stopMessagesPolling, refreshMessagesState } from '@/lib/messagesState'
+import { startPresence, stopPresence, setOnline, setOffline } from '@/lib/presence'
 import { useApp, AppProvider } from '@/lib/AppContext'
 import SplashScreen    from '@/components/screens/SplashScreen'
 import GameSelectionScreen from '@/components/screens/GameSelectionScreen'
@@ -71,15 +72,26 @@ function AppShell() {
 
   // Global messages polling — single source of truth for inbox/menu/badge
   useEffect(() => {
-    if (!authed) { stopMessagesPolling(); return }
+    if (!authed) { stopMessagesPolling(); stopPresence(); return }
     startMessagesPolling()
+    startPresence()
     function onVisible() {
-      if (document.visibilityState === 'visible') { console.log('VISIBILITY REFRESH CALLED'); refreshMessagesState() }
+      if (document.visibilityState === 'visible') {
+        console.log('VISIBILITY REFRESH CALLED')
+        refreshMessagesState()
+        setOnline()
+      } else {
+        setOffline()  // tab hidden → offline
+      }
     }
+    function onLeave() { setOffline() }
     document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('beforeunload', onLeave)
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('beforeunload', onLeave)
       stopMessagesPolling()
+      stopPresence()
     }
   }, [authed])
 

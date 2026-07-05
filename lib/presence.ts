@@ -1,198 +1,83 @@
-// ─────────────────────────────────────────────────────────────────
-// Presence Engine
-//
-// Simulates a real person's decision timeline.
-// Key insight: humans are unpredictable in timing but
-// predictable in emotional arc. We fake the arc.
-// ─────────────────────────────────────────────────────────────────
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
-import type { LangStr } from '@/types'
+// ── Real online/offline presence ────────────────────────────────
 
-export type PresenceStatus =
-  | 'idle'
-  | 'opened_app'
-  | 'saw_bet'
-  | 'typing'
-  | 'thinking'
-  | 'hesitating'
-  | 'close'
-  | 'locked_in'
-  | 'ghosted'   // only fires if demo mode triggers it
-
-export interface PresenceEvent {
-  id: string
-  status: PresenceStatus
-  // What the UI shows
-  headline: string          // e.g. "Opponent is thinking..."
-  sub: string               // e.g. "she opened the app 2 min ago"
-  // Avatar behavior
-  avatarPulse: 'none' | 'soft' | 'strong'
-  avatarGlow: string        // css color or 'none'
-  // Emotional tone for the observer
-  tone: 'neutral' | 'hopeful' | 'uncertain' | 'tense' | 'relief'
+// Set current user online + timestamp
+export async function setOnline(): Promise<void> {
+  if (!isSupabaseConfigured()) return
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('profiles').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', user.id)
+    console.log('PRESENCE ONLINE SET')
+  } catch (e: any) { console.error('setOnline:', e.message) }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// The script — ordered events with variable delays
-// delay = ms from previous event (randomised within range)
-// ─────────────────────────────────────────────────────────────────
-export interface ScriptEntry {
-  status: PresenceStatus
-  minDelay: number    // ms
-  maxDelay: number
-  headline: LangStr
-  sub: LangStr
-  avatarPulse: PresenceEvent['avatarPulse']
-  avatarGlow: string
-  tone: PresenceEvent['tone']
+// Heartbeat — update last_seen (keeps online fresh)
+export async function heartbeat(): Promise<void> {
+  if (!isSupabaseConfigured()) return
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('profiles').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', user.id)
+    console.log('PRESENCE HEARTBEAT')
+  } catch { /* silent */ }
 }
 
-// Two possible scripts — matched (she locks in) or ghost (demo only)
-// In the real app, the backend would drive this.
-// Here we pick a script on mount and run it.
-
-export const SCRIPT_LOCKS_IN: ScriptEntry[] = [
-  {
-    status: 'opened_app',
-    minDelay: 1800, maxDelay: 4200,
-    headline: { en: 'Someone opened the app.', gr: 'Κάποιος άνοιξε το app.' },
-    sub: { en: 'she saw the notification.', gr: 'είδε την ειδοποίηση.' },
-    avatarPulse: 'soft', avatarGlow: 'rgba(109,99,255,0.4)',
-    tone: 'neutral',
-  },
-  {
-    status: 'saw_bet',
-    minDelay: 2000, maxDelay: 5000,
-    headline: { en: 'She saw your bet.', gr: 'Είδε το στοίχημά σου.' },
-    sub: { en: "she's reading the terms.", gr: "διαβάζει τους όρους." },
-    avatarPulse: 'soft', avatarGlow: 'rgba(109,99,255,0.5)',
-    tone: 'hopeful',
-  },
-  {
-    status: 'thinking',
-    minDelay: 3000, maxDelay: 7000,
-    headline: { en: 'Opponent is thinking...', gr: 'Αντίπαλος σκέφτεται...' },
-    sub: { en: "she hasn't decided yet.", gr: "δεν έχει αποφασίσει ακόμα." },
-    avatarPulse: 'soft', avatarGlow: 'rgba(255,140,66,0.35)',
-    tone: 'uncertain',
-  },
-  {
-    status: 'hesitating',
-    minDelay: 4000, maxDelay: 9000,
-    headline: { en: 'She went quiet.', gr: 'Σώπασε.' },
-    sub: { en: 'interesting. she usually decides fast.', gr: 'περίεργο. συνήθως αποφασίζει γρήγορα.' },
-    avatarPulse: 'none', avatarGlow: 'rgba(255,140,66,0.2)',
-    tone: 'tense',
-  },
-  {
-    status: 'typing',
-    minDelay: 2000, maxDelay: 5000,
-    headline: { en: 'Someone is typing...', gr: 'Κάποιος γράφει...' },
-    sub: { en: "she's about to make a move.", gr: "ετοιμάζεται να κάνει κίνηση." },
-    avatarPulse: 'strong', avatarGlow: 'rgba(253,41,123,0.5)',
-    tone: 'hopeful',
-  },
-  {
-    status: 'close',
-    minDelay: 1500, maxDelay: 3500,
-    headline: { en: "she's deciding.", gr: "αποφασίζει." },
-    sub: { en: '3... 2...', gr: '3... 2...' },
-    avatarPulse: 'strong', avatarGlow: 'rgba(253,41,123,0.7)',
-    tone: 'relief',
-  },
-  {
-    status: 'locked_in',
-    minDelay: 800,  maxDelay: 2000,
-    headline: { en: "she locked in.", gr: "κλείδωσε." },
-    sub: { en: "you're both in. no backing out.", gr: "είστε κι οι δύο μέσα. πίσω γυρισμός δεν υπάρχει." },
-    avatarPulse: 'strong', avatarGlow: 'rgba(253,41,123,0.9)',
-    tone: 'relief',
-  },
-]
-
-// Slower, more doubt-inducing version
-export const SCRIPT_SLOW: ScriptEntry[] = [
-  {
-    status: 'opened_app',
-    minDelay: 3000, maxDelay: 7000,
-    headline: { en: 'Someone opened the app.', gr: 'Κάποιος άνοιξε το app.' },
-    sub: { en: 'took her a moment.', gr: 'της πήρε μια στιγμή.' },
-    avatarPulse: 'soft', avatarGlow: 'rgba(109,99,255,0.3)',
-    tone: 'neutral',
-  },
-  {
-    status: 'saw_bet',
-    minDelay: 4000, maxDelay: 8000,
-    headline: { en: 'She saw the bet.', gr: 'Είδε το στοίχημα.' },
-    sub: { en: "she's not saying anything.", gr: "δεν λέει τίποτα." },
-    avatarPulse: 'soft', avatarGlow: 'rgba(109,99,255,0.4)',
-    tone: 'uncertain',
-  },
-  {
-    status: 'thinking',
-    minDelay: 5000, maxDelay: 11000,
-    headline: { en: 'Someone is deciding...', gr: 'Κάποιος αποφασίζει...' },
-    sub: { en: 'longer than expected.', gr: 'πιο πολύ απ\' όσο περίμενες.' },
-    avatarPulse: 'none', avatarGlow: 'rgba(255,140,66,0.25)',
-    tone: 'tense',
-  },
-  {
-    status: 'hesitating',
-    minDelay: 5000, maxDelay: 10000,
-    headline: { en: 'She took longer than expected.', gr: 'Άργησε πιο πολύ απ\' όσο περίμενες.' },
-    sub: { en: 'either she\'s careful, or she\'s not sure.', gr: 'ή είναι προσεκτική, ή δεν είναι σίγουρη.' },
-    avatarPulse: 'none', avatarGlow: 'rgba(255,140,66,0.2)',
-    tone: 'tense',
-  },
-  {
-    status: 'thinking',
-    minDelay: 3000, maxDelay: 6000,
-    headline: { en: 'Still thinking...', gr: 'Ακόμα σκέφτεται...' },
-    sub: { en: "the silence says something.", gr: "η σιωπή λέει κάτι." },
-    avatarPulse: 'soft', avatarGlow: 'rgba(255,140,66,0.3)',
-    tone: 'tense',
-  },
-  {
-    status: 'typing',
-    minDelay: 2000, maxDelay: 4000,
-    headline: { en: 'Someone is typing...', gr: 'Κάποιος γράφει...' },
-    sub: { en: 'finally.', gr: 'επιτέλους.' },
-    avatarPulse: 'strong', avatarGlow: 'rgba(253,41,123,0.5)',
-    tone: 'hopeful',
-  },
-  {
-    status: 'close',
-    minDelay: 1000, maxDelay: 2500,
-    headline: { en: "almost...", gr: "σχεδόν..." },
-    sub: { en: "don't look away.", gr: "μην κοιτάς αλλού." },
-    avatarPulse: 'strong', avatarGlow: 'rgba(253,41,123,0.7)',
-    tone: 'relief',
-  },
-  {
-    status: 'locked_in',
-    minDelay: 600, maxDelay: 1400,
-    headline: { en: "she locked in.", gr: "κλείδωσε." },
-    sub: { en: "you're both in. no backing out.", gr: "είστε κι οι δύο μέσα. πίσω γυρισμός δεν υπάρχει." },
-    avatarPulse: 'strong', avatarGlow: 'rgba(253,41,123,0.9)',
-    tone: 'relief',
-  },
-]
-
-// Pick script randomly — 60% fast, 40% slow
-export function pickScript(): ScriptEntry[] {
-  return Math.random() < 0.6 ? SCRIPT_LOCKS_IN : SCRIPT_SLOW
+// Set offline (logout / tab hidden / close)
+export async function setOffline(): Promise<void> {
+  if (!isSupabaseConfigured()) return
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('profiles').update({ is_online: false, last_seen: new Date().toISOString() }).eq('id', user.id)
+    console.log('PRESENCE OFFLINE SET')
+  } catch { /* silent */ }
 }
 
-// Resolve a random delay within range
-export function resolveDelay(entry: ScriptEntry): number {
-  return entry.minDelay + Math.random() * (entry.maxDelay - entry.minDelay)
+// ── Heartbeat interval management (single, no duplicates) ────────
+let _hb: any = null
+
+export function startPresence() {
+  if (_hb) return
+  setOnline()
+  _hb = setInterval(() => heartbeat(), 30000)  // every 30s
 }
 
-// Tone → color mapping for UI hints
-export const TONE_COLOR: Record<PresenceEvent['tone'], string> = {
-  neutral:   'rgba(255,255,255,0.3)',
-  hopeful:   'rgba(109,99,255,0.8)',
-  uncertain: 'rgba(255,140,66,0.8)',
-  tense:     'rgba(255,80,80,0.7)',
-  relief:    'rgba(253,41,123,0.9)',
+export function stopPresence() {
+  if (_hb) { clearInterval(_hb); _hb = null }
+  setOffline()
+}
+
+// ── Display helpers ─────────────────────────────────────────────
+
+// Is a profile online right now? (is_online AND last_seen within 2 min)
+export function isOnlineNow(isOnline: boolean | null, lastSeen: string | null): boolean {
+  if (!isOnline || !lastSeen) return false
+  const diff = Date.now() - new Date(lastSeen).getTime()
+  return diff <= 2 * 60 * 1000  // 2 minutes
+}
+
+// "online" or "last seen X ago"
+export function presenceLabel(isOnline: boolean | null, lastSeen: string | null, lang: 'en' | 'gr' = 'en'): string {
+  if (isOnlineNow(isOnline, lastSeen)) return lang === 'gr' ? 'σε σύνδεση' : 'online'
+  if (!lastSeen) return lang === 'gr' ? 'εκτός σύνδεσης' : 'offline'
+  const mins = Math.floor((Date.now() - new Date(lastSeen).getTime()) / 60000)
+  if (mins < 1) return lang === 'gr' ? 'μόλις τώρα' : 'just now'
+  if (mins < 60) return lang === 'gr' ? `εθεάθη πριν ${mins}λ` : `last seen ${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return lang === 'gr' ? `εθεάθη πριν ${hrs}ω` : `last seen ${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return lang === 'gr' ? `εθεάθη πριν ${days}μ` : `last seen ${days}d ago`
+}
+
+// Fetch presence for a specific user
+export async function getPresence(userId: string): Promise<{ isOnline: boolean; lastSeen: string | null }> {
+  if (!isSupabaseConfigured()) return { isOnline: false, lastSeen: null }
+  try {
+    const { data } = await supabase.from('profiles').select('is_online, last_seen').eq('id', userId).maybeSingle()
+    const online = isOnlineNow(data?.is_online ?? false, data?.last_seen ?? null)
+    console.log('PRESENCE STATUS LOADED:', online ? 'online' : 'offline')
+    return { isOnline: data?.is_online ?? false, lastSeen: data?.last_seen ?? null }
+  } catch { return { isOnline: false, lastSeen: null } }
 }
