@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, setCurrentSession } from '@/lib/gameInvites'
+import { getCurrentSession, setCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
@@ -96,19 +96,6 @@ export default function TicTacToeScreen() {
             console.log('TICTACTOE REALTIME UPDATE:', newState.moves, 'moves')
             newState.board = Array.from({ length: 9 }, (_, k) => newState.board?.[k] || '')
             setState(newState)
-            // Play Again: react to ready flags / next session
-            if (newState.playAgain) {
-              if (newState.playAgain.next_session_id) {
-                const nextId = newState.playAgain.next_session_id
-                console.log('NEXT SESSION DETECTED AFTER WINNER:', nextId)
-                console.log('NAVIGATING TO NEXT SESSION:', nextId)
-                supabase.from('game_sessions').select('*').eq('id', nextId).maybeSingle().then(({ data }: any) => {
-                  if (data) { setCurrentSession(data); navigate('game_room'); setTimeout(() => navigate('tictactoe'), 50) }
-                })
-              } else if (newState.playAgain.player_one_ready && newState.playAgain.player_two_ready) {
-                checkAndCreate()
-              }
-            }
           }
         })
         .subscribe()
@@ -117,14 +104,6 @@ export default function TicTacToeScreen() {
     init()
     return () => { if (channelRef.current) supabase.removeChannel(channelRef.current) }
   }, [session])
-
-  // Poll fallback while waiting for the other player (hook stays above any early return)
-  useEffect(() => {
-    if (!iAmReady || !session) return
-    const t = setInterval(() => { checkAndCreate() }, 2000)
-    return () => clearInterval(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [iAmReady, session])
 
   async function play(i: number) {
     if (!state || !session || !myId) return
@@ -223,113 +202,30 @@ export default function TicTacToeScreen() {
     }
   }
 
+  // ── Play Again = new invite (uses working invite flow) ──────────
   async function playAgain() {
-    if (!session || !myId || !state) return
-    console.log('PLAY AGAIN AFTER WINNER:', state.winner)
+    if (!session || !myId) return
     console.log('PLAY AGAIN CLICKED:', session.id)
-
-    // Read fresh state (preserves winner, progressCounted, etc.)
-    const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
-    const cur = (fresh?.state || state) as GameState
-    console.log('STATE BEFORE PLAY AGAIN:', JSON.stringify({ winner: cur.winner, progressCounted: cur.progressCounted, playAgain: cur.playAgain }))
-    const pa = cur.playAgain || { player_one_ready: false, player_two_ready: false, next_session_id: null }
-
-    // If a next session already exists, just go there
-    if (pa.next_session_id) {
-      console.log('NAVIGATING TO NEXT SESSION:', pa.next_session_id)
-      await navigateToNext(pa.next_session_id)
-      return
-    }
-
-    // Set my ready flag
-    if (myId === session.player_one_id) pa.player_one_ready = true
-    if (myId === session.player_two_id) pa.player_two_ready = true
-    console.log('READY FLAGS UPDATED:', pa.player_one_ready, pa.player_two_ready)
     setIAmReady(true)
 
-    const updated = { ...cur, playAgain: pa }  // ...cur preserves winner + progressCounted
-    await supabase.from('game_sessions').update({ state: updated }).eq('id', session.id)
-    setState(updated)
-    console.log('STATE AFTER PLAY AGAIN:', JSON.stringify({ winner: updated.winner, progressCounted: updated.progressCounted, playAgain: updated.playAgain }))
+    const opponentId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
+    console.log('PLAY AGAIN OPPONENT:', opponentId)
 
-    await checkAndCreate()
-  }
-
-  // Runs on tap, realtime update, and poll. Only player_one creates.
-  async function checkAndCreate() {
-    try {
-      if (!session || !myId) return
-      console.log('APP CRASH FIX CHECK')
-      const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
-      const cur = (fresh?.state || state) as GameState
-      console.log('PLAY AGAIN SAFE STATE:', JSON.stringify(cur?.playAgain || null))
-      const pa = cur?.playAgain
-      if (!pa) return
-    console.log('RELOADED PLAY AGAIN STATE:', JSON.stringify(pa))
-
-    // If next session exists, navigate
-    if (pa.next_session_id) {
-      console.log('NAVIGATING TO NEXT SESSION:', pa.next_session_id)
-      await navigateToNext(pa.next_session_id)
+    const result = await sendGameInvite(opponentId, 'tic_tac_toe')
+    if (!result.ok || !result.inviteId) {
+      console.error('Play again invite failed:', result.error)
+      setIAmReady(false)
       return
     }
+    console.log('PLAY AGAIN INVITE CREATED:', result.inviteId)
 
-    if (pa.player_one_ready && pa.player_two_ready) {
-      console.log('BOTH READY AFTER WINNER:', cur.winner)
-      if (myId === session.player_one_id) {
-        console.log('CURRENT USER IS CREATOR:')
-        await createNextSession(cur)
-      } else {
-        console.log('CURRENT USER WAITING FOR CREATOR:')
-      }
-    }
-    } catch (e: any) { console.error('PLAY AGAIN ERROR:', e.message) }
+    // Opponent name for waiting screen
+    const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()
+    setPendingInvite({ id: result.inviteId, receiverName: opp?.name || 'Player', gameType: 'tic_tac_toe' })
+    console.log('PLAY AGAIN WAITING SCREEN:', result.inviteId)
+    navigate('waiting')
   }
 
-  async function createNextSession(cur: GameState) {
-    if (!session) return
-    // Guard: re-check next_session_id
-    const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
-    if (fresh?.state?.playAgain?.next_session_id) {
-      console.log('NEXT SESSION ID:', fresh.state.playAgain.next_session_id, '(already created)')
-      return
-    }
-
-    // Alternate starter: swap players
-    const newPlayerOne = session.player_two_id
-    const newPlayerTwo = session.player_one_id
-    const { data, error } = await supabase.from('game_sessions').insert({
-      invite_id: session.invite_id,
-      player_one_id: newPlayerOne,
-      player_two_id: newPlayerTwo,
-      game_type: 'tic_tac_toe',
-      status: 'active',
-      state: {
-        board: ['','','','','','','','',''],
-        currentTurn: newPlayerOne,
-        winner: null, status: 'active', moves: 0, progressCounted: false,
-      },
-    }).select().single()
-
-    if (error || !data) { console.error('Play again error:', error); return }
-    console.log('NEXT SESSION CREATED AFTER WINNER:', data.id)
-    console.log('NEW PLAY AGAIN SESSION CREATED:', data.id)
-
-    // Store next_session_id in OLD session so both detect it
-    const pa = { ...(cur.playAgain || {}), player_one_ready: true, player_two_ready: true, next_session_id: data.id }
-    await supabase.from('game_sessions').update({ state: { ...cur, playAgain: pa } }).eq('id', session.id)
-    console.log('NEXT SESSION ID SAVED:', data.id)
-    await navigateToNext(data.id)
-  }
-
-  async function navigateToNext(nextId: string) {
-    console.log('NAVIGATING TO PLAY AGAIN SESSION:', nextId)
-    const { data } = await supabase.from('game_sessions').select('*').eq('id', nextId).maybeSingle()
-    if (!data) return
-    setCurrentSession(data)
-    navigate('game_room')
-    setTimeout(() => navigate('tictactoe'), 50)
-  }
 
   // ── No session ──
   if (!session) {
@@ -454,7 +350,7 @@ export default function TicTacToeScreen() {
           {iAmReady ? (
             <div className="w-full rounded-2xl py-3.5 text-[14px] font-bold text-center"
               style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              ⏳ {lang === 'gr' ? 'Περιμένουμε τον άλλο παίκτη...' : 'Waiting for the other player...'}
+              ⏳ {lang === 'gr' ? 'Περιμένουμε τον παίκτη...' : 'Waiting for player...'}
             </div>
           ) : (
             <button onClick={playAgain}
