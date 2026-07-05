@@ -21,10 +21,15 @@ export default function InboxScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
 
-  useEffect(() => { loadConversations() }, [])
+  useEffect(() => {
+    loadConversations()
+    console.log('MESSAGES POLLING STARTED')
+    const poll = setInterval(() => loadConversations(true), 3000)
+    return () => { clearInterval(poll); console.log('MESSAGES POLLING STOPPED') }
+  }, [])
 
-  async function loadConversations() {
-    setLoading(true)
+  async function loadConversations(silent = false) {
+    if (!silent) setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError('Not logged in'); setLoading(false); return }
@@ -90,7 +95,9 @@ export default function InboxScreen() {
       })
 
       console.log('INBOX:', list.length, 'conversations')
+      console.log('MESSAGES POLL RESULT:', list.length, 'conversations')
       setConvos(list)
+      console.log('CONVERSATIONS UPDATED:', list.length)
       setLoading(false)
     } catch (err: any) {
       console.error('INBOX catch:', err)

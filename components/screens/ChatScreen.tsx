@@ -41,11 +41,13 @@ export default function ChatScreen() {
         .order('created_at', { ascending: true })
         .limit(100)
       if (data) {
+        console.log('CHAT OPEN POLL RESULT:', data.length, 'messages')
         setMsgs(prev => {
           if (prev.length === data.length && prev.every((m, i) => m.id === data[i].id)) return prev
           console.log('CHAT UPDATED:', data.length, 'messages')
           return data
         })
+        if (receiverId) markAsRead(receiverId)
       }
     }
 

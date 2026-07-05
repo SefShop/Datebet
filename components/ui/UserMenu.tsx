@@ -24,7 +24,11 @@ export default function UserMenu({ onLogout }: Props) {
 
   // Refresh when menu opens
   useEffect(() => {
-    if (open) { getUnreadCount().then(setUnread); getInviteCount().then(setInvites) }
+    if (open) {
+      console.log('PROFILE MENU MESSAGE REFRESH')
+      getUnreadCount().then(n => { console.log('UNREAD COUNT UPDATED:', n); setUnread(n) })
+      getInviteCount().then(setInvites)
+    }
   }, [open])
 
   // Realtime invite badge
