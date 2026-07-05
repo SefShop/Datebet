@@ -117,7 +117,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background:'#06060a' }}>
+    <div className="flex flex-col overflow-hidden" style={{ background:'#06060a', height: '100dvh', maxHeight: '100dvh' }}>
 
       {/* Top spacer */}
       <div className="pt-12 pb-1" />
@@ -210,8 +210,8 @@ export default function ProfileScreen() {
       {/* ── READY — show profile card ── */}
       {state === 'ready' && p && (
         <>
-          <div className="flex-1 px-3 pb-2 flex items-center justify-center">
-            <div key={p.id + idx} className="w-full max-w-[400px] rounded-3xl overflow-hidden relative"
+          <div className="flex-1 min-h-0 px-3 pb-2 flex items-start justify-center overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+            <div key={p.id + idx} className="w-full max-w-[400px] rounded-3xl overflow-hidden relative my-auto"
               style={{
                 transform: `translateX(${tx}) rotate(${rot})`, opacity: op,
                 transition: anim === 'in' ? 'none' : 'all 0.28s ease',
@@ -220,8 +220,8 @@ export default function ProfileScreen() {
               }}>
 
               {/* Photo — revealed at 5 games, else Mystery Mode */}
-              <div className="relative h-[340px] overflow-hidden flex items-center justify-center"
-                style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.25) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.2) 0%, transparent 55%), linear-gradient(160deg, #14101f 0%, #0a0612 100%)' }}>
+              <div className="relative overflow-hidden flex items-center justify-center"
+                style={{ height: 'clamp(200px, 34vh, 340px)', background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.25) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.2) 0%, transparent 55%), linear-gradient(160deg, #14101f 0%, #0a0612 100%)' }}>
 
                 {canShowPhoto ? (
                   <img src={p.photo} alt={p.name} className="absolute inset-0 w-full h-full object-cover" />
@@ -335,8 +335,9 @@ export default function ProfileScreen() {
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center justify-center gap-5 px-6 pb-8 pt-2">
+          {/* Action buttons — always visible at bottom */}
+          <div className="flex-shrink-0 flex items-center justify-center gap-5 px-6 pt-2"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', background: 'linear-gradient(to top, #06060a 60%, transparent)' }}>
             <button onClick={pass} disabled={locked}
               className="w-16 h-16 rounded-full flex items-center justify-center text-[22px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"
               style={{ background:'rgba(255,255,255,0.06)', border:'2px solid rgba(255,255,255,0.12)' }}>
