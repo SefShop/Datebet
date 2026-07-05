@@ -48,7 +48,14 @@ export default function TicTacToeScreen() {
   useEffect(() => {
     if (!session) { setLoading(false); return }
     const sess0 = session  // non-null capture for closure
-    console.log('TICTACTOE SESSION:', sess0.id)
+
+    // Clear old state when session changes (fresh board for new game)
+    console.log('SESSION ID CHANGED:', sess0.id)
+    console.log('OLD STATE CLEARED:')
+    setState(null)
+    setLoading(true)
+    setIAmReady(false)
+    if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -64,27 +71,36 @@ export default function TicTacToeScreen() {
         two: nm.get(sess0.player_two_id) || 'Player 2',
       })
 
-      // Load or initialize state
+      // Always fetch FRESH state from Supabase by session_id
       const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
+      console.log('NEW SESSION LOADED:', sess0.id)
+
       let gs: GameState
-      if (sess?.state && sess.state.board && sess.state.board.length === 9) {
-        gs = sess.state as GameState
-        if (!gs.currentTurn) { gs.currentTurn = sess0.player_one_id; await supabase.from('game_sessions').update({ state: gs }).eq('id', sess0.id) }
-        console.log('TICTACTOE SESSION LOADED: existing state')
+      const raw = sess?.state as any
+      const validBoard = raw?.board && Array.isArray(raw.board) && raw.board.length === 9
+      const validTurn = raw?.currentTurn === sess0.player_one_id || raw?.currentTurn === sess0.player_two_id
+
+      if (raw && validBoard && validTurn) {
+        gs = raw as GameState
+        console.log('VALID STATE: loaded existing')
       } else {
+        // Repair / initialize
         gs = {
-          board: ['','','','','','','','',''],
-          currentTurn: sess0.player_one_id,
-          winner: null, status: 'active', moves: 0,
+          board: validBoard ? raw.board : ['','','','','','','','',''],
+          currentTurn: validTurn ? raw.currentTurn : sess0.player_one_id,
+          winner: raw?.winner ?? null,
+          status: raw?.status || 'active',
+          moves: typeof raw?.moves === 'number' ? raw.moves : 0,
+          progressCounted: raw?.progressCounted || false,
         }
         await supabase.from('game_sessions').update({ state: gs }).eq('id', sess0.id)
-        console.log('TICTACTOE STATE INIT:')
+        console.log('VALID STATE: repaired/initialized')
       }
       setState(gs)
       console.log('CURRENT TURN:', gs.currentTurn)
       setLoading(false)
 
-      // Subscribe to realtime updates
+      // Subscribe to realtime updates for THIS session
       channelRef.current = supabase
         .channel(`ttt-${sess0.id}`)
         .on('postgres_changes', {
@@ -102,14 +118,15 @@ export default function TicTacToeScreen() {
     }
 
     init()
-    return () => { if (channelRef.current) supabase.removeChannel(channelRef.current) }
-  }, [session])
+    return () => { if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null } }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id])
 
   async function play(i: number) {
-    if (!state || !session || !myId) return
-    if (state.status === 'finished') return
-    if (state.currentTurn !== myId) { console.log('Not your turn'); return }
-    if (state.board[i] !== '') return
+    if (!state || !session || !myId) { console.log('MOVE BLOCKED REASON: no state/session/user'); return }
+    if (state.status === 'finished') { console.log('MOVE BLOCKED REASON: game finished'); return }
+    if (state.currentTurn !== myId) { console.log('MOVE BLOCKED REASON: not your turn (turn=' + state.currentTurn + ', me=' + myId + ')'); return }
+    if (state.board[i] !== '') { console.log('MOVE BLOCKED REASON: cell taken'); return }
 
     const board = Array.from({ length: 9 }, (_, k) => state.board?.[k] || '')
     board[i] = mySymbol
