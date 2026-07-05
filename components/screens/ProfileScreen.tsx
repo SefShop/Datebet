@@ -24,6 +24,7 @@ export default function ProfileScreen() {
   const [challengeMsg, setChallengeMsg] = useState<string|null>(null)
   const [showPicker, setShowPicker] = useState(false)
   const [progress, setProgress] = useState<PairProgress>({ games_completed: 0, photo_unlocked: false, chat_unlocked: false })
+  const [progressLoaded, setProgressLoaded] = useState(false)
   const [pickerProfile, setPickerProfile] = useState<UserProfile|null>(null)
 
   useEffect(() => {
@@ -43,8 +44,24 @@ export default function ProfileScreen() {
   const p = profiles.length > 0 ? profiles[idx % profiles.length] : null
 
   useEffect(() => {
-    if (p?.id) getPairProgress(p.id).then(setProgress)
-    else setProgress({ games_completed: 0, photo_unlocked: false, chat_unlocked: false })
+    // PRIVACY: reset to LOCKED immediately on every card change (before any fetch)
+    console.log('CARD CHANGED - PHOTO LOCK RESET')
+    setProgressLoaded(false)
+    setProgress({ games_completed: 0, photo_unlocked: false, chat_unlocked: false })
+
+    let cancelled = false
+    if (p?.id) {
+      console.log('PAIR PROGRESS LOADING')
+      const cardId = p.id
+      getPairProgress(cardId).then(prog => {
+        // Guard against stale response (user may have skipped to next card)
+        if (cancelled || p?.id !== cardId) return
+        setProgress(prog)
+        setProgressLoaded(true)
+        console.log('PHOTO LOCK CHECK:', prog.games_completed, '/10, unlocked:', prog.photo_unlocked)
+      })
+    }
+    return () => { cancelled = true }
   }, [p?.id])
 
   function transition(dir: 'left'|'right', then: () => void) {
@@ -89,6 +106,15 @@ export default function ProfileScreen() {
   const tx = anim==='out-left' ? '-110%' : anim==='out-right' ? '110%' : '0'
   const rot = anim==='out-left' ? '-6deg' : anim==='out-right' ? '6deg' : '0deg'
   const op = anim.startsWith('out') ? 0 : 1
+
+  // PRIVACY GATE: only show real photo after progress is loaded AND unlock confirmed
+  const canShowPhoto = progressLoaded === true &&
+    (progress.photo_unlocked === true || progress.games_completed >= 5) &&
+    !!p?.photo
+  if (p) {
+    if (canShowPhoto) console.log('PHOTO UNLOCKED SHOWING')
+    else console.log('PHOTO HIDDEN')
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background:'#06060a' }}>
@@ -197,8 +223,7 @@ export default function ProfileScreen() {
               <div className="relative h-[340px] overflow-hidden flex items-center justify-center"
                 style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.25) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.2) 0%, transparent 55%), linear-gradient(160deg, #14101f 0%, #0a0612 100%)' }}>
 
-                {progress.photo_unlocked && p.photo ? (
-                  /* Revealed photo */
+                {canShowPhoto ? (
                   <img src={p.photo} alt={p.name} className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
                   <>
