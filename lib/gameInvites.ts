@@ -146,12 +146,14 @@ function initStateFor(gameType: string): any {
 // Create a session when an invite is accepted (receiver side)
 export async function createGameSession(invite: GameInvite): Promise<{ session?: GameSession; error?: string }> {
   try {
-    // Check if session already exists for this invite
-    const { data: existing } = await supabase
+    // Check if session already exists for this invite (deterministic: earliest)
+    const { data: existingRows } = await supabase
       .from('game_sessions')
       .select('*')
       .eq('invite_id', invite.id)
-      .maybeSingle()
+      .order('created_at', { ascending: true })
+      .limit(1)
+    const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null
 
     if (existing) {
       console.log('GAME SESSION LOADED:', existing.id)
@@ -188,13 +190,16 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
 // Load session by invite (sender side, after acceptance)
 export async function loadSessionByInvite(inviteId: string): Promise<GameSession | null> {
   try {
+    // Order by created_at so BOTH users deterministically pick the SAME (earliest) session
     const { data } = await supabase
       .from('game_sessions')
       .select('*')
       .eq('invite_id', inviteId)
-      .maybeSingle()
-    if (data) console.log('GAME SESSION LOADED:', data.id)
-    return data
+      .order('created_at', { ascending: true })
+      .limit(1)
+    const session = data && data.length > 0 ? data[0] : null
+    if (session) console.log('GAME SESSION LOADED:', session.id)
+    return session
   } catch { return null }
 }
 

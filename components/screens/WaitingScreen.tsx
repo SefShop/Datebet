@@ -57,17 +57,31 @@ export default function WaitingScreen() {
   }, [pending])
 
   async function enterRoom(inv: GameInvite) {
+    console.log('PLAY AGAIN SENDER:', inv.sender_id)
+    console.log('PLAY AGAIN RECEIVER:', inv.receiver_id)
+
+    // Sender waits for the receiver's session (retry, do NOT create a duplicate)
     let session = await loadSessionByInvite(inv.id)
+    let tries = 0
+    while (!session && tries < 5) {
+      await new Promise(r => setTimeout(r, 500))
+      session = await loadSessionByInvite(inv.id)
+      tries++
+    }
+    // Last resort: create it (receiver may have failed)
     if (!session) {
       const created = await createGameSession(inv)
       session = created.session || null
     }
     if (!session) { console.error('Could not start Tic Tac Toe.'); setStatus('declined'); return }
-    console.log('A TICTACTOE SESSION LOADED:', session.id)
-    console.log('SAME SESSION ID:', session.id)
+    console.log('NEW SESSION PLAYER_ONE:', session.player_one_id)
+    console.log('NEW SESSION PLAYER_TWO:', session.player_two_id)
+    console.log('NEW SESSION CURRENT TURN:', session.state?.currentTurn)
     setCurrentSession(session)
 
     const { data: { user } } = await supabase.auth.getUser()
+    const role = user?.id === session.player_one_id ? 'player_one (X)' : 'player_two (O)'
+    console.log('CURRENT USER ROLE:', role)
     const oppId = user?.id === session.player_one_id ? session.player_two_id : session.player_one_id
     const { data: opp } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
     if (opp) {
@@ -79,6 +93,7 @@ export default function WaitingScreen() {
       }
       setCurrentMatch(profile)
       setOpponentName(opp.name || 'Player')
+      console.log('OPPONENT RESOLVED FROM NEW SESSION:', opp.name)
     }
     const screen = gameScreenFor(session.game_type)
     console.log('NAVIGATE TO TICTACTOE:', screen)
