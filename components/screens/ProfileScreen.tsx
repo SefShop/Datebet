@@ -210,8 +210,8 @@ export default function ProfileScreen() {
       {/* ── READY — show profile card ── */}
       {state === 'ready' && p && (
         <>
-          <div className="flex-1 min-h-0 px-3 pb-2 flex items-start justify-center overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-            <div key={p.id + idx} className="w-full max-w-[400px] rounded-3xl overflow-hidden relative my-auto"
+          <div className="discover-card-area flex-1 min-h-0 px-3 pb-2 flex items-start justify-center overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+            <div key={p.id + idx} className="discover-card w-full max-w-[400px] rounded-3xl overflow-hidden relative my-auto"
               style={{
                 transform: `translateX(${tx}) rotate(${rot})`, opacity: op,
                 transition: anim === 'in' ? 'none' : 'all 0.28s ease',
@@ -246,8 +246,8 @@ export default function ProfileScreen() {
                   background: 'linear-gradient(180deg, transparent 40%, rgba(6,6,10,0.85) 90%, rgba(6,6,10,1) 100%)'
                 }} />
 
-                {/* Online status — top-left of card (app menu is top-right) */}
-                <div className="absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full z-10"
+                {/* Online status — belongs to card (mobile: left to avoid app menu; desktop: right) */}
+                <div className="online-badge absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full z-10"
                   style={{ top: 16, left: 16, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.08)' }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: p.online ? '#4ade80' : '#777',
                     boxShadow: p.online ? '0 0 6px #4ade80' : 'none' }} />
@@ -336,7 +336,7 @@ export default function ProfileScreen() {
           </div>
 
           {/* Action buttons — always visible at bottom */}
-          <div className="flex-shrink-0 flex items-center justify-center gap-5 px-6 pt-2"
+          <div className="discover-actions flex-shrink-0 flex items-center justify-center gap-5 px-6 pt-2"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', background: 'linear-gradient(to top, #06060a 60%, transparent)' }}>
             <button onClick={pass} disabled={locked}
               className="w-16 h-16 rounded-full flex items-center justify-center text-[22px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"
@@ -370,6 +370,33 @@ export default function ProfileScreen() {
         @keyframes mysteryFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
         @keyframes cardReveal { from{opacity:0;transform:translateY(24px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
+
+        /* Desktop / tablet: center card nicely, natural height */
+        @media (min-width: 768px) {
+          .discover-card-area {
+            align-items: center !important;
+            padding-top: 24px;
+            padding-bottom: 8px;
+          }
+          .discover-card {
+            max-width: 440px !important;
+            margin: 0 auto !important;
+            align-self: center;
+          }
+          .discover-actions {
+            padding-top: 20px !important;
+            padding-bottom: 28px !important;
+            max-width: 440px;
+            margin: 0 auto;
+            width: 100%;
+          }
+          /* Desktop: badge top-right (card is centered, away from app menu) */
+          .online-badge {
+            left: auto !important;
+            right: 18px !important;
+            top: 18px !important;
+          }
+        }
       `}</style>
     </div>
   )
