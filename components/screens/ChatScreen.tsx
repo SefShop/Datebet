@@ -30,11 +30,30 @@ export default function ChatScreen() {
   // Get current user + load messages
   useEffect(() => {
     let channel: any = null
+    let poll: any = null
+    let activeUser: string | null = null
+
+    async function fetchLatest(uid: string) {
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`and(sender_id.eq.${uid},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${uid})`)
+        .order('created_at', { ascending: true })
+        .limit(100)
+      if (data) {
+        setMsgs(prev => {
+          if (prev.length === data.length && prev.every((m, i) => m.id === data[i].id)) return prev
+          console.log('CHAT UPDATED:', data.length, 'messages')
+          return data
+        })
+      }
+    }
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError('Not logged in'); setLoading(false); return }
       setUserId(user.id)
+      activeUser = user.id
       console.log('CHAT: user', user.id, '→ receiver', receiverId)
 
       if (!receiverId) { setLoading(false); return }
@@ -69,19 +88,27 @@ export default function ChatScreen() {
             (newMsg.sender_id === user.id && newMsg.receiver_id === receiverId) ||
             (newMsg.sender_id === receiverId && newMsg.receiver_id === user.id)
           ) {
-            console.log('CHAT: realtime msg from', newMsg.sender_id)
+            console.log('NEW MESSAGE RECEIVED:', newMsg.sender_id)
             if (newMsg.sender_id === receiverId) markAsRead(receiverId)
             setMsgs(prev => {
               if (prev.some(m => m.id === newMsg.id)) return prev
+              console.log('CHAT UPDATED:', prev.length + 1, 'messages')
               return [...prev, newMsg]
             })
           }
         })
-        .subscribe()
+        .subscribe((status: string) => { if (status === 'SUBSCRIBED') console.log('CHAT REALTIME CONNECTED') })
+
+      // Polling fallback (every 3s while chat is open)
+      console.log('CHAT POLLING ACTIVE')
+      poll = setInterval(() => { if (activeUser) fetchLatest(activeUser) }, 3000)
     }
 
     init()
-    return () => { if (channel) supabase.removeChannel(channel) }
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+      if (poll) clearInterval(poll)
+    }
   }, [receiverId])
 
   // Auto-scroll

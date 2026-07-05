@@ -78,6 +78,12 @@ export default function TicTacToeScreen() {
         two: nm.get(sess0.player_two_id) || 'Player 2',
       })
 
+      // Load pair progress (for chat unlock gate)
+      const otherId = user.id === sess0.player_one_id ? sess0.player_two_id : sess0.player_one_id
+      const prog = await getPairProgress(otherId)
+      setPairCount(prog.games_completed)
+      console.log('CHAT LOCK CHECK:', prog.games_completed, '/10, unlocked:', prog.chat_unlocked)
+
       // Always fetch FRESH state from Supabase by session_id
       const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
       console.log('NEW SESSION FRESH LOADED:', sess0.id)
@@ -398,11 +404,18 @@ export default function TicTacToeScreen() {
               🔁 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
             </button>
           )}
-          <button onClick={() => navigate('chat')}
-            className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-            style={{ background: 'rgba(108,99,255,0.12)', color: '#a78bfa', border: '1px solid rgba(108,99,255,0.2)' }}>
-            💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}
-          </button>
+          {pairCount >= 10 ? (
+            <button onClick={() => navigate('chat')}
+              className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
+              style={{ background: 'rgba(108,99,255,0.12)', color: '#a78bfa', border: '1px solid rgba(108,99,255,0.2)' }}>
+              💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}
+            </button>
+          ) : (
+            <div className="w-full rounded-2xl py-3 text-[13px] font-medium text-center"
+              style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              🔒 {lang === 'gr' ? `Το chat ξεκλειδώνει μετά από 10 νίκες μαζί (${pairCount}/10)` : `Chat unlocks after 10 wins together (${pairCount}/10)`}
+            </div>
+          )}
         </div>
       )}
 
