@@ -210,9 +210,10 @@ export default function ProfileScreen() {
       {/* ── READY — show profile card ── */}
       {state === 'ready' && p && (
         <>
-          <div className="discover-card-area flex-1 min-h-0 px-3 pb-2 flex items-start justify-center overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-            <div key={p.id + idx} className="discover-card w-full max-w-[400px] rounded-3xl overflow-hidden relative my-auto"
+          <div className="discover-card-area flex-1 min-h-0 flex items-center justify-center overflow-y-auto" style={{ scrollbarWidth: 'none', padding: '8px 12px' }}>
+            <div key={p.id + idx} className="discover-card rounded-3xl overflow-hidden relative"
               style={{
+                width: 'calc(100% - 24px)', maxWidth: 430, margin: '0 auto',
                 transform: `translateX(${tx}) rotate(${rot})`, opacity: op,
                 transition: anim === 'in' ? 'none' : 'all 0.28s ease',
                 animation: anim === 'in' ? 'cardReveal 0.35s cubic-bezier(0.34,1.3,0.64,1) both' : 'none',
@@ -246,9 +247,9 @@ export default function ProfileScreen() {
                   background: 'linear-gradient(180deg, transparent 40%, rgba(6,6,10,0.85) 90%, rgba(6,6,10,1) 100%)'
                 }} />
 
-                {/* Online status — belongs to card (mobile: left to avoid app menu; desktop: right) */}
+                {/* Online status — inside card, top-right */}
                 <div className="online-badge absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full z-10"
-                  style={{ top: 16, left: 16, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                  style={{ top: 16, right: 16, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.08)' }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: p.online ? '#4ade80' : '#777',
                     boxShadow: p.online ? '0 0 6px #4ade80' : 'none' }} />
                   <span className="text-[10px] font-bold" style={{ color: p.online ? '#4ade80' : 'rgba(255,255,255,0.5)' }}>{p.online ? (lang === 'gr' ? 'σε σύνδεση' : 'online') : (lang === 'gr' ? 'εκτός' : 'offline')}</span>
@@ -371,30 +372,21 @@ export default function ProfileScreen() {
         @keyframes cardReveal { from{opacity:0;transform:translateY(24px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
 
-        /* Desktop / tablet: center card nicely, natural height */
+        /* Desktop / tablet: center card, natural spacing */
         @media (min-width: 768px) {
           .discover-card-area {
-            align-items: center !important;
-            padding-top: 24px;
-            padding-bottom: 8px;
+            padding: 24px 16px 8px !important;
           }
           .discover-card {
-            max-width: 440px !important;
+            max-width: 430px !important;
             margin: 0 auto !important;
-            align-self: center;
           }
           .discover-actions {
             padding-top: 20px !important;
             padding-bottom: 28px !important;
-            max-width: 440px;
+            max-width: 430px;
             margin: 0 auto;
             width: 100%;
-          }
-          /* Desktop: badge top-right (card is centered, away from app menu) */
-          .online-badge {
-            left: auto !important;
-            right: 18px !important;
-            top: 18px !important;
           }
         }
       `}</style>
