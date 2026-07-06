@@ -237,10 +237,6 @@ export default function ProfileScreen() {
                     {/* Mask icon */}
                     <div className="relative z-10 flex flex-col items-center">
                       <div className="text-[80px]" style={{ filter: 'drop-shadow(0 6px 24px rgba(253,41,123,0.4))', animation: 'mysteryFloat 5s ease-in-out infinite' }}>🎭</div>
-                      <div className="mt-3 text-[11px] font-bold uppercase tracking-[2px] px-3 py-1 rounded-full"
-                        style={{ background: 'rgba(253,41,123,0.12)', color: 'rgba(253,41,123,0.8)', border: '1px solid rgba(253,41,123,0.2)' }}>
-                        {lang === 'gr' ? 'Μυστήριο' : 'Mystery Player'}
-                      </div>
                     </div>
                   </>
                 )}
@@ -258,21 +254,29 @@ export default function ProfileScreen() {
                   <span className="text-[10px] font-bold" style={{ color: p.online ? '#4ade80' : 'rgba(255,255,255,0.5)' }}>{p.online ? (lang === 'gr' ? 'σε σύνδεση' : 'online') : (lang === 'gr' ? 'εκτός' : 'offline')}</span>
                 </div>
 
-                {/* Name/age/location */}
-                <div className="absolute bottom-0 left-0 right-0 px-5 pb-3">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[28px] font-extrabold text-white tracking-tight"
-                      style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", textShadow:'0 2px 12px rgba(0,0,0,0.5)' }}>
-                      {p.name}
-                    </span>
-                    {p.age > 0 && <span className="text-[20px] font-semibold text-white/60">{p.age}</span>}
+                {/* Name / Age / location (badge moved to info section below) */}
+                <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
+                  <div className="text-[26px] font-extrabold text-white tracking-tight leading-tight"
+                    style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", textShadow:'0 2px 12px rgba(0,0,0,0.5)', wordBreak:'break-word' }}>
+                    {p.name}
                   </div>
+                  {p.age > 0 && <div className="text-[18px] font-semibold text-white/60 mt-0.5">{p.age}</div>}
                   {p.location[lang] && <div className="text-[13px] text-white/45 mt-0.5">{p.location[lang]}</div>}
                 </div>
               </div>
 
               {/* Info */}
               <div className="px-5 py-5" style={{ background:'rgba(6,6,10,1)' }}>
+
+                {/* Mystery Player badge — below photo, clean area, no overlap */}
+                {!canShowPhoto && (
+                  <div className="mb-4">
+                    <span className="inline-flex text-[10px] font-bold uppercase tracking-[2px] px-3 py-1.5 rounded-full"
+                      style={{ background: 'rgba(253,41,123,0.12)', color: 'rgba(253,41,123,0.85)', border: '1px solid rgba(253,41,123,0.25)' }}>
+                      🎭 {lang === 'gr' ? 'Μυστήριο' : 'Mystery Player'}
+                    </span>
+                  </div>
+                )}
 
                 {/* Interests */}
                 <div className="mb-4">
