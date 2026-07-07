@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { startMessagesPolling, stopMessagesPolling, refreshMessagesState } from '@/lib/messagesState'
-import { startPresence, stopPresence, setOnline, setOffline } from '@/lib/presence'
+import { startPresence, stopPresence, setOnline, setOffline, heartbeat } from '@/lib/presence'
 import { useApp, AppProvider } from '@/lib/AppContext'
 import SplashScreen    from '@/components/screens/SplashScreen'
 import GameSelectionScreen from '@/components/screens/GameSelectionScreen'
@@ -81,7 +81,8 @@ function AppShell() {
         refreshMessagesState()
         setOnline()
       } else {
-        setOffline()  // tab hidden → offline
+        // Tab hidden: just update last_seen (2-min window handles going offline naturally)
+        heartbeat()
       }
     }
     function onLeave() { setOffline() }

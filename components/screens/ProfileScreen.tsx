@@ -251,7 +251,7 @@ export default function ProfileScreen() {
                   style={{ top: 14, left: 14, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.08)' }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: p.online ? '#4ade80' : '#777',
                     boxShadow: p.online ? '0 0 6px #4ade80' : 'none' }} />
-                  <span className="text-[10px] font-bold" style={{ color: p.online ? '#4ade80' : 'rgba(255,255,255,0.5)' }}>{p.online ? (lang === 'gr' ? 'σε σύνδεση' : 'online') : (lang === 'gr' ? 'εκτός' : 'offline')}</span>
+                  <span className="text-[10px] font-bold" style={{ color: p.online ? '#4ade80' : 'rgba(255,255,255,0.5)' }}>{p.online ? 'online' : 'offline'}</span>
                 </div>
 
                 {/* Name / Age / location (badge moved to info section below) */}

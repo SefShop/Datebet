@@ -77,7 +77,7 @@ export async function getPresence(userId: string): Promise<{ isOnline: boolean; 
   try {
     const { data } = await supabase.from('profiles').select('is_online, last_seen').eq('id', userId).maybeSingle()
     const online = isOnlineNow(data?.is_online ?? false, data?.last_seen ?? null)
-    console.log('PRESENCE STATUS LOADED:', online ? 'online' : 'offline')
+    console.log('PRESENCE STATUS CHECK:', online ? 'online' : 'offline')
     return { isOnline: data?.is_online ?? false, lastSeen: data?.last_seen ?? null }
   } catch { return { isOnline: false, lastSeen: null } }
 }
