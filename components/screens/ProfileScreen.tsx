@@ -289,7 +289,7 @@ export default function ProfileScreen() {
 
                 {/* Online status — inside card (mobile: left to clear app menu; desktop: right) */}
                 <div className="online-badge absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full z-10"
-                  style={{ top: 14, left: 14, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                  style={{ top: 16, left: 16, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.08)' }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: p.online ? '#4ade80' : '#777',
                     boxShadow: p.online ? '0 0 6px #4ade80' : 'none' }} />
                   <span className="text-[10px] font-bold" style={{ color: p.online ? '#4ade80' : 'rgba(255,255,255,0.5)' }}>{p.online ? 'online' : 'offline'}</span>
@@ -436,11 +436,6 @@ export default function ProfileScreen() {
             max-width: 430px;
             margin: 0 auto;
             width: 100%;
-          }
-          /* Desktop: card is centered/narrow, away from app menu → badge top-right */
-          .online-badge {
-            left: auto !important;
-            right: 14px !important;
           }
         }
       `}</style>
