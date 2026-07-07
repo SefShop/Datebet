@@ -5,6 +5,7 @@ import { APP_COPY } from '@/lib/copy'
 import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
 import { sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { getPairProgress, PairProgress } from '@/lib/pairProgress'
+import { getPresence, isOnlineNow } from '@/lib/presence'
 
 
 
@@ -42,6 +43,37 @@ export default function ProfileScreen() {
   }
 
   const p = profiles.length > 0 ? profiles[idx % profiles.length] : null
+
+  // Live online/offline for the visible profile (refreshes without page reload)
+  const [liveOnline, setLiveOnline] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!p?.id) { setLiveOnline(null); return }
+    const cardId = p.id
+    let active = true
+
+    async function refreshPresence() {
+      console.log('PRESENCE REFRESH STARTED')
+      const pres = await getPresence(cardId)
+      if (!active || p?.id !== cardId) return
+      const online = isOnlineNow(pres.isOnline, pres.lastSeen)
+      console.log('PRESENCE REFRESH RESULT:', online ? 'online' : 'offline')
+      setLiveOnline(online)
+      console.log('VISIBLE PROFILE STATUS UPDATED')
+    }
+
+    refreshPresence()  // on card change / open
+    const t = setInterval(refreshPresence, 15000)  // every 15s
+    function onVisible() { if (document.visibilityState === 'visible') refreshPresence() }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      active = false
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p?.id])
 
   useEffect(() => {
     // PRIVACY: reset to LOCKED immediately on every card change (before any fetch)
@@ -249,9 +281,9 @@ export default function ProfileScreen() {
                 {/* Online status — inside card (mobile: left to clear app menu; desktop: right) */}
                 <div className="online-badge absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full z-10"
                   style={{ top: 14, left: 14, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.08)' }}>
-                  <div className="w-2 h-2 rounded-full" style={{ background: p.online ? '#4ade80' : '#777',
-                    boxShadow: p.online ? '0 0 6px #4ade80' : 'none' }} />
-                  <span className="text-[10px] font-bold" style={{ color: p.online ? '#4ade80' : 'rgba(255,255,255,0.5)' }}>{p.online ? 'online' : 'offline'}</span>
+                  <div className="w-2 h-2 rounded-full" style={{ background: (liveOnline ?? p.online) ? '#4ade80' : '#777',
+                    boxShadow: (liveOnline ?? p.online) ? '0 0 6px #4ade80' : 'none' }} />
+                  <span className="text-[10px] font-bold" style={{ color: (liveOnline ?? p.online) ? '#4ade80' : 'rgba(255,255,255,0.5)' }}>{(liveOnline ?? p.online) ? 'online' : 'offline'}</span>
                 </div>
 
                 {/* Name / Age / location (badge moved to info section below) */}
