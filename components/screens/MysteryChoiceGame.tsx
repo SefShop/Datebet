@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentSession } from '@/lib/gameInvites'
+import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 
 interface RoundData { emoji: [string, string]; en: [string, string]; gr: [string, string] }
 
@@ -15,7 +16,9 @@ interface MysteryChoiceState {
   player_one_ready: boolean
   player_two_ready: boolean
   round_result: 'match' | 'different' | null
-  status: 'active' | 'complete'
+  status: 'active' | 'finished'
+  result?: 'completed' | null
+  progressCounted?: boolean
 }
 
 // Fallback in case a session's state is missing rounds (defensive only)
@@ -35,6 +38,9 @@ export default function MysteryChoiceGame() {
   const activeSessionRef = useRef<string | null>(null)
   const resultWriteLock = useRef(false)
   const advanceWriteLock = useRef(false)
+  const countLockRef = useRef(false)
+  const [pairCount, setPairCount] = useState(0)
+  const [progressError, setProgressError] = useState<string | null>(null)
 
   // Require a session_id — otherwise show "No game session found."
   useEffect(() => {
@@ -91,7 +97,7 @@ export default function MysteryChoiceGame() {
   }
 
   async function choose(choice: 'a' | 'b') {
-    if (!state || !session || !myId || state.status === 'complete') return
+    if (!state || !session || !myId || state.status === 'finished') return
     const isPlayerOne = myId === session.player_one_id
     if (isPlayerOne && state.player_one_choice) return
     if (!isPlayerOne && state.player_two_choice) return
@@ -144,7 +150,7 @@ export default function MysteryChoiceGame() {
       let next: MysteryChoiceState
       if (isLastRound) {
         console.log('GAME COMPLETE')
-        next = { ...state, status: 'complete' }
+        next = { ...state, status: 'finished' as const, result: 'completed' as const }
       } else {
         console.log('NEXT ROUND STARTED')
         next = {
@@ -161,6 +167,56 @@ export default function MysteryChoiceGame() {
       saveState(next).finally(() => { advanceWriteLock.current = false })
     }
   }, [state?.player_one_ready, state?.player_two_ready])
+
+  // Count pair progress ONLY when the full 10-round game finishes (not per round)
+  useEffect(() => {
+    if (!state || !session || !myId) return
+    if (state.status !== 'finished') return
+    console.log('MYSTERY CHOICE GAME COMPLETE')
+    countMysteryProgress()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.status])
+
+  async function countMysteryProgress() {
+    if (!session || !myId || countLockRef.current) return
+    countLockRef.current = true
+    try {
+      console.log('MYSTERY CHOICE PROGRESS CHECK')
+
+      // Re-read fresh state to guard against double counting (same pattern as Tic Tac Toe)
+      const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
+      const freshState = (fresh?.state || state) as MysteryChoiceState
+
+      if (freshState.progressCounted) {
+        console.log('MYSTERY CHOICE PROGRESS CHECK: already counted', session.id)
+        return
+      }
+
+      console.log('MYSTERY CHOICE COUNTING PROGRESS')
+      const otherId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
+
+      // Mark progressCounted FIRST to prevent double counting from the other client
+      const marked: MysteryChoiceState = { ...freshState, progressCounted: true }
+      await supabase.from('game_sessions').update({ state: marked }).eq('id', session.id)
+      setState(marked)
+
+      const before = await getPairProgress(otherId)
+      console.log('PAIR PROGRESS BEFORE', before.games_completed)
+
+      const after = await incrementPairGames(otherId)
+      if (after.error) {
+        console.error('MYSTERY CHOICE PROGRESS UPDATE FAILED:', after.error)
+        setProgressError(after.error)
+      } else {
+        console.log('PAIR PROGRESS AFTER', after.games_completed)
+        setPairCount(after.games_completed)
+        setProgressError(null)
+        console.log('MYSTERY CHOICE PROGRESS COUNTED')
+      }
+    } finally {
+      countLockRef.current = false
+    }
+  }
 
   if (loading) {
     return (
@@ -196,7 +252,7 @@ export default function MysteryChoiceGame() {
   const optB = lang === 'gr' ? round.gr[1] : round.en[1]
 
   // Game complete screen
-  if (state.status === 'complete') {
+  if (state.status === 'finished') {
     return (
       <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.12) 0%, transparent 60%), #0a0a10' }}>
         <div className="text-[48px] mb-4">🎉</div>
