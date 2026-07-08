@@ -150,11 +150,6 @@ export default function InboxScreen() {
         <div style={{ width: 40 }} />
       </div>
 
-      {/* TEMP DEBUG — verify polling */}
-      <div className="px-5 py-1.5 text-[10px] font-mono" style={{ background: 'rgba(74,222,128,0.06)', color: 'rgba(74,222,128,0.6)' }}>
-        Last refresh: {lastRefresh ? new Date(lastRefresh).toLocaleTimeString() : '—'} · Unread: {getMessagesState().unread}
-      </div>
-
       {/* Content */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
 
