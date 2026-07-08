@@ -44,6 +44,22 @@ const SCREENS = {
   waiting:      <WaitingScreen />,
 }
 
+// Create a profile row for a signed-in user if missing (Google OAuth / email)
+async function ensureProfileExists(user: any) {
+  console.log('PROFILE ENSURE START')
+  try {
+    const { data: existing } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle()
+    if (existing) { console.log('PROFILE ENSURE SUCCESS (exists)'); return }
+    const meta = user.user_metadata || {}
+    await supabase.from('profiles').insert({
+      id: user.id,
+      name: meta.full_name || meta.name || 'Player',
+      age: 0, bio: '', photo: meta.avatar_url || meta.picture || '', location: '',
+    })
+    console.log('PROFILE ENSURE SUCCESS')
+  } catch (e: any) { console.error('ensureProfileExists:', e.message) }
+}
+
 function AppShell() {
   const { screen, navigate, lang } = useApp()
 
@@ -63,6 +79,10 @@ function AppShell() {
       if (event === 'SIGNED_OUT' || !session) {
         console.log('AUTH: signed out, clearing profile state')
         clearProfileState()
+      }
+      // After sign-in (email or Google OAuth), make sure a profile row exists
+      if (session?.user?.id && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        ensureProfileExists(session.user)
       }
       setAuthed(!!session)
       setAuthKey(k => k + 1)  // force remount all screens

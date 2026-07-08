@@ -17,6 +17,7 @@ export default function EditProfileScreen() {
   const [location, setLoc]      = useState('')
   const [bio, setBio]           = useState('')
   const [photo, setPhoto]       = useState('')
+  const [interests, setInterests] = useState<string[]>([])
   const [state, setState]       = useState<State>('loading')
   const [error, setError]       = useState('')
   const [saved, setSaved]       = useState(false)
@@ -63,6 +64,8 @@ export default function EditProfileScreen() {
 
         setName(data.name || ''); setAge(data.age ? String(data.age) : '')
         setLoc(data.location || ''); setBio(data.bio || ''); setPhoto(data.photo || '')
+        setInterests(Array.isArray(data.interests) ? data.interests : [])
+        console.log('INTERESTS LOADED', Array.isArray(data.interests) ? data.interests.length : 0)
       } else {
         console.log('NO PROFILE FOUND for user', user.id)
       }
@@ -132,6 +135,20 @@ export default function EditProfileScreen() {
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  const ALL_INTERESTS = ['☕ Coffee','✈️ Travel','🎬 Movies','🎵 Music','🍔 Food','🏋️ Gym','🏖️ Beach','🐾 Pets','🎮 Gaming','📚 Books','🌃 Night Out','🌿 Nature','⚽ Sports','🎨 Art','💃 Dancing']
+
+  function toggleInterest(tag: string) {
+    setInterests(prev => {
+      if (prev.includes(tag)) {
+        console.log('INTEREST REMOVED', tag)
+        return prev.filter(t => t !== tag)
+      }
+      if (prev.length >= 5) return prev  // max 5
+      console.log('INTEREST SELECTED', tag)
+      return [...prev, tag]
+    })
+  }
+
   // ── Save profile ──
   async function saveProfile() {
     setState('saving'); setError(''); setSaved(false)
@@ -139,12 +156,13 @@ export default function EditProfileScreen() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError('Not logged in'); setState('ready'); return }
 
-      const payload = { id: user.id, name, age: parseInt(age) || 0, location, bio, photo }
+      const payload = { id: user.id, name, age: parseInt(age) || 0, location, bio, photo, interests }
       console.log('EDIT PROFILE: saving for user', user.id, payload)
 
       const { error: e } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' })
 
       if (e) { console.error('EDIT PROFILE: save error', e); setError(e.message); setState('ready'); return }
+      console.log('INTERESTS SAVED', interests.length)
 
       // Immediately refetch to confirm save
       const { data: verify } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
@@ -277,6 +295,31 @@ export default function EditProfileScreen() {
                 className="w-full rounded-2xl px-4 py-3.5 text-[14px] outline-none transition-all duration-300 resize-none"
                 style={inputStyle('b')} />
               <div className="text-right text-[10px] mt-1" style={{ color:'rgba(255,255,255,0.2)' }}>{bio.length}/200</div>
+            </div>
+
+            {/* Interests */}
+            <div>
+              <label className="text-[11px] font-bold text-white/30 uppercase tracking-[1px] mb-1.5 block">
+                {lang==='gr' ? `Ενδιαφέροντα (${interests.length}/5)` : `Interests (${interests.length}/5)`}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {ALL_INTERESTS.map(tag => {
+                  const active = interests.includes(tag)
+                  const disabled = !active && interests.length >= 5
+                  return (
+                    <button key={tag} type="button" onClick={() => toggleInterest(tag)} disabled={disabled}
+                      className="px-3 py-2 rounded-full text-[12px] font-bold transition-all active:scale-95 cursor-pointer"
+                      style={{
+                        background: active ? 'linear-gradient(135deg,#fd297b,#c850c0)' : 'rgba(255,255,255,0.04)',
+                        color: active ? '#fff' : disabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)',
+                        border: `1px solid ${active ? 'rgba(253,41,123,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                        opacity: disabled ? 0.4 : 1,
+                      }}>
+                      {tag}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             <div>

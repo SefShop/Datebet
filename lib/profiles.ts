@@ -58,7 +58,7 @@ export async function fetchProfiles(): Promise<FetchResult> {
           location: { en: row.location || '', gr: row.location || '' },
           online,
           lastSeen: row.last_seen || null,
-          interests: [],
+          interests: Array.isArray(row.interests) ? row.interests : [],
           bio: { en: row.bio || '', gr: row.bio || '' },
         }
       }),

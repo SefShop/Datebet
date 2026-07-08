@@ -326,12 +326,18 @@ export default function ProfileScreen() {
                     🏷 {lang === 'gr' ? 'Ενδιαφέροντα' : 'Interests'}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {(p.interests.length > 0 ? p.interests : ['☕ Coffee', '✈️ Travel', '🎬 Movies']).map(tag => (
-                      <span key={tag} className="text-[12px] font-medium px-3 py-1.5 rounded-full"
-                        style={{ background:'rgba(108,99,255,0.1)', color:'rgba(255,255,255,0.7)', border:'1px solid rgba(108,99,255,0.2)' }}>
-                        {tag}
+                    {p.interests.length > 0 ? (
+                      p.interests.map(tag => (
+                        <span key={tag} className="text-[12px] font-medium px-3 py-1.5 rounded-full"
+                          style={{ background:'rgba(108,99,255,0.1)', color:'rgba(255,255,255,0.7)', border:'1px solid rgba(108,99,255,0.2)' }}>
+                          {tag}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[12px] italic" style={{ color:'rgba(255,255,255,0.3)' }}>
+                        {lang === 'gr' ? 'Χωρίς ενδιαφέροντα ακόμα' : 'No interests yet'}
                       </span>
-                    ))}
+                    )}
                   </div>
                 </div>
 

@@ -39,6 +39,7 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
   const [mode, setMode]       = useState<'signin'|'signup'>('signin')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string|null>(null)
+  const [successMsg, setSuccessMsg] = useState<string|null>(null)
   const [show, setShow]       = useState(false)
   const [focus, setFocus]     = useState<string|null>(null)
 
@@ -60,27 +61,82 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
 
   async function submit() {
     if (!email || !pass) return
-    setLoading(true); setError(null)
+    setLoading(true); setError(null); setSuccessMsg(null)
     try {
       if (mode === 'signup') {
-        if (!name || !age) { setError('Fill in name and age'); setLoading(false); return }
+        if (!name || !age) { setError(lang==='gr'?'Συμπλήρωσε όνομα και ηλικία':'Fill in name and age'); setLoading(false); return }
+        console.log('AUTH SIGNUP START')
         const { data: authData, error: authError } = await supabase.auth.signUp({ email, password: pass })
-        console.log('AUTH', authData, authError)
         if (authError) { setError(authError.message); setLoading(false); return }
+        console.log('AUTH SIGNUP SUCCESS')
+
         const userId = authData.user?.id
-        console.log('USER ID', userId)
-        if (!userId) { setError('No user ID returned'); setLoading(false); return }
-        const profileResult = await supabase.from('profiles').insert({
-          id: userId, name, age: parseInt(age), bio: '', photo: '', location: '',
-        })
-        console.log('PROFILE INSERT', profileResult)
-        if (profileResult.error) { setError('Profile: ' + profileResult.error.message); setLoading(false); return }
+        if (userId) {
+          await ensureProfile(userId, { name, age: parseInt(age) || 0 })
+        }
+
+        // If no session yet, email confirmation is required
+        if (!authData.session) {
+          setSuccessMsg(lang==='gr'?'Έλεγξε το email σου για να επιβεβαιώσεις τον λογαριασμό σου.':'Check your email to confirm your account.')
+          setLoading(false)
+          return
+        }
       } else {
-        const { error: e } = await supabase.auth.signInWithPassword({ email, password: pass })
-        if (e) { setError(e.message); setLoading(false); return }
+        console.log('AUTH LOGIN START')
+        const { data: signInData, error: e } = await supabase.auth.signInWithPassword({ email, password: pass })
+        if (e) {
+          const msg = e.message.toLowerCase().includes('invalid')
+            ? (lang==='gr'?'Λάθος email ή κωδικός':'Wrong email or password')
+            : e.message
+          setError(msg); setLoading(false); return
+        }
+        console.log('AUTH LOGIN SUCCESS')
+        // Ensure a profile row exists for existing users
+        if (signInData.user?.id) await ensureProfile(signInData.user.id, {})
       }
       onAuth()
     } catch (e: any) { setError(e.message); setLoading(false) }
+  }
+
+  // Create profile row if missing (no duplicates). Uses provided fields, else Google/empty defaults.
+  async function ensureProfile(userId: string, fields: { name?: string; age?: number }) {
+    console.log('PROFILE ENSURE START')
+    try {
+      const { data: existing } = await supabase.from('profiles').select('id, name').eq('id', userId).maybeSingle()
+      if (existing) { console.log('PROFILE ENSURE SUCCESS (exists)'); return }
+
+      // Pull Google metadata only to fill empty profile
+      const { data: { user } } = await supabase.auth.getUser()
+      const meta: any = user?.user_metadata || {}
+      const gName = fields.name || meta.full_name || meta.name || 'Player'
+      const gPhoto = meta.avatar_url || meta.picture || ''
+
+      await supabase.from('profiles').insert({
+        id: userId,
+        name: gName,
+        age: fields.age || 0,
+        bio: '', photo: gPhoto, location: '',
+      })
+      console.log('PROFILE ENSURE SUCCESS')
+    } catch (e: any) { console.error('ensureProfile:', e.message) }
+  }
+
+  async function googleLogin() {
+    console.log('GOOGLE LOGIN START')
+    setError(null); setSuccessMsg(null)
+    try {
+      const { error: e } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/app' },
+      })
+      if (e) {
+        console.warn('GOOGLE OAUTH not configured in Supabase? →', e.message)
+        setError(lang==='gr'?'Η σύνδεση Google δεν είναι διαθέσιμη.':'Google login is unavailable.')
+        return
+      }
+      console.log('GOOGLE LOGIN REDIRECT')
+      // Browser redirects to Google; on return, /app detects the session
+    } catch (e: any) { setError(e.message) }
   }
 
   return (
@@ -217,6 +273,13 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
           </div>
 
           {/* Error */}
+          {successMsg && (
+            <div className="text-[12px] text-center px-3 py-2.5 rounded-xl mb-3"
+              style={{ background:'rgba(74,222,128,0.08)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.15)' }}>
+              ✉️ {successMsg}
+            </div>
+          )}
+
           {error && (
             <div className="text-[12px] text-center px-3 py-2 rounded-xl mb-3"
               style={{ background:'rgba(239,68,68,0.08)', color:'#f87171', border:'1px solid rgba(239,68,68,0.12)', animation:'shake 0.35s ease' }}>
@@ -243,8 +306,8 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
             <div className="flex-1 h-px" style={{ background:'rgba(255,255,255,0.08)' }} />
           </div>
 
-          {/* Google (visual only) */}
-          <button className="w-full rounded-2xl py-3.5 text-[13px] font-medium flex items-center justify-center gap-2.5 transition-all active:scale-[0.97] cursor-pointer"
+          {/* Google */}
+          <button onClick={googleLogin} className="w-full rounded-2xl py-3.5 text-[13px] font-medium flex items-center justify-center gap-2.5 transition-all active:scale-[0.97] cursor-pointer"
             style={{ background:'rgba(255,255,255,0.04)', color:'rgba(255,255,255,0.55)', border:'1px solid rgba(255,255,255,0.08)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 001 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
             {t.google}
