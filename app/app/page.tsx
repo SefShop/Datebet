@@ -8,6 +8,7 @@ import SplashScreen    from '@/components/screens/SplashScreen'
 import GameSelectionScreen from '@/components/screens/GameSelectionScreen'
 import Connect4Screen   from '@/components/screens/Connect4Screen'
 import TicTacToeScreen  from '@/components/screens/TicTacToeScreen'
+import MysteryChoiceGame from '@/components/screens/MysteryChoiceGame'
 import LudoScreen       from '@/components/screens/LudoScreen'
 import ProfileScreen    from '@/components/screens/ProfileScreen'
 import MatchScreen      from '@/components/screens/MatchScreen'
@@ -32,6 +33,7 @@ const SCREENS = {
   game_select:<GameSelectionScreen />,
   connect4:   <Connect4Screen />,
   tictactoe:  <TicTacToeScreen />,
+  mystery_choice: <MysteryChoiceGame />,
   ludo:       <LudoScreen />,
   profile:    <ProfileScreen />,
   match:      <MatchScreen />,

@@ -139,6 +139,9 @@ function initStateFor(gameType: string): any {
   if (gameType === 'connect_4') {
     return { board: Array(42).fill(''), currentTurn: null, winner: null, status: 'active', moves: 0, gameNumber: 1, parentSessionId: null }
   }
+  if (gameType === 'mystery_choice') {
+    return { round: 0, player_one_choice: null, player_two_choice: null, round_result: null }
+  }
   // tic_tac_toe / default
   return { board: ['','','','','','','','',''], currentTurn: null, winner: null, status: 'active', moves: 0, progressCounted: false, gameNumber: 1, parentSessionId: null }
 }
@@ -222,5 +225,6 @@ export function getPendingInvite() { return _pendingInvite }
 // ── Map game_type → screen name ─────────────────────────────────
 export function gameScreenFor(gameType: string): string {
   if (gameType === 'connect_4') return 'connect4'
+  if (gameType === 'mystery_choice') return 'mystery_choice'
   return 'tictactoe'  // tic_tac_toe + default
 }

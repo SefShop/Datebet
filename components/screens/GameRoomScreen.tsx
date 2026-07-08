@@ -46,6 +46,7 @@ export default function GameRoomScreen() {
   const gameMap: Record<string, { screen: string; emoji: string; name: string }> = {
     tic_tac_toe: { screen: 'tictactoe', emoji: '⭕', name: 'Tic Tac Toe' },
     connect_4:   { screen: 'connect4',  emoji: '🔴', name: 'Connect 4' },
+    mystery_choice: { screen: 'mystery_choice', emoji: '🎭', name: 'Mystery Choice' },
     mystery:     { screen: 'tictactoe', emoji: '⭕', name: 'Tic Tac Toe' }, // legacy fallback
   }
   const game = gameMap[session.game_type]
