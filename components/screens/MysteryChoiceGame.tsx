@@ -4,30 +4,24 @@ import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentSession } from '@/lib/gameInvites'
 
-// 10 sample rounds — bilingual
-const ROUNDS: { emoji: [string, string]; en: [string, string]; gr: [string, string] }[] = [
-  { emoji: ['☕','🍷'], en: ['Coffee', 'Wine'],               gr: ['Καφές', 'Κρασί'] },
-  { emoji: ['🏖️','🏔️'], en: ['Beach', 'Mountains'],           gr: ['Παραλία', 'Βουνό'] },
-  { emoji: ['🐶','🐱'], en: ['Dog', 'Cat'],                   gr: ['Σκύλος', 'Γάτα'] },
-  { emoji: ['📞','💬'], en: ['Call', 'Text'],                 gr: ['Κλήση', 'Μήνυμα'] },
-  { emoji: ['🌃','🛋️'], en: ['Night out', 'Cozy night'],      gr: ['Έξοδος', 'Χαλαρή βραδιά'] },
-  { emoji: ['🍕','🍣'], en: ['Pizza', 'Sushi'],                gr: ['Πίτσα', 'Σούσι'] },
-  { emoji: ['🧭','🧘'], en: ['Adventure', 'Relax'],            gr: ['Περιπέτεια', 'Χαλάρωση'] },
-  { emoji: ['😂','🎬'], en: ['Comedy', 'Thriller'],            gr: ['Κωμωδία', 'Θρίλερ'] },
-  { emoji: ['🌅','🌙'], en: ['Early bird', 'Night owl'],       gr: ['Πρωινός τύπος', 'Νυχτοπούλι'] },
-  { emoji: ['📋','🌊'], en: ['Plan everything', 'Go with the flow'], gr: ['Σχεδιάζω τα πάντα', 'Πάω με το ρεύμα'] },
-]
+interface RoundData { emoji: [string, string]; en: [string, string]; gr: [string, string] }
 
 interface MysteryChoiceState {
-  round: number
+  game_type: string
+  current_round: number
+  rounds: RoundData[]
   player_one_choice: 'a' | 'b' | null
   player_two_choice: 'a' | 'b' | null
+  player_one_ready: boolean
+  player_two_ready: boolean
   round_result: 'match' | 'different' | null
+  status: 'active' | 'complete'
 }
 
-function freshRoundState(round: number): MysteryChoiceState {
-  return { round, player_one_choice: null, player_two_choice: null, round_result: null }
-}
+// Fallback in case a session's state is missing rounds (defensive only)
+const FALLBACK_ROUNDS: RoundData[] = [
+  { emoji: ['☕','🍷'], en: ['Coffee', 'Wine'], gr: ['Καφές', 'Κρασί'] },
+]
 
 export default function MysteryChoiceGame() {
   const { navigate, lang } = useApp()
@@ -40,10 +34,12 @@ export default function MysteryChoiceGame() {
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
   const resultWriteLock = useRef(false)
+  const advanceWriteLock = useRef(false)
 
+  // Require a session_id — otherwise show "No game session found."
   useEffect(() => {
-    if (!session) { setLoading(false); return }
-    console.log('MYSTERY CHOICE LOADED')
+    if (!session?.id) { setLoading(false); return }
+    console.log('MYSTERY CHOICE SESSION LOADED')
     const sess0 = session
     activeSessionRef.current = sess0.id
 
@@ -56,20 +52,27 @@ export default function MysteryChoiceGame() {
       profs?.forEach(p => nm.set(p.id, p.name))
       setNames({ one: nm.get(sess0.player_one_id) || 'Player 1', two: nm.get(sess0.player_two_id) || 'Player 2' })
 
-      // Fresh state from Supabase
+      // Both users load the SAME game_session by session_id
       const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
-      let s: MysteryChoiceState = sess?.state?.round !== undefined ? sess.state : freshRoundState(0)
+      let s: MysteryChoiceState = sess?.state?.current_round !== undefined
+        ? sess.state
+        : {
+            game_type: 'mystery_choice', current_round: 0, rounds: FALLBACK_ROUNDS,
+            player_one_choice: null, player_two_choice: null,
+            player_one_ready: false, player_two_ready: false,
+            round_result: null, status: 'active',
+          }
       setState(s)
-      console.log('MYSTERY CHOICE SESSION STATE', s)
+      console.log('MYSTERY CHOICE SESSION LOADED', s)
       setLoading(false)
 
-      // Realtime subscription
+      // Subscribe to THIS game_session row via Supabase realtime
       const channel = supabase
         .channel(`mystery-choice-${sess0.id}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${sess0.id}` }, (payload: any) => {
           if (payload.new?.id !== activeSessionRef.current) return  // hard guard: ignore stale/other-session updates
           const newState = payload.new.state as MysteryChoiceState
-          console.log('MYSTERY CHOICE SESSION STATE', newState)
+          console.log('MYSTERY CHOICE REALTIME UPDATE', newState)
           setState(newState)
         })
         .subscribe()
@@ -88,18 +91,17 @@ export default function MysteryChoiceGame() {
   }
 
   async function choose(choice: 'a' | 'b') {
-    if (!state || !session || !myId) return
+    if (!state || !session || !myId || state.status === 'complete') return
     const isPlayerOne = myId === session.player_one_id
-    // Already chose this round — ignore
     if (isPlayerOne && state.player_one_choice) return
     if (!isPlayerOne && state.player_two_choice) return
 
-    console.log('MYSTERY CHOICE SELECTED', choice)
     const next: MysteryChoiceState = {
       ...state,
       player_one_choice: isPlayerOne ? choice : state.player_one_choice,
       player_two_choice: !isPlayerOne ? choice : state.player_two_choice,
     }
+    console.log('PLAYER CHOICE SAVED', isPlayerOne ? 'player_one' : 'player_two', choice)
     setState(next)  // optimistic
     await saveState(next)
   }
@@ -107,23 +109,58 @@ export default function MysteryChoiceGame() {
   // When both have chosen, compute + write the result once
   useEffect(() => {
     if (!state || !session) return
-    if (state.player_one_choice && state.player_two_choice && !state.round_result && !resultWriteLock.current) {
-      resultWriteLock.current = true
-      const result = state.player_one_choice === state.player_two_choice ? 'match' : 'different'
-      console.log('MYSTERY CHOICE RESULT', result)
-      const next = { ...state, round_result: result as 'match' | 'different' }
-      setState(next)
-      saveState(next).finally(() => { resultWriteLock.current = false })
+    if (state.player_one_choice && state.player_two_choice) {
+      if (!state.round_result && !resultWriteLock.current) {
+        console.log('BOTH CHOICES READY')
+        resultWriteLock.current = true
+        const result = state.player_one_choice === state.player_two_choice ? 'match' : 'different'
+        console.log('ROUND RESULT', result)
+        const next = { ...state, round_result: result as 'match' | 'different' }
+        setState(next)
+        saveState(next).finally(() => { resultWriteLock.current = false })
+      }
     }
   }, [state?.player_one_choice, state?.player_two_choice])
 
-  function nextRound() {
-    if (!state) return
-    console.log('MYSTERY CHOICE NEXT ROUND')
-    const next = freshRoundState((state.round + 1) % ROUNDS.length)
+  function markReady() {
+    if (!state || !session || !myId) return
+    const isPlayerOne = myId === session.player_one_id
+    console.log('NEXT ROUND READY', isPlayerOne ? 'player_one' : 'player_two')
+    const next: MysteryChoiceState = {
+      ...state,
+      player_one_ready: isPlayerOne ? true : state.player_one_ready,
+      player_two_ready: !isPlayerOne ? true : state.player_two_ready,
+    }
     setState(next)  // optimistic
     saveState(next)
   }
+
+  // When both are ready, advance to next round (or complete the game)
+  useEffect(() => {
+    if (!state || !session) return
+    if (state.player_one_ready && state.player_two_ready && !advanceWriteLock.current) {
+      advanceWriteLock.current = true
+      const isLastRound = state.current_round + 1 >= state.rounds.length
+      let next: MysteryChoiceState
+      if (isLastRound) {
+        console.log('GAME COMPLETE')
+        next = { ...state, status: 'complete' }
+      } else {
+        console.log('NEXT ROUND STARTED')
+        next = {
+          ...state,
+          current_round: state.current_round + 1,
+          player_one_choice: null,
+          player_two_choice: null,
+          player_one_ready: false,
+          player_two_ready: false,
+          round_result: null,
+        }
+      }
+      setState(next)
+      saveState(next).finally(() => { advanceWriteLock.current = false })
+    }
+  }, [state?.player_one_ready, state?.player_two_ready])
 
   if (loading) {
     return (
@@ -133,7 +170,8 @@ export default function MysteryChoiceGame() {
     )
   }
 
-  if (!session || !state) {
+  // No session_id → "No game session found."
+  if (!session?.id || !state) {
     return (
       <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#0a0a10' }}>
         <div className="text-[40px] mb-3">⚠️</div>
@@ -151,9 +189,30 @@ export default function MysteryChoiceGame() {
   const isPlayerOne = myId === session.player_one_id
   const myChoice = isPlayerOne ? state.player_one_choice : state.player_two_choice
   const oppChoice = isPlayerOne ? state.player_two_choice : state.player_one_choice
-  const round = ROUNDS[state.round % ROUNDS.length]
+  const myReady = isPlayerOne ? state.player_one_ready : state.player_two_ready
+  const rounds = state.rounds?.length ? state.rounds : FALLBACK_ROUNDS
+  const round = rounds[state.current_round % rounds.length]
   const optA = lang === 'gr' ? round.gr[0] : round.en[0]
   const optB = lang === 'gr' ? round.gr[1] : round.en[1]
+
+  // Game complete screen
+  if (state.status === 'complete') {
+    return (
+      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.12) 0%, transparent 60%), #0a0a10' }}>
+        <div className="text-[48px] mb-4">🎉</div>
+        <div className="text-[20px] font-extrabold text-white mb-2 text-center">
+          {lang === 'gr' ? 'Το παιχνίδι ολοκληρώθηκε' : 'Game complete'}
+        </div>
+        <div className="text-[13px] mb-6 text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          {lang === 'gr' ? `Παίξατε ${rounds.length} γύρους μαζί.` : `You played ${rounds.length} rounds together.`}
+        </div>
+        <button onClick={() => navigate('profile')} className="rounded-2xl px-8 py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
+          style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 24px rgba(253,41,123,0.4)' }}>
+          {lang === 'gr' ? 'Πίσω στο Discover' : 'Back to Discover'}
+        </button>
+      </div>
+    )
+  }
 
   let statusText = ''
   if (state.round_result) {
@@ -161,7 +220,7 @@ export default function MysteryChoiceGame() {
       ? (lang === 'gr' ? 'Ταίριασμα! 🎉' : 'Match! 🎉')
       : (lang === 'gr' ? 'Διαφορετική επιλογή...' : 'Different choice...')
   } else if (myChoice) {
-    statusText = lang === 'gr' ? 'Αναμονή για τον άλλο παίκτη...' : 'Waiting for other player...'
+    statusText = lang === 'gr' ? 'Αναμονή για τον άλλο παίκτη...' : 'Waiting for the other player...'
   } else {
     statusText = lang === 'gr' ? 'Διάλεξε την απάντησή σου' : 'Choose your answer'
   }
@@ -174,7 +233,7 @@ export default function MysteryChoiceGame() {
         <button onClick={() => navigate('profile')} className="text-white/40 text-[14px] cursor-pointer">←</button>
         <h1 className="text-[16px] font-extrabold text-white flex-1">🎭 Mystery Choice</h1>
         <div className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          {state.round + 1} / {ROUNDS.length}
+          {state.current_round + 1} / {rounds.length}
         </div>
       </div>
 
@@ -242,12 +301,18 @@ export default function MysteryChoiceGame() {
           </div>
         </div>
 
-        {/* Next round */}
+        {/* Next round — both users see it after a result; tapping sets ready flag */}
         {state.round_result && (
-          <button onClick={nextRound}
-            className="rounded-2xl px-8 py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-            style={{ background: 'linear-gradient(135deg,#7c72ff,#d84dd8)', color: '#fff', boxShadow: '0 8px 24px rgba(108,99,255,0.4)' }}>
-            {lang === 'gr' ? 'Επόμενος Γύρος →' : 'Next Round →'}
+          <button onClick={markReady} disabled={myReady}
+            className="rounded-2xl px-8 py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer disabled:cursor-default"
+            style={{
+              background: myReady ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg,#7c72ff,#d84dd8)',
+              color: myReady ? 'rgba(255,255,255,0.5)' : '#fff',
+              boxShadow: myReady ? 'none' : '0 8px 24px rgba(108,99,255,0.4)',
+            }}>
+            {myReady
+              ? (lang === 'gr' ? 'Αναμονή για τον άλλο...' : 'Waiting for other player...')
+              : (lang === 'gr' ? 'Επόμενος Γύρος →' : 'Next Round →')}
           </button>
         )}
       </div>

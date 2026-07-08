@@ -140,11 +140,35 @@ function initStateFor(gameType: string): any {
     return { board: Array(42).fill(''), currentTurn: null, winner: null, status: 'active', moves: 0, gameNumber: 1, parentSessionId: null }
   }
   if (gameType === 'mystery_choice') {
-    return { round: 0, player_one_choice: null, player_two_choice: null, round_result: null }
+    return {
+      game_type: 'mystery_choice',
+      current_round: 0,
+      rounds: MYSTERY_CHOICE_ROUNDS,
+      player_one_choice: null,
+      player_two_choice: null,
+      player_one_ready: false,
+      player_two_ready: false,
+      round_result: null,
+      status: 'active',
+    }
   }
   // tic_tac_toe / default
   return { board: ['','','','','','','','',''], currentTurn: null, winner: null, status: 'active', moves: 0, progressCounted: false, gameNumber: 1, parentSessionId: null }
 }
+
+// 10 sample rounds for Mystery Choice — bilingual, embedded in game_sessions.state
+export const MYSTERY_CHOICE_ROUNDS = [
+  { emoji: ['☕','🍷'], en: ['Coffee', 'Wine'],               gr: ['Καφές', 'Κρασί'] },
+  { emoji: ['🏖️','🏔️'], en: ['Beach', 'Mountains'],           gr: ['Παραλία', 'Βουνό'] },
+  { emoji: ['🐶','🐱'], en: ['Dog', 'Cat'],                   gr: ['Σκύλος', 'Γάτα'] },
+  { emoji: ['📞','💬'], en: ['Call', 'Text'],                 gr: ['Κλήση', 'Μήνυμα'] },
+  { emoji: ['🌃','🛋️'], en: ['Night out', 'Cozy night'],      gr: ['Έξοδος', 'Χαλαρή βραδιά'] },
+  { emoji: ['🍕','🍣'], en: ['Pizza', 'Sushi'],                gr: ['Πίτσα', 'Σούσι'] },
+  { emoji: ['🧭','🧘'], en: ['Adventure', 'Relax'],            gr: ['Περιπέτεια', 'Χαλάρωση'] },
+  { emoji: ['😂','🎬'], en: ['Comedy', 'Thriller'],            gr: ['Κωμωδία', 'Θρίλερ'] },
+  { emoji: ['🌅','🌙'], en: ['Early bird', 'Night owl'],       gr: ['Πρωινός τύπος', 'Νυχτοπούλι'] },
+  { emoji: ['📋','🌊'], en: ['Plan everything', 'Go with the flow'], gr: ['Σχεδιάζω τα πάντα', 'Πάω με το ρεύμα'] },
+]
 
 // Create a session when an invite is accepted (receiver side)
 export async function createGameSession(invite: GameInvite): Promise<{ session?: GameSession; error?: string }> {
