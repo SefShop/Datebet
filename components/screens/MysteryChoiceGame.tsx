@@ -2,8 +2,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession } from '@/lib/gameInvites'
+import { getCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
+import { getPresence, isOnlineNow } from '@/lib/presence'
 
 interface RoundData { emoji: [string, string]; en: [string, string]; gr: [string, string] }
 
@@ -42,6 +43,14 @@ export default function MysteryChoiceGame() {
   const recoveryLockRef = useRef(false)
   const [pairCount, setPairCount] = useState(0)
   const [progressError, setProgressError] = useState<string | null>(null)
+
+  // ── UI-only presentational state (does NOT affect game logic / sync / DB) ──
+  const [revealing, setRevealing] = useState(false)          // ~800ms freeze before flip reveal
+  const [matchTally, setMatchTally] = useState(0)             // session-local "compatibility" tally for the celebration screen
+  const [onlineOne, setOnlineOne] = useState(false)
+  const [onlineTwo, setOnlineTwo] = useState(false)
+  const tallyRoundRef = useRef<number>(-1)
+  const revealTimerRef = useRef<any>(null)
 
   // Require a session_id — otherwise show "No game session found."
   useEffect(() => {
@@ -305,10 +314,73 @@ export default function MysteryChoiceGame() {
     }
   }
 
+  // ── UI-only effects (no writes to game_sessions, no effect on sync/scoring) ──
+
+  // Freeze briefly, then play the flip-reveal animation whenever a round result appears
+  useEffect(() => {
+    if (state?.round_result) {
+      setRevealing(true)
+      revealTimerRef.current = setTimeout(() => setRevealing(false), 800)
+    } else {
+      setRevealing(false)
+    }
+    return () => { if (revealTimerRef.current) clearTimeout(revealTimerRef.current) }
+  }, [state?.round_result, state?.current_round])
+
+  // Session-local match tally for the celebration screen (view-only, not persisted)
+  useEffect(() => {
+    if (!state) return
+    if (state.round_result === 'match' && tallyRoundRef.current !== state.current_round) {
+      tallyRoundRef.current = state.current_round
+      setMatchTally(t => t + 1)
+    }
+  }, [state?.round_result, state?.current_round])
+
+  // Reset the tally if we land on a brand-new session
+  useEffect(() => { setMatchTally(0); tallyRoundRef.current = -1 }, [session?.id])
+
+  // Read-only presence indicators for the player header (reuses existing presence API)
+  useEffect(() => {
+    if (!session) return
+    let active = true
+    async function poll() {
+      const [p1, p2] = await Promise.all([getPresence(session!.player_one_id), getPresence(session!.player_two_id)])
+      if (!active) return
+      setOnlineOne(isOnlineNow(p1.isOnline, p1.lastSeen))
+      setOnlineTwo(isOnlineNow(p2.isOnline, p2.lastSeen))
+    }
+    poll()
+    const t = setInterval(poll, 15000)
+    return () => { active = false; clearInterval(t) }
+  }, [session?.id])
+
+  async function playAgain() {
+    if (!session || !myId) return
+    console.log('MYSTERY CHOICE PLAY AGAIN CLICKED:', session.id)
+    const opponentId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
+    const result = await sendGameInvite(opponentId, 'mystery_choice')
+    if (!result.ok || !result.inviteId) { console.error('Mystery Choice play again failed:', result.error); return }
+    const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()
+    setPendingInvite({ id: result.inviteId, receiverName: opp?.name || 'Player', gameType: 'mystery_choice' })
+    navigate('waiting')
+  }
+
+  function compatibilityLabel(score: number): string {
+    if (score >= 8) return lang === 'gr' ? 'Τέλειο Ταίριασμα' : 'Perfect Match'
+    if (score >= 6) return lang === 'gr' ? 'Καταπληκτική Χημεία' : 'Amazing Chemistry'
+    if (score >= 4) return lang === 'gr' ? 'Υπέροχη Σύνδεση' : 'Great Connection'
+    if (score >= 2) return lang === 'gr' ? 'Καλές Προοπτικές' : 'Good Potential'
+    return lang === 'gr' ? 'Συνέχισε να Ανακαλύπτεις' : 'Keep Discovering'
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full" style={{ background: '#0a0a10' }}>
-        <div className="text-white/40 text-[13px]">{lang === 'gr' ? 'Φόρτωση...' : 'Loading...'}</div>
+        <div className="relative w-14 h-14">
+          <div className="absolute inset-0 rounded-full" style={{ border: '3px solid rgba(255,255,255,0.08)' }} />
+          <div className="absolute inset-0 rounded-full" style={{ border: '3px solid transparent', borderTopColor: '#ff3384', borderRightColor: '#d84dd8', animation: 'mcSpin 0.9s linear infinite' }} />
+        </div>
+        <div className="text-white/40 text-[13px] mt-4 absolute" style={{ marginTop: 64 }}>{lang === 'gr' ? 'Φόρτωση...' : 'Loading...'}</div>
       </div>
     )
   }
@@ -316,15 +388,17 @@ export default function MysteryChoiceGame() {
   // No session_id → "No game session found."
   if (!session?.id || !state) {
     return (
-      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#0a0a10' }}>
-        <div className="text-[40px] mb-3">⚠️</div>
-        <div className="text-[16px] font-bold text-white mb-4 text-center">
-          {lang === 'gr' ? 'Δεν βρέθηκε παιχνίδι.' : 'No game session found.'}
+      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(253,41,123,0.1) 0%, transparent 60%), #0a0a10' }}>
+        <div className="rounded-3xl p-8 text-center" style={{ background: 'rgba(15,12,25,0.7)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 16px 50px rgba(0,0,0,0.5)' }}>
+          <div className="text-[44px] mb-3">⚠️</div>
+          <div className="text-[16px] font-bold text-white mb-5 text-center">
+            {lang === 'gr' ? 'Δεν βρέθηκε παιχνίδι.' : 'No game session found.'}
+          </div>
+          <button onClick={() => navigate('profile')} className="rounded-full px-6 py-3 text-[13px] font-bold cursor-pointer active:scale-95 transition-transform"
+            style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 24px rgba(253,41,123,0.4)' }}>
+            {lang === 'gr' ? 'Πίσω' : 'Back'}
+          </button>
         </div>
-        <button onClick={() => navigate('profile')} className="rounded-full px-5 py-2.5 text-[13px] font-bold cursor-pointer"
-          style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)', color: '#fff' }}>
-          {lang === 'gr' ? 'Πίσω' : 'Back'}
-        </button>
       </div>
     )
   }
@@ -333,102 +407,164 @@ export default function MysteryChoiceGame() {
   const myChoice = isPlayerOne ? state.player_one_choice : state.player_two_choice
   const oppChoice = isPlayerOne ? state.player_two_choice : state.player_one_choice
   const myReady = isPlayerOne ? state.player_one_ready : state.player_two_ready
+  const oppReady = isPlayerOne ? state.player_two_ready : state.player_one_ready
   const rounds = state.rounds?.length ? state.rounds : FALLBACK_ROUNDS
   const safeRoundIndex = Number.isFinite(state.current_round) ? state.current_round % rounds.length : 0
   const round = rounds[safeRoundIndex] || FALLBACK_ROUNDS[0]
   const optA = lang === 'gr' ? round.gr[0] : round.en[0]
   const optB = lang === 'gr' ? round.gr[1] : round.en[1]
+  const progressPct = Math.round(((safeRoundIndex + 1) / rounds.length) * 100)
 
-  // Game complete screen
+  // Game complete screen — premium celebration
   if (state.status === 'finished') {
+    const scoreOutOf = rounds.length
+    const pct = scoreOutOf > 0 ? Math.round((matchTally / scoreOutOf) * 100) : 0
+    const circumference = 2 * Math.PI * 54
+    const dashOffset = circumference - (pct / 100) * circumference
     return (
-      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.12) 0%, transparent 60%), #0a0a10' }}>
-        <div className="text-[48px] mb-4">🎉</div>
-        <div className="text-[20px] font-extrabold text-white mb-2 text-center">
-          {lang === 'gr' ? 'Το παιχνίδι ολοκληρώθηκε' : 'Game complete'}
+      <div className="relative flex flex-col h-full items-center justify-center px-8 overflow-hidden" style={{ background: '#0a0a10' }}>
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.16) 0%, transparent 60%), radial-gradient(ellipse at 50% 75%, rgba(108,99,255,0.14) 0%, transparent 60%)', animation: 'mcBgPulse 6s ease-in-out infinite' }} />
+        <McParticles />
+
+        <div className="relative z-10 flex flex-col items-center" style={{ animation: 'mcCelebrateIn 0.6s cubic-bezier(0.34,1.4,0.64,1) both' }}>
+          <div className="text-[56px] mb-2" style={{ animation: 'mcFloat 3s ease-in-out infinite' }}>🎉</div>
+          <div className="text-[22px] font-extrabold text-white mb-1 text-center">
+            {lang === 'gr' ? 'Το παιχνίδι ολοκληρώθηκε' : 'Game Complete'}
+          </div>
+          <div className="text-[12px] mb-7 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {lang === 'gr' ? `${scoreOutOf} γύροι μαζί` : `${scoreOutOf} rounds together`}
+          </div>
+
+          {/* Animated compatibility ring */}
+          <div className="relative w-[160px] h-[160px] mb-5">
+            <svg width="160" height="160" viewBox="0 0 120 120" className="-rotate-90">
+              <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
+              <circle cx="60" cy="60" r="54" fill="none" stroke="url(#mcRingGrad)" strokeWidth="8" strokeLinecap="round"
+                strokeDasharray={circumference} strokeDashoffset={dashOffset}
+                style={{ transition: 'stroke-dashoffset 1.1s cubic-bezier(0.34,1.2,0.64,1)' }} />
+              <defs>
+                <linearGradient id="mcRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#ff3384" />
+                  <stop offset="50%" stopColor="#d84dd8" />
+                  <stop offset="100%" stopColor="#7c72ff" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="text-[30px] font-black text-white leading-none">{matchTally}<span className="text-[16px] font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>/{scoreOutOf}</span></div>
+              <div className="text-[10px] font-bold uppercase tracking-[1.5px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {lang === 'gr' ? 'Ταίριασμα' : 'Matches'}
+              </div>
+            </div>
+          </div>
+
+          <div className="text-[16px] font-extrabold mb-8 text-center" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8,#7c72ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            {compatibilityLabel(matchTally)}
+          </div>
+
+          <div className="flex flex-col gap-3 w-full max-w-[280px]">
+            <button onClick={playAgain} className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
+              style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 28px rgba(253,41,123,0.45)' }}>
+              🔁 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
+            </button>
+            <button onClick={() => navigate('profile')} className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
+              style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)', border: '1px solid rgba(255,255,255,0.12)' }}>
+              {lang === 'gr' ? 'Πίσω στο Discover' : 'Back to Discover'}
+            </button>
+          </div>
         </div>
-        <div className="text-[13px] mb-6 text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>
-          {lang === 'gr' ? `Παίξατε ${rounds.length} γύρους μαζί.` : `You played ${rounds.length} rounds together.`}
-        </div>
-        <button onClick={() => navigate('profile')} className="rounded-2xl px-8 py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-          style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 24px rgba(253,41,123,0.4)' }}>
-          {lang === 'gr' ? 'Πίσω στο Discover' : 'Back to Discover'}
-        </button>
+
+        <style>{`
+          @keyframes mcCelebrateIn { from{opacity:0;transform:scale(0.9) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
+          @keyframes mcFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+          @keyframes mcBgPulse { 0%,100%{opacity:0.7} 50%{opacity:1} }
+        `}</style>
       </div>
     )
   }
 
-  let statusText = ''
-  if (state.round_result) {
-    statusText = state.round_result === 'match'
-      ? (lang === 'gr' ? 'Ταίριασμα! 🎉' : 'Match! 🎉')
-      : (lang === 'gr' ? 'Διαφορετική επιλογή...' : 'Different choice...')
-  } else if (myChoice) {
-    statusText = lang === 'gr' ? 'Αναμονή για τον άλλο παίκτη...' : 'Waiting for the other player...'
-  } else {
-    statusText = lang === 'gr' ? 'Διάλεξε την απάντησή σου' : 'Choose your answer'
-  }
+  const waitingOnOpponent = !!myChoice && !state.round_result
+  const revealed = !!state.round_result
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(253,41,123,0.12) 0%, transparent 55%), radial-gradient(ellipse at 50% 80%, rgba(108,99,255,0.12) 0%, transparent 55%), #0a0a10' }}>
+    <div className="relative flex flex-col h-full overflow-hidden" style={{ background: '#0a0a10' }}>
+      {/* Animated gradient background */}
+      <div className="absolute inset-0" style={{
+        background: 'radial-gradient(ellipse at 20% 15%, rgba(253,41,123,0.14) 0%, transparent 50%), radial-gradient(ellipse at 80% 85%, rgba(108,99,255,0.14) 0%, transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(216,77,216,0.06) 0%, transparent 60%)',
+        backgroundSize: '160% 160%',
+        animation: 'mcBgDrift 14s ease-in-out infinite',
+      }} />
+      <McParticles />
 
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 pt-14 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <button onClick={() => navigate('profile')} className="text-white/40 text-[14px] cursor-pointer">←</button>
+      <div className="relative z-10 flex items-center gap-3 px-5 pt-14 pb-3">
+        <button onClick={() => navigate('profile')} className="text-white/50 text-[16px] cursor-pointer w-7 h-7 flex items-center justify-center rounded-full active:scale-90 transition-transform" style={{ background: 'rgba(255,255,255,0.06)' }}>←</button>
         <h1 className="text-[16px] font-extrabold text-white flex-1">🎭 Mystery Choice</h1>
-        <div className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          {state.current_round + 1} / {rounds.length}
+      </div>
+
+      {/* Round indicator + progress bar */}
+      <div className="relative z-10 px-5 pb-4">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[11px] font-bold uppercase tracking-[1.5px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {lang === 'gr' ? 'Γύρος' : 'Round'} {safeRoundIndex + 1} / {rounds.length}
+          </span>
+        </div>
+        <div className="w-full h-[6px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+          <div className="h-full rounded-full" style={{
+            width: `${progressPct}%`,
+            background: 'linear-gradient(90deg,#ff3384,#d84dd8,#7c72ff)',
+            boxShadow: '0 0 12px rgba(253,41,123,0.5)',
+            transition: 'width 0.5s cubic-bezier(0.4,0,0.2,1)',
+          }} />
         </div>
       </div>
 
-      {/* Players */}
-      <div className="flex items-center justify-center gap-4 pt-6 pb-2 px-6">
-        <div className="text-center">
-          <div className="text-[12px] font-bold text-white">{names.one}</div>
-          <div className="text-[10px]" style={{ color: '#ff3384' }}>{lang==='gr'?'Παίκτης 1':'Player 1'}</div>
+      {/* Premium player header */}
+      <div className="relative z-10 flex items-center justify-center gap-3 px-6 pb-4">
+        <PlayerCard name={names.one} colorA="#ff3384" colorB="#ff7a6e" online={onlineOne} active={waitingOnOpponent && isPlayerOne === false && !oppChoice} isMe={isPlayerOne} />
+        <div className="flex flex-col items-center px-1">
+          <div className="text-[15px] font-black" style={{ color: 'rgba(255,255,255,0.7)', animation: 'mcVsPulse 1.8s ease-in-out infinite' }}>VS</div>
         </div>
-        <div className="text-[16px] font-black" style={{ color: 'rgba(253,41,123,0.7)' }}>VS</div>
-        <div className="text-center">
-          <div className="text-[12px] font-bold text-white">{names.two}</div>
-          <div className="text-[10px]" style={{ color: '#7c72ff' }}>{lang==='gr'?'Παίκτης 2':'Player 2'}</div>
-        </div>
+        <PlayerCard name={names.two} colorA="#7c72ff" colorB="#a855f7" online={onlineTwo} active={waitingOnOpponent && isPlayerOne === true && !oppChoice} isMe={!isPlayerOne} />
       </div>
 
       {/* Question card */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6">
-        <div className="w-full max-w-[380px] rounded-3xl p-7 mb-6"
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-6 min-h-0 overflow-y-auto">
+        <div key={`round-${state.current_round}`} className="w-full max-w-[400px] rounded-3xl p-7 mb-5"
           style={{
-            background: 'rgba(15,12,25,0.7)',
-            backdropFilter: 'blur(24px) saturate(1.4)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            boxShadow: '0 16px 50px rgba(0,0,0,0.5), 0 0 40px rgba(253,41,123,0.08)',
+            background: 'rgba(15,12,25,0.72)',
+            backdropFilter: 'blur(28px) saturate(1.5)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 50px rgba(253,41,123,0.1)',
+            animation: 'mcCardFade 0.4s ease both',
           }}>
 
-          <div className="text-center text-[13px] font-bold uppercase tracking-[2px] mb-5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          <div className="text-center text-[19px] font-extrabold mb-6 leading-snug" style={{ color: '#fff' }}>
             {lang === 'gr' ? `${optA} ή ${optB};` : `${optA} or ${optB}?`}
           </div>
 
-          {/* Two big choice buttons */}
+          {/* Answer buttons */}
           <div className="flex flex-col gap-3">
             {(['a','b'] as const).map(key => {
               const label = key === 'a' ? optA : optB
               const emoji = key === 'a' ? round.emoji[0] : round.emoji[1]
               const isMine = myChoice === key
-              const revealed = !!state.round_result
               const isOpp = revealed && oppChoice === key
               return (
                 <button key={key} onClick={() => choose(key)} disabled={!!myChoice}
-                  className="w-full rounded-2xl py-5 text-[16px] font-bold flex items-center justify-center gap-2.5 transition-all active:scale-95 cursor-pointer disabled:cursor-default"
+                  className="mc-answer-btn w-full rounded-2xl py-5 text-[16px] font-bold flex items-center justify-center gap-2.5 cursor-pointer disabled:cursor-default"
                   style={{
                     background: isMine
                       ? 'linear-gradient(135deg,#ff3384,#d84dd8)'
                       : 'rgba(255,255,255,0.05)',
-                    color: isMine ? '#fff' : 'rgba(255,255,255,0.85)',
-                    border: isOpp && !isMine ? '2px solid #7c72ff' : '1px solid rgba(255,255,255,0.1)',
-                    boxShadow: isMine ? '0 8px 24px rgba(253,41,123,0.4)' : 'none',
-                    opacity: myChoice && !isMine && !revealed ? 0.5 : 1,
+                    color: isMine ? '#fff' : 'rgba(255,255,255,0.88)',
+                    border: isOpp && !isMine ? '2px solid #7c72ff' : '1px solid rgba(255,255,255,0.12)',
+                    boxShadow: isMine ? '0 10px 30px rgba(253,41,123,0.45)' : 'none',
+                    opacity: myChoice && !isMine && !revealed ? 0.45 : 1,
+                    transform: revealed && revealing ? 'rotateX(6deg)' : 'none',
+                    transition: 'transform 0.25s ease, opacity 0.25s ease, box-shadow 0.25s ease, background 0.25s ease',
                   }}>
-                  <span className="text-[22px]">{emoji}</span>
+                  <span className="text-[24px]">{emoji}</span>
                   <span>{label}</span>
                   {isOpp && !isMine && <span className="text-[11px] ml-1" style={{ color: '#7c72ff' }}>{lang==='gr'?'(αυτός/ή)':'(them)'}</span>}
                 </button>
@@ -437,22 +573,56 @@ export default function MysteryChoiceGame() {
           </div>
         </div>
 
-        {/* Status */}
-        <div className="text-center mb-4">
-          <div className="text-[15px] font-bold"
-            style={{ color: state.round_result === 'match' ? '#4ade80' : state.round_result === 'different' ? '#ff3384' : 'rgba(255,255,255,0.6)' }}>
-            {statusText}
+        {/* Waiting state */}
+        {waitingOnOpponent && !revealing && (
+          <div className="flex items-center gap-2.5 mb-4" style={{ animation: 'mcFadeIn 0.3s ease both' }}>
+            <div className="relative w-4 h-4">
+              <div className="absolute inset-0 rounded-full" style={{ border: '2px solid rgba(255,255,255,0.15)' }} />
+              <div className="absolute inset-0 rounded-full" style={{ border: '2px solid transparent', borderTopColor: '#ff3384', animation: 'mcSpin 0.8s linear infinite' }} />
+            </div>
+            <span className="text-[14px] font-semibold" style={{ color: 'rgba(255,255,255,0.65)' }}>
+              {lang === 'gr' ? 'Αναμονή για τον αντίπαλο' : 'Waiting for your opponent'}
+              <span className="mc-dots" />
+            </span>
           </div>
-        </div>
+        )}
+
+        {/* Prompt before choosing */}
+        {!myChoice && !revealed && (
+          <div className="text-[14px] font-semibold mb-4 text-center" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            {lang === 'gr' ? 'Διάλεξε την απάντησή σου' : 'Choose your answer'}
+          </div>
+        )}
+
+        {/* Reveal result */}
+        {revealed && !revealing && (
+          <div className="flex flex-col items-center gap-2 mb-5" style={{ animation: 'mcResultPop 0.4s cubic-bezier(0.34,1.4,0.64,1) both' }}>
+            <div className="rounded-full px-5 py-2 text-[15px] font-black flex items-center gap-2"
+              style={{
+                background: state.round_result === 'match' ? 'rgba(74,222,128,0.14)' : 'rgba(253,41,123,0.14)',
+                color: state.round_result === 'match' ? '#4ade80' : '#ff3384',
+                border: `1.5px solid ${state.round_result === 'match' ? 'rgba(74,222,128,0.4)' : 'rgba(253,41,123,0.4)'}`,
+                boxShadow: state.round_result === 'match' ? '0 0 24px rgba(74,222,128,0.3)' : '0 0 24px rgba(253,41,123,0.25)',
+              }}>
+              {state.round_result === 'match' ? '✓ MATCH' : '✕ DIFFERENT'}
+            </div>
+            <div className="text-[12px] font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              {state.round_result === 'match'
+                ? (lang === 'gr' ? '+1 Ταίριασμα' : '+1 Match')
+                : (lang === 'gr' ? 'Διαφορετικές επιλογές' : 'Different choices')}
+            </div>
+          </div>
+        )}
 
         {/* Next round — both users see it after a result; tapping sets ready flag */}
-        {state.round_result && (
+        {revealed && !revealing && (
           <button onClick={markReady} disabled={myReady}
             className="rounded-2xl px-8 py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer disabled:cursor-default"
             style={{
               background: myReady ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg,#7c72ff,#d84dd8)',
               color: myReady ? 'rgba(255,255,255,0.5)' : '#fff',
-              boxShadow: myReady ? 'none' : '0 8px 24px rgba(108,99,255,0.4)',
+              boxShadow: myReady ? 'none' : '0 10px 30px rgba(108,99,255,0.45)',
+              animation: 'mcFadeIn 0.3s ease both',
             }}>
             {myReady
               ? (lang === 'gr' ? 'Αναμονή για τον άλλο...' : 'Waiting for other player...')
@@ -460,6 +630,67 @@ export default function MysteryChoiceGame() {
           </button>
         )}
       </div>
+
+      <style>{`
+        @keyframes mcSpin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+        @keyframes mcFadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes mcCardFade { from{opacity:0;transform:translateY(10px) scale(0.98)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes mcResultPop { from{opacity:0;transform:scale(0.7)} to{opacity:1;transform:scale(1)} }
+        @keyframes mcVsPulse { 0%,100%{opacity:0.7;transform:scale(1)} 50%{opacity:1;transform:scale(1.15)} }
+        @keyframes mcBgDrift { 0%,100%{background-position:0% 0%} 50%{background-position:30% 20%} }
+        @keyframes mcDotBlink { 0%,20%{opacity:0} 50%{opacity:1} 100%{opacity:0} }
+        .mc-answer-btn:active { transform: scale(0.97); }
+        .mc-dots::after { content:'...'; display:inline-block; width:1.2em; text-align:left; animation: mcDotsCycle 1.2s steps(4) infinite; }
+        @keyframes mcDotsCycle { 0%{content:''} }
+      `}</style>
+    </div>
+  )
+}
+
+// Small floating particles — purely decorative, cheap CSS-only animation
+function McParticles() {
+  const particles = [
+    { l: '8%', t: '15%', d: '0s', s: 3 }, { l: '85%', t: '20%', d: '1.2s', s: 4 },
+    { l: '15%', t: '75%', d: '2.1s', s: 3 }, { l: '75%', t: '65%', d: '0.6s', s: 5 },
+    { l: '45%', t: '10%', d: '1.8s', s: 3 }, { l: '92%', t: '80%', d: '2.6s', s: 4 },
+    { l: '30%', t: '90%', d: '0.9s', s: 3 }, { l: '60%', t: '35%', d: '3.1s', s: 4 },
+  ]
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {particles.map((p, i) => (
+        <div key={i} className="absolute rounded-full" style={{
+          left: p.l, top: p.t, width: p.s, height: p.s,
+          background: i % 2 === 0 ? 'rgba(253,41,123,0.5)' : 'rgba(124,114,255,0.5)',
+          filter: 'blur(1px)',
+          animation: `mcParticleFloat 6s ease-in-out ${p.d} infinite`,
+        }} />
+      ))}
+      <style>{`@keyframes mcParticleFloat { 0%,100%{transform:translateY(0);opacity:0.4} 50%{transform:translateY(-14px);opacity:0.9} }`}</style>
+    </div>
+  )
+}
+
+// Premium player card — avatar, name, online dot, subtle glow when it's this player we're waiting on
+function PlayerCard({ name, colorA, colorB, online, active, isMe }: { name: string; colorA: string; colorB: string; online: boolean; active: boolean; isMe: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 rounded-2xl px-3.5 py-3" style={{
+      background: 'rgba(255,255,255,0.04)',
+      border: `1px solid ${active ? colorA + '80' : 'rgba(255,255,255,0.08)'}`,
+      boxShadow: active ? `0 0 22px ${colorA}55` : 'none',
+      transition: 'box-shadow 0.4s ease, border-color 0.4s ease',
+    }}>
+      <div className="relative">
+        <div className="w-11 h-11 rounded-full flex items-center justify-center text-[18px]" style={{
+          background: `linear-gradient(135deg,${colorA},${colorB})`,
+          boxShadow: active ? `0 0 18px ${colorA}80` : `0 0 10px ${colorA}30`,
+        }}>🎭</div>
+        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full" style={{
+          background: online ? '#4ade80' : '#666',
+          border: '2px solid #0a0a10',
+          boxShadow: online ? '0 0 6px #4ade80' : 'none',
+        }} />
+      </div>
+      <div className="text-[11px] font-bold text-white text-center max-w-[70px] truncate">{name}{isMe ? ' (you)' : ''}</div>
     </div>
   )
 }
