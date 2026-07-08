@@ -3,25 +3,28 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/lib/AppContext'
 import { clearProfileState } from '@/lib/profiles'
-import { getMessagesState, subscribeMessages, refreshMessagesState } from '@/lib/messagesState'
-import { getInviteCount } from '@/lib/gameInvites'
+import { refreshMessagesState } from '@/lib/messagesState'
+import { getNotificationsState, subscribeNotifications, refreshNotifications } from '@/lib/notificationsState'
 
 interface Props { onLogout: () => void }
 
 export default function UserMenu({ onLogout }: Props) {
   const { navigate, lang } = useApp()
   const [open, setOpen] = useState(false)
-  const [unread, setUnread] = useState(getMessagesState().unread)
-  const [invites, setInvites] = useState(0)
+  const [unread, setUnread] = useState(getNotificationsState().unreadMessages)
+  const [invites, setInvites] = useState(getNotificationsState().pendingInvites)
 
+  // Subscribe to the GLOBAL notifications store (single source of truth for all badges)
   useEffect(() => {
-    // Unread comes from the GLOBAL store (single source of truth)
-    setUnread(getMessagesState().unread)
-    const unsub = subscribeMessages(() => setUnread(getMessagesState().unread))
-    // Invites still polled here
-    getInviteCount().then(setInvites)
-    const t = setInterval(() => { getInviteCount().then(setInvites) }, 3000)
-    return () => { unsub(); clearInterval(t) }
+    function apply() {
+      const s = getNotificationsState()
+      setUnread(s.unreadMessages)
+      setInvites(s.pendingInvites)
+      console.log('DRAWER BADGE UPDATED')
+    }
+    apply()
+    const unsub = subscribeNotifications(apply)
+    return unsub
   }, [])
 
   // Refresh when drawer opens
@@ -29,31 +32,9 @@ export default function UserMenu({ onLogout }: Props) {
     if (open) {
       console.log('PROFILE MENU REFRESH CALLED')
       refreshMessagesState()
-      getInviteCount().then(setInvites)
+      refreshNotifications()
     }
   }, [open])
-
-  // Realtime invite badge
-  useEffect(() => {
-    let channel: any = null
-    async function sub() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      channel = supabase
-        .channel(`menu-invites-${user.id}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_invites' }, (payload: any) => {
-          const inv = payload.new
-          if (inv && inv.receiver_id === user.id) { console.log('BADGE: new invite'); getInviteCount().then(setInvites) }
-        })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_invites' }, (payload: any) => {
-          const inv = payload.new
-          if (inv && inv.receiver_id === user.id) getInviteCount().then(setInvites)
-        })
-        .subscribe()
-    }
-    sub()
-    return () => { if (channel) supabase.removeChannel(channel) }
-  }, [])
 
   // Escape key closes the drawer (desktop)
   useEffect(() => {

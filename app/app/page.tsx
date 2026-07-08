@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { startMessagesPolling, stopMessagesPolling, refreshMessagesState } from '@/lib/messagesState'
+import { startNotificationsPolling, stopNotificationsPolling } from '@/lib/notificationsState'
 import { startPresence, stopPresence, setOnline, setOffline, heartbeat } from '@/lib/presence'
 import { useApp, AppProvider } from '@/lib/AppContext'
 import SplashScreen    from '@/components/screens/SplashScreen'
@@ -92,9 +93,10 @@ function AppShell() {
 
   // Global messages polling — single source of truth for inbox/menu/badge
   useEffect(() => {
-    if (!authed) { stopMessagesPolling(); stopPresence(); return }
+    if (!authed) { stopMessagesPolling(); stopPresence(); stopNotificationsPolling(); return }
     startMessagesPolling()
     startPresence()
+    startNotificationsPolling()
     function onVisible() {
       if (document.visibilityState === 'visible') {
         console.log('VISIBILITY REFRESH CALLED')
@@ -113,6 +115,7 @@ function AppShell() {
       window.removeEventListener('beforeunload', onLeave)
       stopMessagesPolling()
       stopPresence()
+      stopNotificationsPolling()
     }
   }, [authed])
 
