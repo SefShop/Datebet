@@ -23,6 +23,9 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
     // Get sender name for message
     const { data: myProfile } = await supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
     const senderName = myProfile?.name || 'Someone'
+    const message = gameType === 'mystery_choice'
+      ? `${senderName} invited you to play Mystery Choice`
+      : `${senderName} invited you to play`
 
     // ALWAYS insert a brand-new invite. No history checks, no dedup.
     console.log('PLAY AGAIN PRESSED / sending invite')
@@ -31,13 +34,14 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
       receiver_id: receiverId,
       game_type: gameType,
       status: 'pending',
-      message: `${senderName} invited you to play`,
+      message,
     }).select().single()
 
     if (error) { console.error('GAME INVITE error:', error); return { ok: false, error: error.message } }
     console.log('NEW INVITE CREATED')
     console.log('NEW INVITE ID:', data.id)
     console.log('GAME INVITE SENT:', receiverId, gameType)
+    if (gameType === 'mystery_choice') console.log('MYSTERY CHOICE INVITE CREATED:', data.id)
     return { ok: true, inviteId: data.id }
   } catch (e: any) { return { ok: false, error: e.message } }
 }
@@ -150,6 +154,7 @@ function initStateFor(gameType: string): any {
       player_two_ready: false,
       round_result: null,
       status: 'active',
+      progressCounted: false,
     }
   }
   // tic_tac_toe / default
@@ -210,6 +215,7 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
 
     if (error) { console.error('GAME SESSION error:', error); return { error: error.message } }
     console.log('NEW GAME SESSION CREATED:', data.id)
+    if (invite.game_type === 'mystery_choice') console.log('MYSTERY CHOICE SESSION CREATED:', data.id)
     return { session: data }
   } catch (e: any) { return { error: e.message } }
 }

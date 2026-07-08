@@ -122,6 +122,7 @@ export default function ProfileScreen() {
 
   async function pickGame(gameType: string) {
     if (!pickerProfile) return
+    console.log('GAME OPTION SELECTED:', gameType)
     console.log('GAME PICKED:', gameType)
     setShowPicker(false)
     setChecking(true)

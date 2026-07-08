@@ -6,6 +6,13 @@ import { getIncomingInvites, getOutgoingInvites, respondInvite, createGameSessio
          loadSessionByInvite, setCurrentSession, setOpponentName, gameScreenFor, GameInvite } from '@/lib/gameInvites'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
+// Human-readable label for an invite's game_type
+function gameLabel(gameType: string): { emoji: string; name: string } {
+  if (gameType === 'connect_4') return { emoji: '🔴', name: 'Connect 4' }
+  if (gameType === 'mystery_choice') return { emoji: '🎭', name: 'Mystery Choice' }
+  return { emoji: '⭕', name: 'Tic Tac Toe' }
+}
+
 export default function ActivityScreen() {
   const { navigate, lang } = useApp()
   const [incoming, setIncoming] = useState<GameInvite[]>([])
@@ -71,6 +78,7 @@ export default function ActivityScreen() {
     const { ok } = await respondInvite(c.id, accept)
     if (!ok) return
     if (accept) {
+      if (c.game_type === 'mystery_choice') console.log('MYSTERY CHOICE INVITE ACCEPTED:', c.id)
       const { session, error } = await createGameSession(c)
       if (error || !session) { alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το Tic Tac Toe.' : 'Could not start Tic Tac Toe.'); load(); return }
       console.log('TICTACTOE SESSION CREATED:', session.id)
@@ -104,6 +112,7 @@ export default function ActivityScreen() {
     }
     const screen = gameScreenFor(session.game_type)
     console.log('NAVIGATE TO TICTACTOE:', screen)
+    if (session.game_type === 'mystery_choice') console.log('OPENING MYSTERY CHOICE:', screen)
     navigate(screen as any)
   }
 
@@ -172,6 +181,9 @@ export default function ActivityScreen() {
             <div className="flex-1 min-w-0">
               <div className="text-[14px] font-bold text-white">{c.sender_name}</div>
               <div className="text-[12px] text-white/40">{t.wants} · {timeAgo(c.created_at)}</div>
+              <div className="text-[11px] font-semibold mt-0.5" style={{ color: 'rgba(253,41,123,0.75)' }}>
+                {gameLabel(c.game_type).emoji} {gameLabel(c.game_type).name}
+              </div>
             </div>
             {c.status === 'pending' && (
               <div className="flex gap-2">

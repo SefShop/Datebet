@@ -97,6 +97,7 @@ export default function WaitingScreen() {
     }
     const screen = gameScreenFor(session.game_type)
     console.log('NAVIGATE TO TICTACTOE:', screen)
+    if (session.game_type === 'mystery_choice') console.log('OPENING MYSTERY CHOICE:', screen)
     navigate(screen as any)
   }
 

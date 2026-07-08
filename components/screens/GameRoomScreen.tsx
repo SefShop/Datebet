@@ -14,6 +14,7 @@ export default function GameRoomScreen() {
     const s0 = session
     console.log('ENTERING GAME ROOM:', s0.id)
     console.log('GAME TYPE:', s0.game_type)
+    console.log('GAME ROOM GAME TYPE:', s0.game_type)
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       const { data } = await supabase.from('profiles').select('id, name').in('id', [s0.player_one_id, s0.player_two_id])
