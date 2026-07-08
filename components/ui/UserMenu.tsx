@@ -79,11 +79,11 @@ export default function UserMenu({ onLogout }: Props) {
 
   const items = [
     { icon: '👤', label: lang==='gr'?'Το Προφίλ μου':'My Profile', action: () => go('edit_profile') },
+    { icon: '💬', label: lang==='gr'?'Μηνύματα':'Messages', action: () => go('inbox'), badge: unread },
     { icon: '🏆', label: lang==='gr'?'Προκλήσεις':'Challenges', action: () => go('activity'), badge: invites },
     { icon: '🎮', label: lang==='gr'?'Τα Παιχνίδια μου':'My Games', action: () => go('game_select') },
     { icon: '⭐', label: 'Premium', action: () => setOpen(false) },
     { icon: '⚙️', label: lang==='gr'?'Ρυθμίσεις':'Settings', action: () => setOpen(false) },
-    { icon: '🔔', label: lang==='gr'?'Ειδοποιήσεις':'Notifications', action: () => go('inbox'), badge: unread },
     { icon: '❓', label: lang==='gr'?'Βοήθεια':'Help', action: () => setOpen(false) },
     { icon: '🚪', label: lang==='gr'?'Αποσύνδεση':'Logout', action: logout, danger: true },
   ]
