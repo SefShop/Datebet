@@ -39,6 +39,7 @@ export default function MysteryChoiceGame() {
   const resultWriteLock = useRef(false)
   const advanceWriteLock = useRef(false)
   const countLockRef = useRef(false)
+  const recoveryLockRef = useRef(false)
   const [pairCount, setPairCount] = useState(0)
   const [progressError, setProgressError] = useState<string | null>(null)
 
@@ -82,6 +83,7 @@ export default function MysteryChoiceGame() {
       setState(s)
       console.log('MYSTERY CHOICE SESSION LOADED', s)
       setLoading(false)
+      checkAndRecover(s)
 
       // Subscribe to THIS game_session row via Supabase realtime
       const channel = supabase
@@ -91,6 +93,7 @@ export default function MysteryChoiceGame() {
           const newState = payload.new.state as MysteryChoiceState
           console.log('MYSTERY CHOICE REALTIME UPDATE', newState)
           setState(newState)
+          checkAndRecover(newState)
         })
         .subscribe()
       channelRef.current = channel
@@ -102,82 +105,155 @@ export default function MysteryChoiceGame() {
     }
   }, [session?.id])
 
-  async function saveState(next: MysteryChoiceState) {
+  // ── Fetch-merge-write helpers (never overwrite using stale local React state) ──
+  async function fetchLatestState(): Promise<MysteryChoiceState | null> {
+    if (!session) return null
+    const { data } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
+    const latest = (data?.state || null) as MysteryChoiceState | null
+    console.log('MYSTERY CHOICE LATEST STATE BEFORE UPDATE', latest)
+    return latest
+  }
+
+  async function writeState(next: MysteryChoiceState) {
     if (!session) return
     await supabase.from('game_sessions').update({ state: next }).eq('id', session.id)
+    setState(next)
+  }
+
+  // Detect + repair an impossible combination: a ready flag stuck true while
+  // choices are empty (can happen after a race or interrupted transition).
+  async function checkAndRecover(observed: MysteryChoiceState) {
+    if (!observed || observed.status === 'finished' || recoveryLockRef.current) return
+
+    // Guard: current_round overflowed the rounds array — force finish.
+    if (observed.current_round >= (observed.rounds?.length || FALLBACK_ROUNDS.length)) {
+      recoveryLockRef.current = true
+      const latest = await fetchLatestState()
+      if (latest && latest.status !== 'finished') {
+        await writeState({ ...latest, status: 'finished', result: 'completed' })
+      }
+      recoveryLockRef.current = false
+      return
+    }
+
+    const stuck = (observed.player_one_ready || observed.player_two_ready)
+      && !observed.player_one_choice && !observed.player_two_choice && !observed.round_result
+
+    if (stuck) {
+      recoveryLockRef.current = true
+      const latest = await fetchLatestState()
+      if (latest && (latest.player_one_ready || latest.player_two_ready)
+        && !latest.player_one_choice && !latest.player_two_choice && !latest.round_result) {
+        console.log('MYSTERY CHOICE STUCK STATE RECOVERED', session?.id)
+        await writeState({ ...latest, player_one_ready: false, player_two_ready: false })
+      }
+      recoveryLockRef.current = false
+    }
   }
 
   async function choose(choice: 'a' | 'b') {
-    if (!state || !session || !myId || state.status === 'finished') return
+    if (!session || !myId) return
+    const latest = await fetchLatestState()
+    if (!latest || latest.status === 'finished') return
     const isPlayerOne = myId === session.player_one_id
-    if (isPlayerOne && state.player_one_choice) return
-    if (!isPlayerOne && state.player_two_choice) return
+    if (isPlayerOne && latest.player_one_choice) return
+    if (!isPlayerOne && latest.player_two_choice) return
 
     const next: MysteryChoiceState = {
-      ...state,
-      player_one_choice: isPlayerOne ? choice : state.player_one_choice,
-      player_two_choice: !isPlayerOne ? choice : state.player_two_choice,
+      ...latest,
+      player_one_choice: isPlayerOne ? choice : latest.player_one_choice,
+      player_two_choice: !isPlayerOne ? choice : latest.player_two_choice,
     }
     console.log('PLAYER CHOICE SAVED', isPlayerOne ? 'player_one' : 'player_two', choice)
-    setState(next)  // optimistic
-    await saveState(next)
+    await writeState(next)
+
+    // Both now chosen — compute + write the result on the SAME fresh base we just wrote
+    if (next.player_one_choice && next.player_two_choice && !next.round_result && !resultWriteLock.current) {
+      resultWriteLock.current = true
+      console.log('BOTH CHOICES READY')
+      const result = next.player_one_choice === next.player_two_choice ? 'match' : 'different'
+      console.log('ROUND RESULT', result)
+      await writeState({ ...next, round_result: result })
+      resultWriteLock.current = false
+    }
   }
 
-  // When both have chosen, compute + write the result once
+  // Safety net: if a client ever observes both choices present but no result yet
+  // (e.g. the writer above got interrupted), any client can complete it — always
+  // against a freshly fetched base, never the stale local `state`.
   useEffect(() => {
     if (!state || !session) return
-    if (state.player_one_choice && state.player_two_choice) {
-      if (!state.round_result && !resultWriteLock.current) {
-        console.log('BOTH CHOICES READY')
-        resultWriteLock.current = true
-        const result = state.player_one_choice === state.player_two_choice ? 'match' : 'different'
-        console.log('ROUND RESULT', result)
-        const next = { ...state, round_result: result as 'match' | 'different' }
-        setState(next)
-        saveState(next).finally(() => { resultWriteLock.current = false })
-      }
+    if (state.player_one_choice && state.player_two_choice && !state.round_result && !resultWriteLock.current) {
+      resultWriteLock.current = true
+      ;(async () => {
+        const latest = await fetchLatestState()
+        if (latest && latest.player_one_choice && latest.player_two_choice && !latest.round_result) {
+          console.log('BOTH CHOICES READY')
+          const result = latest.player_one_choice === latest.player_two_choice ? 'match' : 'different'
+          console.log('ROUND RESULT', result)
+          await writeState({ ...latest, round_result: result })
+        }
+        resultWriteLock.current = false
+      })()
     }
   }, [state?.player_one_choice, state?.player_two_choice])
 
-  function markReady() {
-    if (!state || !session || !myId) return
+  async function markReady() {
+    if (!session || !myId) return
+    const latest = await fetchLatestState()
+    if (!latest || latest.status === 'finished') return
     const isPlayerOne = myId === session.player_one_id
-    console.log('NEXT ROUND READY', isPlayerOne ? 'player_one' : 'player_two')
+
+    // Only set MY OWN ready flag — do NOT clear choices immediately
     const next: MysteryChoiceState = {
-      ...state,
-      player_one_ready: isPlayerOne ? true : state.player_one_ready,
-      player_two_ready: !isPlayerOne ? true : state.player_two_ready,
+      ...latest,
+      player_one_ready: isPlayerOne ? true : latest.player_one_ready,
+      player_two_ready: !isPlayerOne ? true : latest.player_two_ready,
     }
-    setState(next)  // optimistic
-    saveState(next)
+    console.log('MYSTERY CHOICE PLAYER READY SET', isPlayerOne ? 'player_one' : 'player_two')
+    console.log('NEXT ROUND READY', isPlayerOne ? 'player_one' : 'player_two')
+    await writeState(next)
   }
 
-  // When both are ready, advance to next round (or complete the game)
+  // When both ready flags are observed true, perform ONE atomic round transition
+  // (always against a freshly refetched row, never the stale local state).
   useEffect(() => {
     if (!state || !session) return
+    console.log('MYSTERY CHOICE BOTH READY CHECK', state.player_one_ready, state.player_two_ready)
     if (state.player_one_ready && state.player_two_ready && !advanceWriteLock.current) {
       advanceWriteLock.current = true
-      const isLastRound = state.current_round + 1 >= state.rounds.length
-      let next: MysteryChoiceState
-      if (isLastRound) {
-        console.log('GAME COMPLETE')
-        next = { ...state, status: 'finished' as const, result: 'completed' as const }
-      } else {
-        console.log('NEXT ROUND STARTED')
-        next = {
-          ...state,
-          current_round: state.current_round + 1,
-          player_one_choice: null,
-          player_two_choice: null,
-          player_one_ready: false,
-          player_two_ready: false,
-          round_result: null,
-        }
-      }
-      setState(next)
-      saveState(next).finally(() => { advanceWriteLock.current = false })
+      performRoundTransition().finally(() => { advanceWriteLock.current = false })
     }
   }, [state?.player_one_ready, state?.player_two_ready])
+
+  async function performRoundTransition() {
+    const latest = await fetchLatestState()
+    if (!latest) return
+    // Re-verify against the FRESH row — avoid transitioning on stale local flags
+    if (!(latest.player_one_ready && latest.player_two_ready)) return
+    if (latest.status === 'finished') return
+
+    console.log('MYSTERY CHOICE ROUND TRANSITION START')
+    const isLastRound = latest.current_round + 1 >= (latest.rounds?.length || FALLBACK_ROUNDS.length)
+    let next: MysteryChoiceState
+    if (isLastRound) {
+      console.log('GAME COMPLETE')
+      next = { ...latest, status: 'finished', result: 'completed' }
+    } else {
+      console.log('NEXT ROUND STARTED')
+      next = {
+        ...latest,
+        current_round: latest.current_round + 1,
+        player_one_choice: null,
+        player_two_choice: null,
+        player_one_ready: false,
+        player_two_ready: false,
+        round_result: null,
+      }
+    }
+    await writeState(next)
+    console.log('MYSTERY CHOICE ROUND TRANSITION COMPLETE')
+  }
 
   // Count pair progress ONLY when the full 10-round game finishes (not per round)
   useEffect(() => {
