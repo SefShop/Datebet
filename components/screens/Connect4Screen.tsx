@@ -35,6 +35,16 @@ export default function Connect4Screen() {
   useEffect(() => {
     if (!session) { setLoading(false); return }
     const s0 = session
+
+    // GUARD: this screen must only touch connect_4 sessions.
+    // All game screens are always-mounted and share the same global session,
+    // so without this guard, accepting a different game type (e.g. mystery_choice)
+    // would make Connect4 "repair" and overwrite that session's state.
+    if (s0.game_type && s0.game_type !== 'connect_4') {
+      console.log('CONNECT4 SCREEN SKIP: wrong game_type', s0.game_type, s0.id)
+      return
+    }
+
     console.log('CONNECT4 SESSION:', s0.id)
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()

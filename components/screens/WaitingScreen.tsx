@@ -74,6 +74,7 @@ export default function WaitingScreen() {
       session = created.session || null
     }
     if (!session) { console.error('Could not start Tic Tac Toe.'); setStatus('declined'); return }
+    console.log('ROUTING: session loaded (sender)', { id: session.id, game_type: session.game_type })
     console.log('NEW SESSION PLAYER_ONE:', session.player_one_id)
     console.log('NEW SESSION PLAYER_TWO:', session.player_two_id)
     console.log('NEW SESSION CURRENT TURN:', session.state?.currentTurn)

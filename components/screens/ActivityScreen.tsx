@@ -75,11 +75,15 @@ export default function ActivityScreen() {
 
   async function respond(c: GameInvite, accept: boolean) {
     if (accept) console.log('B ACCEPT CLICKED:', c.id)
+    console.log('ACCEPT FLOW: respondInvite start', c.id, 'game_type:', c.game_type)
     const { ok } = await respondInvite(c.id, accept)
+    console.log('ACCEPT FLOW: respondInvite result', ok)
     if (!ok) return
     if (accept) {
       if (c.game_type === 'mystery_choice') console.log('MYSTERY CHOICE INVITE ACCEPTED:', c.id)
+      console.log('ACCEPT FLOW: createGameSession start', c.id, 'game_type:', c.game_type)
       const { session, error } = await createGameSession(c)
+      console.log('ACCEPT FLOW: createGameSession result', { sessionId: session?.id, sessionGameType: session?.game_type, error })
       if (error || !session) { alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το Tic Tac Toe.' : 'Could not start Tic Tac Toe.'); load(); return }
       console.log('TICTACTOE SESSION CREATED:', session.id)
       await enterGame(c)
@@ -89,6 +93,7 @@ export default function ActivityScreen() {
   }
 
   async function enterGame(c: GameInvite) {
+    console.log('ROUTING: enterGame start', c.id, 'game_type:', c.game_type)
     let session = await loadSessionByInvite(c.id)
     if (!session) {
       const created = await createGameSession(c)
@@ -96,6 +101,7 @@ export default function ActivityScreen() {
     }
     if (!session) { alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το Tic Tac Toe.' : 'Could not start Tic Tac Toe.'); return }
     console.log('SAME SESSION ID:', session.id)
+    console.log('ROUTING: session loaded', { id: session.id, game_type: session.game_type })
     setCurrentSession(session)
 
     const oppId = myId === session.player_one_id ? session.player_two_id : session.player_one_id

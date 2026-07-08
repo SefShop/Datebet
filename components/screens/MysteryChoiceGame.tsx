@@ -45,6 +45,17 @@ export default function MysteryChoiceGame() {
   // Require a session_id — otherwise show "No game session found."
   useEffect(() => {
     if (!session?.id) { setLoading(false); return }
+
+    // GUARD: this screen must only touch mystery_choice sessions.
+    // All game screens are always-mounted and share the same global session,
+    // so without this guard, accepting a Tic Tac Toe / Connect 4 session
+    // would make this screen try to read it as Mystery Choice data.
+    if (session.game_type && session.game_type !== 'mystery_choice') {
+      console.log('MYSTERY CHOICE SCREEN SKIP: wrong game_type', session.game_type, session.id)
+      setLoading(false)
+      return
+    }
+
     console.log('MYSTERY CHOICE SESSION LOADED')
     const sess0 = session
     activeSessionRef.current = sess0.id
@@ -247,7 +258,8 @@ export default function MysteryChoiceGame() {
   const oppChoice = isPlayerOne ? state.player_two_choice : state.player_one_choice
   const myReady = isPlayerOne ? state.player_one_ready : state.player_two_ready
   const rounds = state.rounds?.length ? state.rounds : FALLBACK_ROUNDS
-  const round = rounds[state.current_round % rounds.length]
+  const safeRoundIndex = Number.isFinite(state.current_round) ? state.current_round % rounds.length : 0
+  const round = rounds[safeRoundIndex] || FALLBACK_ROUNDS[0]
   const optA = lang === 'gr' ? round.gr[0] : round.en[0]
   const optB = lang === 'gr' ? round.gr[1] : round.en[1]
 

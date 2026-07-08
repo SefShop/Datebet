@@ -10,8 +10,9 @@ export default function GameRoomScreen() {
   const [bothNames, setBothNames] = useState<{ one: string; two: string }>({ one: 'Player 1', two: 'Player 2' })
 
   useEffect(() => {
-    if (!session) return
+    if (!session) { console.log('GAME ROOM MOUNT: no session'); return }
     const s0 = session
+    console.log('GAME ROOM MOUNT: session present', { id: s0.id, game_type: s0.game_type })
     console.log('ENTERING GAME ROOM:', s0.id)
     console.log('GAME TYPE:', s0.game_type)
     console.log('GAME ROOM GAME TYPE:', s0.game_type)

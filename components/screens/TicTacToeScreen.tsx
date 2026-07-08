@@ -52,6 +52,15 @@ export default function TicTacToeScreen() {
     if (!session) { setLoading(false); return }
     const sess0 = session  // non-null capture for closure
 
+    // GUARD: this screen must only touch tic_tac_toe sessions.
+    // All game screens are always-mounted and share the same global session,
+    // so without this guard, accepting a different game type (e.g. mystery_choice)
+    // would make TicTacToe "repair" and overwrite that session's state.
+    if (sess0.game_type && sess0.game_type !== 'tic_tac_toe' && sess0.game_type !== 'mystery') {
+      console.log('TICTACTOE SCREEN SKIP: wrong game_type', sess0.game_type, sess0.id)
+      return
+    }
+
     // Clear old state when session changes (fresh board for new game)
     console.log('SESSION SWITCH DETECTED:', sess0.id)
     console.log('OLD SESSION CLEANED:')
