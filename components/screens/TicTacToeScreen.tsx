@@ -275,14 +275,14 @@ export default function TicTacToeScreen() {
   // ── No session ──
   if (!session) {
     return (
-      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#06060a' }}>
+      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#0a0a10' }}>
         <div className="text-[40px] mb-3">⚠️</div>
         <div className="text-[16px] font-bold text-white mb-4 text-center">
           {lang === 'gr' ? 'Δεν βρέθηκε παιχνίδι.' : 'No game session found.'}
         </div>
         <button onClick={() => navigate('profile')}
           className="rounded-full px-5 py-2.5 text-[13px] font-bold cursor-pointer"
-          style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff' }}>
+          style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)', color: '#fff' }}>
           {lang === 'gr' ? 'Πίσω' : 'Back'}
         </button>
       </div>
@@ -291,7 +291,7 @@ export default function TicTacToeScreen() {
 
   if (loading || !state) {
     return (
-      <div className="flex items-center justify-center h-full" style={{ background: '#06060a' }}>
+      <div className="flex items-center justify-center h-full" style={{ background: '#0a0a10' }}>
         <div className="text-[28px]" style={{ animation: 'pulse 1s infinite' }}>⭕</div>
       </div>
     )
@@ -314,10 +314,10 @@ export default function TicTacToeScreen() {
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(253,41,123,0.08) 0%, transparent 55%), #06060a' }}>
+    <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(253,41,123,0.094) 0%, transparent 55%), #0a0a10' }}>
 
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
         <button onClick={() => navigate('game_room')} className="text-white/40 text-[14px] cursor-pointer">←</button>
         <h1 className="text-[16px] font-extrabold text-white flex-1">⭕ Tic Tac Toe</h1>
       </div>
@@ -325,14 +325,14 @@ export default function TicTacToeScreen() {
       {/* Players */}
       <div className="flex items-center justify-center gap-6 py-5">
         <div className="text-center">
-          <div className="text-[13px] font-bold" style={{ color: mySymbol === 'X' ? '#fd297b' : '#6c63ff' }}>
+          <div className="text-[13px] font-bold" style={{ color: mySymbol === 'X' ? '#ff3384' : '#7c72ff' }}>
             {myName} ({mySymbol})
           </div>
           <div className="text-[10px] text-white/40">{lang === 'gr' ? 'εσύ' : 'you'}</div>
         </div>
         <div className="text-[18px] font-black text-white/30">VS</div>
         <div className="text-center">
-          <div className="text-[13px] font-bold" style={{ color: mySymbol === 'X' ? '#6c63ff' : '#fd297b' }}>
+          <div className="text-[13px] font-bold" style={{ color: mySymbol === 'X' ? '#7c72ff' : '#ff3384' }}>
             {oppName} ({mySymbol === 'X' ? 'O' : 'X'})
           </div>
           <div className="text-[10px] text-white/40">{lang === 'gr' ? 'αντίπαλος' : 'opponent'}</div>
@@ -343,9 +343,9 @@ export default function TicTacToeScreen() {
       <div className="text-center mb-4">
         <span className="text-[15px] font-bold px-4 py-2 rounded-full"
           style={{
-            background: isMyTurn ? 'rgba(253,41,123,0.12)' : 'rgba(255,255,255,0.04)',
-            color: isMyTurn ? '#fd297b' : 'rgba(255,255,255,0.6)',
-            border: isMyTurn ? '1px solid rgba(253,41,123,0.25)' : '1px solid rgba(255,255,255,0.06)',
+            background: isMyTurn ? 'rgba(253,41,123,0.142)' : 'rgba(255,255,255,0.047)',
+            color: isMyTurn ? '#ff3384' : 'rgba(255,255,255,0.708)',
+            border: isMyTurn ? '1px solid rgba(253,41,123,0.295)' : '1px solid rgba(255,255,255,0.071)',
           }}>
           {statusMsg}
         </span>
@@ -376,10 +376,10 @@ export default function TicTacToeScreen() {
                   fontWeight: 900,
                   borderRadius: 18,
                   transition: 'all 0.15s',
-                  background: cell ? 'rgba(255,255,255,0.04)' : clickable ? 'rgba(253,41,123,0.06)' : 'rgba(255,255,255,0.02)',
-                  border: `1px solid ${clickable ? 'rgba(253,41,123,0.25)' : 'rgba(255,255,255,0.08)'}`,
-                  color: cell === 'X' ? '#fd297b' : '#6c63ff',
-                  textShadow: cell === 'X' ? '0 0 16px rgba(253,41,123,0.5)' : cell === 'O' ? '0 0 16px rgba(108,99,255,0.5)' : 'none',
+                  background: cell ? 'rgba(255,255,255,0.047)' : clickable ? 'rgba(253,41,123,0.071)' : 'rgba(255,255,255,0.024)',
+                  border: `1px solid ${clickable ? 'rgba(253,41,123,0.295)' : 'rgba(255,255,255,0.094)'}`,
+                  color: cell === 'X' ? '#ff3384' : '#7c72ff',
+                  textShadow: cell === 'X' ? '0 0 16px rgba(253,41,123,0.59)' : cell === 'O' ? '0 0 16px rgba(108,99,255,0.59)' : 'none',
                   cursor: clickable ? 'pointer' : 'default',
                 }}>
                 {cell}
@@ -394,25 +394,25 @@ export default function TicTacToeScreen() {
         <div className="px-6 mt-6 flex flex-col gap-2.5">
           {iAmReady ? (
             <div className="w-full rounded-2xl py-3.5 text-[14px] font-bold text-center"
-              style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.59)', border: '1px solid rgba(255,255,255,0.094)' }}>
               ⏳ {lang === 'gr' ? 'Περιμένουμε τον παίκτη...' : 'Waiting for player...'}
             </div>
           ) : (
             <button onClick={playAgain}
               className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer"
-              style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff' }}>
+              style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>
               🔁 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
             </button>
           )}
           {pairCount >= 10 ? (
             <button onClick={() => navigate('chat')}
               className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-              style={{ background: 'rgba(108,99,255,0.12)', color: '#a78bfa', border: '1px solid rgba(108,99,255,0.2)' }}>
+              style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>
               💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}
             </button>
           ) : (
             <div className="w-full rounded-2xl py-3 text-[13px] font-medium text-center"
-              style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              style={{ background: 'rgba(255,255,255,0.035)', color: 'rgba(255,255,255,0.472)', border: '1px solid rgba(255,255,255,0.071)' }}>
               🔒 {lang === 'gr' ? `Το chat ξεκλειδώνει μετά από 10 νίκες μαζί (${pairCount}/10)` : `Chat unlocks after 10 wins together (${pairCount}/10)`}
             </div>
           )}

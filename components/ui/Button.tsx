@@ -22,7 +22,7 @@ export default function Button({
 
   const variants = {
     primary:
-      'bg-gradient-to-br from-[#fd297b] to-[#ff655b] text-white rounded-2xl py-[18px] px-6 shadow-[0_12px_40px_rgba(253,41,123,0.35)] text-[17px]',
+      'bg-gradient-to-br from-[#ff3384] to-[#ff7a6e] text-white rounded-2xl py-[18px] px-6 shadow-[0_12px_40px_rgba(253,41,123,0.413)] text-[17px]',
     ghost:
       'bg-transparent text-white/60 text-[15px] py-[14px] px-6',
     dark:

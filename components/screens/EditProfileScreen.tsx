@@ -194,14 +194,14 @@ export default function EditProfileScreen() {
 
   function inputStyle(key: string) {
     return {
-      background: 'rgba(255,255,255,0.05)', color: '#fff', caretColor: '#fd297b',
-      border: focus===key ? '1.5px solid rgba(253,41,123,0.5)' : '1.5px solid rgba(255,255,255,0.07)',
-      boxShadow: focus===key ? '0 0 20px rgba(253,41,123,0.1)' : 'none',
+      background: 'rgba(255,255,255,0.059)', color: '#fff', caretColor: '#ff3384',
+      border: focus===key ? '1.5px solid rgba(253,41,123,0.59)' : '1.5px solid rgba(255,255,255,0.083)',
+      boxShadow: focus===key ? '0 0 20px rgba(253,41,123,0.118)' : 'none',
     }
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto" style={{ background:'#06060a', scrollbarWidth:'none' as any }}>
+    <div className="flex flex-col h-full overflow-y-auto" style={{ background:'#0a0a10', scrollbarWidth:'none' as any }}>
 
       <div className="flex items-center gap-3 px-5 pt-14 pb-4">
         <button onClick={() => navigate('profile')}
@@ -220,13 +220,13 @@ export default function EditProfileScreen() {
           {/* Photo section */}
           <div className="flex flex-col items-center mb-6">
             <div className="w-28 h-28 rounded-full overflow-hidden mb-3"
-              style={{ border:'3px solid rgba(253,41,123,0.3)', boxShadow:'0 0 24px rgba(253,41,123,0.15)' }}>
+              style={{ border:'3px solid rgba(253,41,123,0.354)', boxShadow:'0 0 24px rgba(253,41,123,0.177)' }}>
               {photoSrc ? (
                 <img src={photoSrc} alt="Profile" className="w-full h-full object-cover"
                   onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[48px]"
-                  style={{ background:'linear-gradient(135deg,#fd297b,#c850c0)' }}>👤</div>
+                  style={{ background:'linear-gradient(135deg,#ff3384,#d84dd8)' }}>👤</div>
               )}
             </div>
 
@@ -238,14 +238,14 @@ export default function EditProfileScreen() {
               <button onClick={() => fileRef.current?.click()}
                 disabled={photoState==='uploading'}
                 className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 transition-transform cursor-pointer disabled:opacity-40"
-                style={{ background:'rgba(253,41,123,0.15)', color:'#fd297b', border:'1px solid rgba(253,41,123,0.25)' }}>
+                style={{ background:'rgba(253,41,123,0.177)', color:'#ff3384', border:'1px solid rgba(253,41,123,0.295)' }}>
                 {photoState==='uploading' ? t.uploading : photoState==='done' ? t.uploaded : t.upload}
               </button>
 
               {photoSrc && (
                 <button onClick={removePhoto}
                   className="rounded-full px-3 py-2 text-[11px] font-medium active:scale-95 transition-transform cursor-pointer"
-                  style={{ background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.4)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                  style={{ background:'rgba(255,255,255,0.059)', color:'rgba(255,255,255,0.472)', border:'1px solid rgba(255,255,255,0.094)' }}>
                   {t.remove}
                 </button>
               )}
@@ -294,7 +294,7 @@ export default function EditProfileScreen() {
                 onFocus={() => setFocus('b')} onBlur={() => setFocus(null)}
                 className="w-full rounded-2xl px-4 py-3.5 text-[14px] outline-none transition-all duration-300 resize-none"
                 style={inputStyle('b')} />
-              <div className="text-right text-[10px] mt-1" style={{ color:'rgba(255,255,255,0.2)' }}>{bio.length}/200</div>
+              <div className="text-right text-[10px] mt-1" style={{ color:'rgba(255,255,255,0.236)' }}>{bio.length}/200</div>
             </div>
 
             {/* Interests */}
@@ -310,9 +310,9 @@ export default function EditProfileScreen() {
                     <button key={tag} type="button" onClick={() => toggleInterest(tag)} disabled={disabled}
                       className="px-3 py-2 rounded-full text-[12px] font-bold transition-all active:scale-95 cursor-pointer"
                       style={{
-                        background: active ? 'linear-gradient(135deg,#fd297b,#c850c0)' : 'rgba(255,255,255,0.04)',
-                        color: active ? '#fff' : disabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)',
-                        border: `1px solid ${active ? 'rgba(253,41,123,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                        background: active ? 'linear-gradient(135deg,#ff3384,#d84dd8)' : 'rgba(255,255,255,0.047)',
+                        color: active ? '#fff' : disabled ? 'rgba(255,255,255,0.236)' : 'rgba(255,255,255,0.708)',
+                        border: `1px solid ${active ? 'rgba(253,41,123,0.472)' : 'rgba(255,255,255,0.094)'}`,
                         opacity: disabled ? 0.4 : 1,
                       }}>
                       {tag}
@@ -343,10 +343,10 @@ export default function EditProfileScreen() {
             className="w-full rounded-2xl py-4 text-[16px] font-bold mt-5 active:scale-[0.97] transition-all cursor-pointer disabled:opacity-40"
             style={{
               fontFamily:"'Plus Jakarta Sans',sans-serif",
-              background: saved ? 'rgba(74,222,128,0.2)' : 'linear-gradient(135deg,#fd297b,#c850c0)',
+              background: saved ? 'rgba(74,222,128,0.2)' : 'linear-gradient(135deg,#ff3384,#d84dd8)',
               color: saved ? '#4ade80' : '#fff',
               border: saved ? '1px solid rgba(74,222,128,0.3)' : 'none',
-              boxShadow: saved ? 'none' : '0 8px 30px rgba(253,41,123,0.3)',
+              boxShadow: saved ? 'none' : '0 8px 30px rgba(253,41,123,0.354)',
             }}>
             {state==='saving' ? t.saving : saved ? t.saved : t.save}
           </button>

@@ -87,15 +87,15 @@ export default function UserMenu({ onLogout }: Props) {
       <button onClick={() => setOpen(!open)}
         className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer"
         style={{
-          background: open ? 'rgba(253,41,123,0.15)' : 'rgba(255,255,255,0.06)',
-          border: `1.5px solid ${open ? 'rgba(253,41,123,0.3)' : 'rgba(255,255,255,0.1)'}`,
+          background: open ? 'rgba(253,41,123,0.177)' : 'rgba(255,255,255,0.071)',
+          border: `1.5px solid ${open ? 'rgba(253,41,123,0.354)' : 'rgba(255,255,255,0.118)'}`,
           backdropFilter: 'blur(12px)',
         }}>
         <span className="text-[14px]">👤</span>
-        {(unread > 0 || invites > 0) && <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full" style={{ background:'#fd297b', boxShadow:'0 0 6px #fd297b', border:'2px solid #08080f' }} />}
+        {(unread > 0 || invites > 0) && <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full" style={{ background:'#ff3384', boxShadow:'0 0 6px #ff3384', border:'2px solid #08080f' }} />}
       </button>
       {/* Debug: visible unread count */}
-      <span className="text-[9px] font-bold" style={{ color:'rgba(253,41,123,0.7)' }}>
+      <span className="text-[9px] font-bold" style={{ color:'rgba(253,41,123,0.826)' }}>
         {(unread + invites) > 0 ? (unread + invites) : ''}
       </span>
 
@@ -105,16 +105,16 @@ export default function UserMenu({ onLogout }: Props) {
           style={{
             background: 'rgba(15,12,25,0.92)',
             backdropFilter: 'blur(24px) saturate(1.4)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.094)',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.047)',
             animation: 'menuIn 0.2s ease both',
           }}>
           {items.map((item, i) => (
             <button key={i} onClick={item.action}
               className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:bg-white/5 cursor-pointer"
               style={{
-                borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                color: item.danger ? '#fd297b' : 'rgba(255,255,255,0.7)',
+                borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.059)' : 'none',
+                color: item.danger ? '#ff3384' : 'rgba(255,255,255,0.826)',
               }}>
               <span className="text-[14px]">{item.icon}</span>
               <span className="text-[13px] font-medium">{item.label}</span>

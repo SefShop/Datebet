@@ -18,7 +18,7 @@ interface Message {
 export default function ChatScreen() {
   const { navigate, lang } = useApp()
   const match = getCurrentMatch()
-  if (!match) return <div className="flex items-center justify-center h-full" style={{background:"#06060a"}}><div className="text-center"><div className="text-[14px] text-white/40">No player selected</div></div></div>
+  if (!match) return <div className="flex items-center justify-center h-full" style={{background:"#0a0a10"}}><div className="text-center"><div className="text-[14px] text-white/40">No player selected</div></div></div>
 
   const [msgs, setMsgs]       = useState<Message[]>([])
   const [input, setInput]     = useState('')
@@ -170,16 +170,16 @@ export default function ChatScreen() {
     : ['your move 😏','rematch?','you got lucky','what\'s the prize?']
 
   return (
-    <div className="flex flex-col h-full" style={{ background: '#06060a' }}>
+    <div className="flex flex-col h-full" style={{ background: '#0a0a10' }}>
 
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 pt-12 pb-3"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(6,6,10,0.95)', backdropFilter: 'blur(12px)' }}>
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.071)', background: 'rgba(6,6,10,0.95)', backdropFilter: 'blur(12px)' }}>
         <button onClick={() => navigate('profile')} className="text-white/40 text-[16px] mr-1 active:opacity-60 cursor-pointer">←</button>
         {receiverId ? (
           <>
             <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0"
-              style={{ border: '2px solid rgba(253,41,123,0.3)' }}>
+              style={{ border: '2px solid rgba(253,41,123,0.354)' }}>
               {match.photo ? (
                 <img src={match.photo} alt={match.name} className="w-full h-full object-cover" />
               ) : (
@@ -189,7 +189,7 @@ export default function ChatScreen() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[15px] font-bold text-white truncate">{match.name}</div>
-              <div className="text-[11px] flex items-center gap-1.5" style={{ color: partnerOnline ? '#4ade80' : 'rgba(255,255,255,0.4)' }}>
+              <div className="text-[11px] flex items-center gap-1.5" style={{ color: partnerOnline ? '#4ade80' : 'rgba(255,255,255,0.472)' }}>
                 {partnerOnline && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#4ade80', boxShadow: '0 0 4px #4ade80' }} />}
                 {partnerPresence}
               </div>
@@ -211,7 +211,7 @@ export default function ChatScreen() {
             </div>
             <button onClick={() => navigate('profile')}
               className="mt-4 rounded-full px-5 py-2.5 text-[13px] font-bold active:scale-95 transition-transform cursor-pointer"
-              style={{ background: 'rgba(253,41,123,0.15)', color: '#fd297b', border: '1px solid rgba(253,41,123,0.25)' }}>
+              style={{ background: 'rgba(253,41,123,0.177)', color: '#ff3384', border: '1px solid rgba(253,41,123,0.295)' }}>
               {lang === 'gr' ? 'Discover →' : 'Discover →'}
             </button>
           </div>
@@ -253,8 +253,8 @@ export default function ChatScreen() {
               )}
               <div className="max-w-[78%] rounded-2xl px-4 py-2.5"
                 style={{
-                  background: isMine ? 'linear-gradient(135deg,#fd297b,#ff655b)' : 'rgba(255,255,255,0.08)',
-                  color: isMine ? '#fff' : 'rgba(255,255,255,0.85)',
+                  background: isMine ? 'linear-gradient(135deg,#ff3384,#ff7a6e)' : 'rgba(255,255,255,0.094)',
+                  color: isMine ? '#fff' : 'rgba(255,255,255,1)',
                   borderBottomRightRadius: isMine ? 4 : 18,
                   borderBottomLeftRadius: !isMine ? 4 : 18,
                   fontSize: 14, lineHeight: '1.45',
@@ -269,11 +269,11 @@ export default function ChatScreen() {
       {/* Quick pills */}
       {receiverId && (
         <div className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto"
-          style={{ scrollbarWidth: 'none', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+          style={{ scrollbarWidth: 'none', borderTop: '1px solid rgba(255,255,255,0.047)' }}>
           {quicks.map((q, i) => (
             <button key={i} onClick={() => { setInput(q); }}
               className="flex-shrink-0 text-[11px] font-medium px-3 py-1.5 rounded-full active:scale-95 transition-transform cursor-pointer whitespace-nowrap"
-              style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              style={{ background: 'rgba(255,255,255,0.059)', color: 'rgba(255,255,255,0.59)', border: '1px solid rgba(255,255,255,0.071)' }}>
               {q}
             </button>
           ))}
@@ -287,10 +287,10 @@ export default function ChatScreen() {
             onKeyDown={e => { if (e.key === 'Enter') send() }}
             placeholder={lang === 'gr' ? 'πες κάτι...' : 'say something...'}
             className="flex-1 rounded-full px-4 py-3 text-[14px] outline-none"
-            style={{ background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.08)', caretColor: '#fd297b' }} />
+            style={{ background: 'rgba(255,255,255,0.071)', color: '#fff', border: '1px solid rgba(255,255,255,0.094)', caretColor: '#ff3384' }} />
           <button onClick={send} disabled={!input.trim()}
             className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform cursor-pointer disabled:opacity-25"
-            style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)' }}>
+            style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)' }}>
             <span className="text-white text-[16px]">↑</span>
           </button>
         </div>

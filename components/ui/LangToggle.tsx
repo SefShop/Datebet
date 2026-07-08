@@ -11,7 +11,7 @@ export default function LangToggle() {
       display: 'flex', gap: 2,
       background: 'rgba(0,0,0,0.35)',
       backdropFilter: 'blur(12px)',
-      border: '1px solid rgba(255,255,255,0.12)',
+      border: '1px solid rgba(255,255,255,0.142)',
       borderRadius: 100, padding: 3,
     }}>
       {(['en', 'gr'] as Lang[]).map(l => (
@@ -24,9 +24,9 @@ export default function LangToggle() {
             textTransform: 'uppercase', cursor: 'pointer',
             fontFamily: "'Plus Jakarta Sans', sans-serif",
             transition: 'all 0.25s ease',
-            background: lang === l ? 'linear-gradient(135deg,#fd297b,#ff655b)' : 'transparent',
-            color: lang === l ? '#fff' : 'rgba(255,255,255,0.4)',
-            boxShadow: lang === l ? '0 2px 12px rgba(253,41,123,0.4)' : 'none',
+            background: lang === l ? 'linear-gradient(135deg,#ff3384,#ff7a6e)' : 'transparent',
+            color: lang === l ? '#fff' : 'rgba(255,255,255,0.472)',
+            boxShadow: lang === l ? '0 2px 12px rgba(253,41,123,0.472)' : 'none',
           }}>
           {l}
         </button>

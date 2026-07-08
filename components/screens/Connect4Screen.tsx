@@ -100,14 +100,14 @@ export default function Connect4Screen() {
 
   if (!session) {
     return (
-      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#06060a' }}>
+      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#0a0a10' }}>
         <div className="text-[40px] mb-3">⚠️</div>
         <div className="text-[16px] font-bold text-white mb-4 text-center">{lang === 'gr' ? 'Δεν βρέθηκε παιχνίδι.' : 'No game session found.'}</div>
-        <button onClick={() => navigate('profile')} className="rounded-full px-5 py-2.5 text-[13px] font-bold cursor-pointer" style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff' }}>{lang === 'gr' ? 'Πίσω' : 'Back'}</button>
+        <button onClick={() => navigate('profile')} className="rounded-full px-5 py-2.5 text-[13px] font-bold cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)', color: '#fff' }}>{lang === 'gr' ? 'Πίσω' : 'Back'}</button>
       </div>
     )
   }
-  if (loading || !state) return <div className="flex items-center justify-center h-full" style={{ background: '#06060a' }}><div className="text-[28px]" style={{ animation: 'pulse 1s infinite' }}>🔴</div></div>
+  if (loading || !state) return <div className="flex items-center justify-center h-full" style={{ background: '#0a0a10' }}><div className="text-[28px]" style={{ animation: 'pulse 1s infinite' }}>🔴</div></div>
 
   const isMyTurn = state.currentTurn === myId && state.status === 'active'
   const myName = myId === session.player_one_id ? names.one : names.two
@@ -121,8 +121,8 @@ export default function Connect4Screen() {
   } else statusMsg = isMyTurn ? (lang === 'gr' ? 'Σειρά σου' : 'Your turn') : (lang === 'gr' ? `Σειρά: ${oppName}` : `${oppName}'s turn`)
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(253,41,123,0.08) 0%, transparent 55%), #06060a' }}>
-      <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+    <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(253,41,123,0.094) 0%, transparent 55%), #0a0a10' }}>
+      <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
         <button onClick={() => navigate('game_room')} className="text-white/40 text-[14px] cursor-pointer">←</button>
         <h1 className="text-[16px] font-extrabold text-white flex-1">🔴 Connect 4</h1>
       </div>
@@ -134,12 +134,12 @@ export default function Connect4Screen() {
       </div>
 
       <div className="text-center mb-3">
-        <span className="text-[14px] font-bold px-4 py-2 rounded-full" style={{ background: isMyTurn ? 'rgba(253,41,123,0.12)' : 'rgba(255,255,255,0.04)', color: isMyTurn ? '#fd297b' : 'rgba(255,255,255,0.6)' }}>{statusMsg}</span>
+        <span className="text-[14px] font-bold px-4 py-2 rounded-full" style={{ background: isMyTurn ? 'rgba(253,41,123,0.142)' : 'rgba(255,255,255,0.047)', color: isMyTurn ? '#ff3384' : 'rgba(255,255,255,0.708)' }}>{statusMsg}</span>
       </div>
 
       {/* Board */}
       <div className="flex items-center justify-center px-4">
-        <div className="rounded-2xl p-2" style={{ background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.2)' }}>
+        <div className="rounded-2xl p-2" style={{ background: 'rgba(108,99,255,0.142)', border: '1px solid rgba(108,99,255,0.236)' }}>
           <div className="grid grid-cols-7 gap-1.5">
             {Array.from({ length: COLS }).map((_, col) => (
               <button key={col} onClick={() => drop(col)} disabled={!isMyTurn} className="flex flex-col gap-1.5" style={{ cursor: isMyTurn ? 'pointer' : 'default' }}>
@@ -149,7 +149,7 @@ export default function Connect4Screen() {
                     background: cell === 'R' ? 'radial-gradient(circle at 35% 35%, #ff6b6b, #ef4444)'
                               : cell === 'Y' ? 'radial-gradient(circle at 35% 35%, #fde047, #fbbf24)'
                               : 'rgba(6,6,10,0.6)',
-                    border: '1px solid rgba(255,255,255,0.05)' }} />
+                    border: '1px solid rgba(255,255,255,0.059)' }} />
                 })}
               </button>
             ))}
@@ -159,8 +159,8 @@ export default function Connect4Screen() {
 
       {state.status === 'finished' && (
         <div className="px-6 mt-5 flex flex-col gap-2.5">
-          <button onClick={rematch} className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff' }}>{lang === 'gr' ? 'Ρεβάνς' : 'Rematch'}</button>
-          <button onClick={() => navigate('chat')} className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 cursor-pointer" style={{ background: 'rgba(108,99,255,0.12)', color: '#a78bfa', border: '1px solid rgba(108,99,255,0.2)' }}>💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}</button>
+          <button onClick={rematch} className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>{lang === 'gr' ? 'Ρεβάνς' : 'Rematch'}</button>
+          <button onClick={() => navigate('chat')} className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 cursor-pointer" style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}</button>
         </div>
       )}
       <style>{`@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }`}</style>

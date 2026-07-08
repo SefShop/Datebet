@@ -19,6 +19,14 @@
   }
 }
 
+/* Visual-only polish: brighter, more vibrant premium look.
+   A display filter on the root affects every rendered pixel uniformly —
+   backgrounds, cards, gradients, glows, text, borders — without touching
+   any component markup, inline styles, layout, spacing, or logic. */
+html {
+  filter: brightness(1.22) saturate(1.28) contrast(1.03);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

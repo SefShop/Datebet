@@ -95,7 +95,7 @@ export default function ActivityScreen() {
     if (opp) {
       const profile: UserProfile = {
         id: opp.id, name: opp.name || 'Player', age: opp.age || 0,
-        photo: opp.photo || '', gradient: 'linear-gradient(135deg,#fd297b,#ff655b)',
+        photo: opp.photo || '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)',
         location: { en: opp.location || '', gr: opp.location || '' },
         online: true, interests: [], bio: { en: opp.bio || '', gr: opp.bio || '' },
       }
@@ -133,21 +133,21 @@ export default function ActivityScreen() {
   const pendingCount = incoming.filter(i => i.status === 'pending').length
 
   return (
-    <div className="flex flex-col h-full" style={{ background: '#06060a' }}>
-      <div className="flex items-center justify-between px-5 pt-14 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+    <div className="flex flex-col h-full" style={{ background: '#0a0a10' }}>
+      <div className="flex items-center justify-between px-5 pt-14 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
         <button onClick={() => navigate('profile')} className="text-white/40 text-[14px] cursor-pointer">←</button>
         <h1 className="text-[18px] font-extrabold text-white">⚔️ {t.title}</h1>
         <div style={{ width: 24 }} />
       </div>
 
       {/* Tabs */}
-      <div className="flex mx-5 mt-3 mb-2 rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex mx-5 mt-3 mb-2 rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.047)', border: '1px solid rgba(255,255,255,0.071)' }}>
         {(['in', 'out'] as const).map(tb => (
           <button key={tb} onClick={() => setTab(tb)}
             className="flex-1 py-2.5 text-[13px] font-bold transition-all cursor-pointer relative"
-            style={{ color: tab === tb ? '#fff' : 'rgba(255,255,255,0.35)' }}>
+            style={{ color: tab === tb ? '#fff' : 'rgba(255,255,255,0.413)' }}>
             {tb === 'in' ? `${t.incoming}${pendingCount > 0 ? ` (${pendingCount})` : ''}` : t.outgoing}
-            {tab === tb && <div className="absolute bottom-0 left-[20%] right-[20%] h-[2px] rounded-full" style={{ background: 'linear-gradient(90deg,#fd297b,#c850c0)' }} />}
+            {tab === tb && <div className="absolute bottom-0 left-[20%] right-[20%] h-[2px] rounded-full" style={{ background: 'linear-gradient(90deg,#ff3384,#d84dd8)' }} />}
           </button>
         ))}
       </div>
@@ -164,10 +164,10 @@ export default function ActivityScreen() {
 
         {/* INCOMING */}
         {tab === 'in' && incoming.map((c, i) => (
-          <div key={c.id} className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-            <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{ border: '2px solid rgba(253,41,123,0.3)' }}>
+          <div key={c.id} className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.047)' }}>
+            <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{ border: '2px solid rgba(253,41,123,0.354)' }}>
               {c.sender_photo ? <img src={c.sender_photo} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-[20px]" style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)' }}>👤</div>}
+                : <div className="w-full h-full flex items-center justify-center text-[20px]" style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)' }}>👤</div>}
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[14px] font-bold text-white">{c.sender_name}</div>
@@ -175,32 +175,32 @@ export default function ActivityScreen() {
             </div>
             {c.status === 'pending' && (
               <div className="flex gap-2">
-                <button onClick={() => respond(c, true)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff' }}>{t.accept}</button>
-                <button onClick={() => respond(c, false)} className="rounded-full px-3 py-2 text-[12px] font-medium active:scale-95 cursor-pointer" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}>{t.decline}</button>
+                <button onClick={() => respond(c, true)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)', color: '#fff' }}>{t.accept}</button>
+                <button onClick={() => respond(c, false)} className="rounded-full px-3 py-2 text-[12px] font-medium active:scale-95 cursor-pointer" style={{ background: 'rgba(255,255,255,0.059)', color: 'rgba(255,255,255,0.472)' }}>{t.decline}</button>
               </div>
             )}
             {c.status === 'accepted' && (
-              <button onClick={() => enterGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#06060a' }}>{t.enter}</button>
+              <button onClick={() => enterGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#0a0a10' }}>{t.enter}</button>
             )}
-            {c.status === 'declined' && <span className="text-[12px] px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }}>{t.declined}</span>}
+            {c.status === 'declined' && <span className="text-[12px] px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.354)' }}>{t.declined}</span>}
           </div>
         ))}
 
         {/* OUTGOING */}
         {tab === 'out' && outgoing.map((c, i) => (
-          <div key={c.id} className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-            <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{ border: '2px solid rgba(108,99,255,0.3)' }}>
-              <div className="w-full h-full flex items-center justify-center text-[20px]" style={{ background: 'linear-gradient(135deg,#6c63ff,#a855f7)' }}>👤</div>
+          <div key={c.id} className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.047)' }}>
+            <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{ border: '2px solid rgba(108,99,255,0.354)' }}>
+              <div className="w-full h-full flex items-center justify-center text-[20px]" style={{ background: 'linear-gradient(135deg,#7c72ff,#a855f7)' }}>👤</div>
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[14px] font-bold text-white">{c.receiver_name}</div>
               <div className="text-[12px] text-white/40">{timeAgo(c.created_at)}</div>
             </div>
-            {c.status === 'pending' && <span className="text-[11px] font-medium px-3 py-1.5 rounded-full" style={{ background: 'rgba(253,41,123,0.1)', color: 'rgba(253,41,123,0.6)' }}>{t.waiting}</span>}
+            {c.status === 'pending' && <span className="text-[11px] font-medium px-3 py-1.5 rounded-full" style={{ background: 'rgba(253,41,123,0.118)', color: 'rgba(253,41,123,0.708)' }}>{t.waiting}</span>}
             {c.status === 'accepted' && (
-              <button onClick={() => enterGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#06060a' }}>{t.enter}</button>
+              <button onClick={() => enterGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#0a0a10' }}>{t.enter}</button>
             )}
-            {c.status === 'declined' && <span className="text-[12px] px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }}>{t.declined}</span>}
+            {c.status === 'declined' && <span className="text-[12px] px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.354)' }}>{t.declined}</span>}
           </div>
         ))}
       </div>

@@ -8,7 +8,7 @@ export default function SplashScreen() {
   const t = APP_COPY[lang]
   return (
     <div className="flex flex-col h-full items-center justify-center px-8 relative"
-      style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.28) 0%, transparent 60%), linear-gradient(165deg, #150a12 0%, #0d0d18 55%, #0a1020 100%)' }}>
+      style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.33) 0%, transparent 60%), linear-gradient(165deg, #150a12 0%, #0d0d18 55%, #0a1020 100%)' }}>
 
       {/* Brand mark */}
       <div className="mb-8"><BrandBoard size={52} showHearts={false} animate={true} glow={true} mini={true} /></div>
@@ -24,7 +24,7 @@ export default function SplashScreen() {
 
       {/* Single action */}
       <button onClick={() => navigate('profile')}
-        className="w-full max-w-[320px] bg-gradient-to-br from-[#fd297b] to-[#ff655b] text-white rounded-2xl py-[18px] text-[17px] font-bold shadow-[0_12px_40px_rgba(253,41,123,0.4)] active:scale-95 transition-transform cursor-pointer"
+        className="w-full max-w-[320px] bg-gradient-to-br from-[#ff3384] to-[#ff7a6e] text-white rounded-2xl py-[18px] text-[17px] font-bold shadow-[0_12px_40px_rgba(253,41,123,0.472)] active:scale-95 transition-transform cursor-pointer"
         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         {t.splash.start}
       </button>

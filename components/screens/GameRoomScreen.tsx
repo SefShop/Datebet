@@ -29,13 +29,13 @@ export default function GameRoomScreen() {
 
   if (!session) {
     return (
-      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#06060a' }}>
+      <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#0a0a10' }}>
         <div className="text-[40px] mb-3">⚠️</div>
         <div className="text-[16px] font-bold text-white mb-4 text-center">
           {lang === 'gr' ? 'Δεν βρέθηκε παιχνίδι.' : 'No game session found.'}
         </div>
         <button onClick={() => navigate('profile')} className="rounded-full px-5 py-2.5 text-[13px] font-bold cursor-pointer"
-          style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff' }}>
+          style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)', color: '#fff' }}>
           {lang === 'gr' ? 'Πίσω' : 'Back'}
         </button>
       </div>
@@ -51,8 +51,8 @@ export default function GameRoomScreen() {
   const game = gameMap[session.game_type]
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.08) 0%, transparent 60%), #06060a' }}>
-      <div className="flex items-center gap-3 px-5 pt-14 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+    <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.094) 0%, transparent 60%), #0a0a10' }}>
+      <div className="flex items-center gap-3 px-5 pt-14 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
         <button onClick={() => navigate('profile')} className="text-white/40 text-[14px] cursor-pointer">←</button>
         <h1 className="text-[16px] font-extrabold text-white flex-1">🎮 {lang === 'gr' ? 'Δωμάτιο Παιχνιδιού' : 'Game Room'}</h1>
       </div>
@@ -60,24 +60,24 @@ export default function GameRoomScreen() {
       {/* Players */}
       <div className="flex items-center justify-center gap-4 py-8 px-6">
         <div className="text-center">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center text-[28px] mb-2" style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', boxShadow: '0 0 20px rgba(253,41,123,0.3)' }}>🎭</div>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center text-[28px] mb-2" style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)', boxShadow: '0 0 20px rgba(253,41,123,0.354)' }}>🎭</div>
           <div className="text-[13px] font-bold text-white">{bothNames.one}</div>
-          <div className="text-[10px]" style={{ color: '#fd297b' }}>X</div>
+          <div className="text-[10px]" style={{ color: '#ff3384' }}>X</div>
         </div>
-        <div className="text-[24px] font-black" style={{ color: 'rgba(253,41,123,0.6)' }}>VS</div>
+        <div className="text-[24px] font-black" style={{ color: 'rgba(253,41,123,0.708)' }}>VS</div>
         <div className="text-center">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center text-[28px] mb-2" style={{ background: 'linear-gradient(135deg,#6c63ff,#a855f7)', boxShadow: '0 0 20px rgba(108,99,255,0.3)' }}>🎭</div>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center text-[28px] mb-2" style={{ background: 'linear-gradient(135deg,#7c72ff,#a855f7)', boxShadow: '0 0 20px rgba(108,99,255,0.354)' }}>🎭</div>
           <div className="text-[13px] font-bold text-white">{bothNames.two}</div>
-          <div className="text-[10px]" style={{ color: '#6c63ff' }}>O</div>
+          <div className="text-[10px]" style={{ color: '#7c72ff' }}>O</div>
         </div>
       </div>
 
       {/* Game info */}
       <div className="px-6 mb-6">
-        <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.083)' }}>
           <div className="flex justify-between text-[12px]">
-            <span style={{ color: 'rgba(255,255,255,0.4)' }}>{lang === 'gr' ? 'Παιχνίδι' : 'Game'}</span>
-            <span className="font-bold" style={{ color: '#fd297b' }}>{game ? `${game.emoji} ${game.name}` : session.game_type}</span>
+            <span style={{ color: 'rgba(255,255,255,0.472)' }}>{lang === 'gr' ? 'Παιχνίδι' : 'Game'}</span>
+            <span className="font-bold" style={{ color: '#ff3384' }}>{game ? `${game.emoji} ${game.name}` : session.game_type}</span>
           </div>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function GameRoomScreen() {
         {game ? (
           <button onClick={() => navigate(game.screen as any)}
             className="w-full max-w-[300px] rounded-2xl py-5 text-[17px] font-bold active:scale-95 transition-transform cursor-pointer"
-            style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', boxShadow: '0 8px 30px rgba(253,41,123,0.35)' }}>
+            style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 30px rgba(253,41,123,0.413)' }}>
             {game.emoji} {lang === 'gr' ? 'Ξεκίνα' : 'Start'} {game.name}
           </button>
         ) : (
@@ -98,7 +98,7 @@ export default function GameRoomScreen() {
         )}
         <button onClick={() => navigate('chat')}
           className="w-full max-w-[300px] mt-3 rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-          style={{ background: 'rgba(108,99,255,0.12)', color: '#a78bfa', border: '1px solid rgba(108,99,255,0.2)' }}>
+          style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>
           💬 {lang === 'gr' ? 'Κουβέντα πρώτα' : 'Chat first'}
         </button>
       </div>

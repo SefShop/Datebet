@@ -140,7 +140,7 @@ function AppShell() {
           </div>
         )}
         {!authChecked && (
-          <div className="absolute inset-0 z-[100] flex items-center justify-center" style={{background:'#06060a'}}>
+          <div className="absolute inset-0 z-[100] flex items-center justify-center" style={{background:'#0a0a10'}}>
             <div className="text-white/30 text-[14px]">...</div>
           </div>
         )}
