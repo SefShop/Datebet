@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { generateMysteryQuestions, toRoundData } from '@/lib/mysteryChoiceQuestions'
 
 export interface GameInvite {
   id: string
@@ -144,10 +145,14 @@ function initStateFor(gameType: string): any {
     return { board: Array(42).fill(''), currentTurn: null, winner: null, status: 'active', moves: 0, gameNumber: 1, parentSessionId: null }
   }
   if (gameType === 'mystery_choice') {
+    // Question Engine: randomly generates 10 questions (3 easy, 4 medium, 3 deep)
+    // from the full question bank in lib/mysteryChoiceQuestions.ts. Scales to
+    // any number of questions without any change needed here.
+    const generated = generateMysteryQuestions().map(toRoundData)
     return {
       game_type: 'mystery_choice',
       current_round: 0,
-      rounds: MYSTERY_CHOICE_ROUNDS,
+      rounds: generated.length === 10 ? generated : MYSTERY_CHOICE_ROUNDS,
       player_one_choice: null,
       player_two_choice: null,
       player_one_ready: false,
@@ -161,7 +166,7 @@ function initStateFor(gameType: string): any {
   return { board: ['','','','','','','','',''], currentTurn: null, winner: null, status: 'active', moves: 0, progressCounted: false, gameNumber: 1, parentSessionId: null }
 }
 
-// 10 sample rounds for Mystery Choice — bilingual, embedded in game_sessions.state
+// Static fallback (used only if the question engine ever returns fewer than 10 rounds)
 export const MYSTERY_CHOICE_ROUNDS = [
   { emoji: ['☕','🍷'], en: ['Coffee', 'Wine'],               gr: ['Καφές', 'Κρασί'] },
   { emoji: ['🏖️','🏔️'], en: ['Beach', 'Mountains'],           gr: ['Παραλία', 'Βουνό'] },
