@@ -9,7 +9,6 @@ export default function GameSelectionScreen() {
   const games = [
     { key:'c4',  emoji:'🔴', title:t.c4Title,  desc:t.c4Desc,  label:t.c4Label,  glow:'#ff3384', go:()=>navigate('connect4')  },
     { key:'ttt', emoji:'❌', title:t.tttTitle, desc:t.tttDesc, label:t.tttLabel, glow:'#38bdf8', go:()=>navigate('tictactoe') },
-    { key:'ludo',emoji:'🎲', title:t.ludoTitle,desc:t.ludoDesc,label:t.ludoLabel,glow:'#b79cfc', go:()=>navigate('ludo')      },
   ]
 
   return (
