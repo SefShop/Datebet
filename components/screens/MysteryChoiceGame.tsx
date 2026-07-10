@@ -87,6 +87,7 @@ export default function MysteryChoiceGame() {
   const [names, setNames] = useState<{ one: string; two: string }>({ one: 'Player 1', two: 'Player 2' })
   const [loading, setLoading] = useState(true)
   const [preparing, setPreparing] = useState(false)
+  const [sessionRetrying, setSessionRetrying] = useState(false)
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
   const resultWriteLock = useRef(false)
@@ -127,10 +128,33 @@ export default function MysteryChoiceGame() {
 
     // Session switching: clear all previous local state before loading the new one
     console.log('MYSTERY CHOICE SESSION LOADED')
+    const sess0 = session
+    console.log('LOADING SESSION', sess0.id)
     setState(null)
     setPreparing(false)
-    const sess0 = session
+    setLoading(true)  // BUGFIX: must reset to true here — this screen stays mounted permanently,
+                       // so without this reset "loading" could still be false from an earlier
+                       // render, causing the "Game not found" branch to flash while this fetch runs.
     activeSessionRef.current = sess0.id
+
+    async function fetchSessionRow(retriesLeft: number, attempt = 0): Promise<any> {
+      const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
+      if (sess) {
+        if (attempt > 0) setSessionRetrying(false)
+        console.log('SESSION FOUND', sess0.id)
+        return sess
+      }
+      if (retriesLeft > 0) {
+        // The session row may still be mid-insert on the other client — retry briefly
+        // instead of immediately declaring "not found".
+        setSessionRetrying(true)
+        await new Promise(res => setTimeout(res, 400))
+        return fetchSessionRow(retriesLeft - 1, attempt + 1)
+      }
+      setSessionRetrying(false)
+      console.log('SESSION NOT FOUND', sess0.id)
+      return null
+    }
 
     async function init() {
       try {
@@ -142,13 +166,21 @@ export default function MysteryChoiceGame() {
         profs?.forEach(p => nm.set(p.id, p.name))
         setNames({ one: nm.get(sess0.player_one_id) || 'Player 1', two: nm.get(sess0.player_two_id) || 'Player 2' })
 
-        // Both users load the SAME game_session by session_id
-        const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
+        // Both users load the SAME game_session by session_id — retry a few times
+        // before concluding the session truly doesn't exist.
+        const sess = await fetchSessionRow(5)
         console.log('MYSTERY SESSION LOADED:', sess0.id)
 
+        if (!sess) {
+          // Only now — after every retry — do we allow the "not found" state to show.
+          setLoading(false)
+          setState(null)
+          return
+        }
+
         let s: MysteryChoiceState
-        if (isValidMysteryState(sess?.state)) {
-          s = sess!.state
+        if (isValidMysteryState(sess.state)) {
+          s = sess.state
           console.log('MYSTERY STATE VALIDATED:', sess0.id)
         } else {
           console.log('MYSTERY ERROR:', 'invalid or incomplete session state', sess0.id)
@@ -161,6 +193,7 @@ export default function MysteryChoiceGame() {
 
         setState(s)
         setLoading(false)
+        console.log('SESSION READY', sess0.id)
         checkAndRecover(s)
       } catch (e: any) {
         console.log('MYSTERY ERROR:', e?.message || e)
@@ -463,7 +496,7 @@ export default function MysteryChoiceGame() {
     return lang === 'gr' ? 'Συνέχισε να Ανακαλύπτεις' : 'Keep Discovering'
   }
 
-  if (loading || preparing) {
+  if (loading || preparing || sessionRetrying) {
     return (
       <div className="flex items-center justify-center h-full" style={{ background: '#0a0a10' }}>
         <div className="relative w-14 h-14">
@@ -471,7 +504,9 @@ export default function MysteryChoiceGame() {
           <div className="absolute inset-0 rounded-full" style={{ border: '3px solid transparent', borderTopColor: '#ff3384', borderRightColor: '#d84dd8', animation: 'mcSpin 0.9s linear infinite' }} />
         </div>
         <div className="text-white/40 text-[13px] mt-4 absolute" style={{ marginTop: 64 }}>
-          {preparing
+          {sessionRetrying
+            ? (lang === 'gr' ? 'Προετοιμασία παιχνιδιού...' : 'Preparing game...')
+            : preparing
             ? (lang === 'gr' ? 'Προετοιμασία του Mystery Choice...' : 'Preparing Mystery Choice...')
             : (lang === 'gr' ? 'Φόρτωση...' : 'Loading...')}
         </div>

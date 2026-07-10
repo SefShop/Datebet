@@ -80,12 +80,15 @@ export default function ActivityScreen() {
     console.log('ACCEPT FLOW: respondInvite result', ok)
     if (!ok) return
     if (accept) {
+      console.log('INVITE ACCEPTED', c.id, 'game_type:', c.game_type)
       if (c.game_type === 'mystery_choice') console.log('MYSTERY CHOICE INVITE ACCEPTED:', c.id)
       console.log('ACCEPT FLOW: createGameSession start', c.id, 'game_type:', c.game_type)
+      console.log('CREATING SESSION', c.id)
       const { session, error } = await createGameSession(c)
       console.log('ACCEPT FLOW: createGameSession result', { sessionId: session?.id, sessionGameType: session?.game_type, error })
       if (error || !session) { alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το Tic Tac Toe.' : 'Could not start Tic Tac Toe.'); load(); return }
       console.log('TICTACTOE SESSION CREATED:', session.id)
+      console.log('SESSION CREATED', session.id)
       await enterGame(c)
     } else {
       load()
