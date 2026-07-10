@@ -147,14 +147,10 @@ function initStateFor(gameType: string): any {
   if (gameType === 'mystery_choice') {
     // Question Engine: randomly generates 10 questions (3 easy, 4 medium, 3 deep)
     // from the full question bank in lib/mysteryChoiceQuestions.ts. Scales to
-    // any number of questions without any change needed here.
-    // Each round keeps id/question/optionA/optionB (for validation) PLUS the
-    // existing emoji/en/gr fields the game screen already renders — the UI
-    // is unaffected, it just gets a couple of extra, unused fields.
-    const generated = generateMysteryQuestions().map(q => {
-      const base = toRoundData(q)
-      return { id: q.id, question: q.question, optionA: q.optionA, optionB: q.optionB, ...base }
-    })
+    // any number of questions without any change needed here. Supports mixed
+    // question types (binary / multi-select / preference) — toRoundData()
+    // already returns everything the game screen needs to render any type.
+    const generated = generateMysteryQuestions().map(toRoundData)
     const rounds = generated.length === 10 ? generated : MYSTERY_CHOICE_ROUNDS
     return {
       game_type: 'mystery_choice',

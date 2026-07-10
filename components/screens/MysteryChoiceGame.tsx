@@ -5,28 +5,37 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import { getPresence, isOnlineNow } from '@/lib/presence'
-import { generateMysteryQuestions, CATEGORY_EMOJI, MysteryQuestion } from '@/lib/mysteryChoiceQuestions'
+import {
+  generateMysteryQuestions, toRoundData, computeRoundScore, computeCompatibilityPercent,
+  RoundData, RoundScoreResult,
+} from '@/lib/mysteryChoiceQuestions'
 
-interface RoundData { emoji: [string, string]; en: [string, string]; gr: [string, string] }
+// A selection is a single option string (binary / single-select) or an array
+// of option strings (multi-select questions, up to round.maxSelect).
+type Selection = string | string[] | null
 
 interface MysteryChoiceState {
   game_type: string
   current_round: number
   rounds: RoundData[]
-  player_one_choice: 'a' | 'b' | null
-  player_two_choice: 'a' | 'b' | null
+  player_one_choice: Selection
+  player_two_choice: Selection
   player_one_ready: boolean
   player_two_ready: boolean
-  round_result: 'match' | 'different' | null
+  round_result: 'match' | 'partial' | 'different' | null
   status: 'active' | 'finished'
   result?: 'completed' | null
   progressCounted?: boolean
   matches?: number
+  scoreTotal?: number   // sum of weighted round scores (for the compatibility %)
+  scoreMax?: number     // sum of round weights so far
 }
 
 // Fallback in case a session's state is missing rounds (defensive only)
 const FALLBACK_ROUNDS: RoundData[] = [
-  { emoji: ['☕','🍷'], en: ['Coffee', 'Wine'], gr: ['Καφές', 'Κρασί'] },
+  { id: 'fallback_coffee_wine', type: 'binary', question: 'Coffee or Wine?', questionGr: 'Καφές ή Κρασί;',
+    emoji: ['☕','🍷'], en: ['Coffee', 'Wine'], gr: ['Καφές', 'Κρασί'],
+    options: ['Coffee', 'Wine'], optionsGr: ['Καφές', 'Κρασί'], maxSelect: 1, weight: 1, tags: [] },
 ]
 
 // ── Validation helpers (module-level, no component state needed) ──
@@ -34,8 +43,9 @@ function isValidRound(r: any): boolean {
   return !!r
     && typeof r.id === 'string' && r.id.length > 0
     && typeof r.question === 'string' && r.question.length > 0
-    && typeof r.optionA === 'string' && r.optionA.length > 0
-    && typeof r.optionB === 'string' && r.optionB.length > 0
+    && Array.isArray(r.options) && r.options.length >= 2
+    && Array.isArray(r.optionsGr) && r.optionsGr.length >= 2
+    && typeof r.maxSelect === 'number' && r.maxSelect >= 1
 }
 
 function isValidMysteryState(s: any): s is MysteryChoiceState {
@@ -50,19 +60,7 @@ function isValidMysteryState(s: any): s is MysteryChoiceState {
 // (does NOT modify the question bank — only reads from it) for safe
 // initialization or repair when a session's stored state is missing/invalid.
 function buildFreshMysteryState(): MysteryChoiceState {
-  const questions: MysteryQuestion[] = generateMysteryQuestions()
-  const rounds: RoundData[] = questions.map(q => {
-    const emoji = CATEGORY_EMOJI[q.category] || ['🎭', '✨']
-    return {
-      id: q.id,
-      question: q.question,
-      optionA: q.optionA,
-      optionB: q.optionB,
-      emoji,
-      en: [q.optionA, q.optionB],
-      gr: [q.optionAGr, q.optionBGr],
-    } as any
-  })
+  const rounds: RoundData[] = generateMysteryQuestions().map(toRoundData)
   return {
     game_type: 'mystery_choice',
     current_round: 0,
@@ -73,6 +71,8 @@ function buildFreshMysteryState(): MysteryChoiceState {
     player_two_ready: false,
     round_result: null,
     matches: 0,
+    scoreTotal: 0,
+    scoreMax: 0,
     status: 'active',
     progressCounted: false,
   }
@@ -102,6 +102,7 @@ export default function MysteryChoiceGame() {
   const [matchTally, setMatchTally] = useState(0)             // session-local "compatibility" tally for the celebration screen
   const [onlineOne, setOnlineOne] = useState(false)
   const [onlineTwo, setOnlineTwo] = useState(false)
+  const [pendingMulti, setPendingMulti] = useState<string[]>([])  // local staged picks before Confirm (multi-select only)
   const tallyRoundRef = useRef<number>(-1)
   const revealTimerRef = useRef<any>(null)
 
@@ -271,7 +272,7 @@ export default function MysteryChoiceGame() {
     }
   }
 
-  async function choose(choice: 'a' | 'b') {
+  async function choose(choice: string | string[]) {
     if (!session || !myId) return
     const latest = await fetchLatestState()
     if (!latest || latest.status === 'finished') return
@@ -288,15 +289,18 @@ export default function MysteryChoiceGame() {
     console.log('MYSTERY CHOICE SAVED:', session.id, isPlayerOne ? 'player_one' : 'player_two', choice)
     await writeState(next)
 
-    // Both now chosen — compute + write the result on the SAME fresh base we just wrote
+    // Both now chosen — compute the WEIGHTED score on the SAME fresh base we just wrote
     if (next.player_one_choice && next.player_two_choice && !next.round_result && !resultWriteLock.current) {
       resultWriteLock.current = true
       console.log('BOTH CHOICES READY')
-      const result = next.player_one_choice === next.player_two_choice ? 'match' : 'different'
-      console.log('ROUND RESULT', result)
-      const matches = (next.matches || 0) + (result === 'match' ? 1 : 0)
-      await writeState({ ...next, round_result: result, matches })
-      console.log('MYSTERY ROUND COMPLETE:', session.id, 'round', next.current_round, result)
+      const round = next.rounds[next.current_round]
+      const scoreResult: RoundScoreResult = computeRoundScore(round, next.player_one_choice, next.player_two_choice)
+      console.log('ROUND RESULT', scoreResult.outcome, 'score', scoreResult.score, '/', scoreResult.maxScore)
+      const matches = (next.matches || 0) + (scoreResult.outcome === 'match' ? 1 : 0)
+      const scoreTotal = (next.scoreTotal || 0) + scoreResult.score
+      const scoreMax = (next.scoreMax || 0) + scoreResult.maxScore
+      await writeState({ ...next, round_result: scoreResult.outcome, matches, scoreTotal, scoreMax })
+      console.log('MYSTERY ROUND COMPLETE:', session.id, 'round', next.current_round, scoreResult.outcome)
       resultWriteLock.current = false
     }
   }
@@ -312,11 +316,14 @@ export default function MysteryChoiceGame() {
         const latest = await fetchLatestState()
         if (latest && latest.player_one_choice && latest.player_two_choice && !latest.round_result) {
           console.log('BOTH CHOICES READY')
-          const result = latest.player_one_choice === latest.player_two_choice ? 'match' : 'different'
-          console.log('ROUND RESULT', result)
-          const matches = (latest.matches || 0) + (result === 'match' ? 1 : 0)
-          await writeState({ ...latest, round_result: result, matches })
-          console.log('MYSTERY ROUND COMPLETE:', session?.id, 'round', latest.current_round, result)
+          const round = latest.rounds[latest.current_round]
+          const scoreResult: RoundScoreResult = computeRoundScore(round, latest.player_one_choice, latest.player_two_choice)
+          console.log('ROUND RESULT', scoreResult.outcome, 'score', scoreResult.score, '/', scoreResult.maxScore)
+          const matches = (latest.matches || 0) + (scoreResult.outcome === 'match' ? 1 : 0)
+          const scoreTotal = (latest.scoreTotal || 0) + scoreResult.score
+          const scoreMax = (latest.scoreMax || 0) + scoreResult.maxScore
+          await writeState({ ...latest, round_result: scoreResult.outcome, matches, scoreTotal, scoreMax })
+          console.log('MYSTERY ROUND COMPLETE:', session?.id, 'round', latest.current_round, scoreResult.outcome)
         }
         resultWriteLock.current = false
       })()
@@ -457,6 +464,9 @@ export default function MysteryChoiceGame() {
   // Reset the tally if we land on a brand-new session
   useEffect(() => { setMatchTally(0); tallyRoundRef.current = -1 }, [session?.id])
 
+  // Reset staged multi-select picks whenever the round changes
+  useEffect(() => { setPendingMulti([]) }, [state?.current_round, session?.id])
+
   // Diagnostic: log whenever the active round changes (load or transition)
   useEffect(() => {
     if (state && session?.id) console.log('MYSTERY ROUND:', session.id, state.current_round + 1, '/', state.rounds?.length || 10)
@@ -542,12 +552,16 @@ export default function MysteryChoiceGame() {
   const round = rounds[safeRoundIndex] || FALLBACK_ROUNDS[0]
   const optA = lang === 'gr' ? round.gr[0] : round.en[0]
   const optB = lang === 'gr' ? round.gr[1] : round.en[1]
+  const isBinaryRound = round.type === 'binary' || (round.options.length === 2 && round.maxSelect === 1)
   const progressPct = Math.round(((safeRoundIndex + 1) / rounds.length) * 100)
 
   // Game complete screen — premium celebration
   if (state.status === 'finished') {
     const scoreOutOf = rounds.length
-    const pct = scoreOutOf > 0 ? Math.round((matchTally / scoreOutOf) * 100) : 0
+    const matchCount = state.matches || 0
+    // Weighted compatibility % — uses each round's weight (and, for multi-select
+    // rounds, partial overlap credit) instead of only counting identical answers.
+    const pct = (state.scoreMax || 0) > 0 ? Math.round(((state.scoreTotal || 0) / (state.scoreMax || 1)) * 100) : 0
     const circumference = 2 * Math.PI * 54
     const dashOffset = circumference - (pct / 100) * circumference
     return (
@@ -580,15 +594,16 @@ export default function MysteryChoiceGame() {
               </defs>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-[30px] font-black text-white leading-none">{matchTally}<span className="text-[16px] font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>/{scoreOutOf}</span></div>
+              <div className="text-[30px] font-black text-white leading-none">{matchCount}<span className="text-[16px] font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>/{scoreOutOf}</span></div>
               <div className="text-[10px] font-bold uppercase tracking-[1.5px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 {lang === 'gr' ? 'Ταίριασμα' : 'Matches'}
               </div>
+              <div className="text-[11px] font-bold mt-0.5" style={{ color: '#d84dd8' }}>{pct}%</div>
             </div>
           </div>
 
           <div className="text-[16px] font-extrabold mb-8 text-center" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8,#7c72ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-            {compatibilityLabel(matchTally)}
+            {compatibilityLabel(matchCount)}
           </div>
 
           <div className="flex flex-col gap-3 w-full max-w-[280px]">
@@ -669,37 +684,80 @@ export default function MysteryChoiceGame() {
           }}>
 
           <div className="text-center text-[19px] font-extrabold mb-6 leading-snug" style={{ color: '#fff' }}>
-            {lang === 'gr' ? `${optA} ή ${optB};` : `${optA} or ${optB}?`}
+            {isBinaryRound
+              ? (lang === 'gr' ? `${optA} ή ${optB};` : `${optA} or ${optB}?`)
+              : (lang === 'gr' ? round.questionGr : round.question)}
           </div>
 
-          {/* Answer buttons */}
-          <div className="flex flex-col gap-3">
-            {(['a','b'] as const).map(key => {
-              const label = key === 'a' ? optA : optB
-              const emoji = key === 'a' ? round.emoji[0] : round.emoji[1]
-              const isMine = myChoice === key
-              const isOpp = revealed && oppChoice === key
-              return (
-                <button key={key} onClick={() => choose(key)} disabled={!!myChoice}
-                  className="mc-answer-btn w-full rounded-2xl py-5 text-[16px] font-bold flex items-center justify-center gap-2.5 cursor-pointer disabled:cursor-default"
+          {isBinaryRound ? (
+            /* Binary — unchanged two-big-button layout */
+            <div className="flex flex-col gap-3">
+              {([0, 1] as const).map(idx => {
+                const label = idx === 0 ? optA : optB
+                const emoji = round.emoji[idx]
+                const isMine = myChoice === label
+                const isOpp = revealed && oppChoice === label
+                return (
+                  <button key={idx} onClick={() => choose(label)} disabled={!!myChoice}
+                    className="mc-answer-btn w-full rounded-2xl py-5 text-[16px] font-bold flex items-center justify-center gap-2.5 cursor-pointer disabled:cursor-default"
+                    style={{
+                      background: isMine ? 'linear-gradient(135deg,#ff3384,#d84dd8)' : 'rgba(255,255,255,0.05)',
+                      color: isMine ? '#fff' : 'rgba(255,255,255,0.88)',
+                      border: isOpp && !isMine ? '2px solid #7c72ff' : '1px solid rgba(255,255,255,0.12)',
+                      boxShadow: isMine ? '0 10px 30px rgba(253,41,123,0.45)' : 'none',
+                      opacity: myChoice && !isMine && !revealed ? 0.45 : 1,
+                      transform: revealed && revealing ? 'rotateX(6deg)' : 'none',
+                      transition: 'transform 0.25s ease, opacity 0.25s ease, box-shadow 0.25s ease, background 0.25s ease',
+                    }}>
+                    <span className="text-[24px]">{emoji}</span>
+                    <span>{label}</span>
+                    {isOpp && !isMine && <span className="text-[11px] ml-1" style={{ color: '#7c72ff' }}>{lang==='gr'?'(αυτός/ή)':'(them)'}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            /* Multi-select / preference — up to 6 chip options, same premium visual language */
+            <div className="flex flex-col gap-2.5">
+              {(lang === 'gr' ? round.optionsGr : round.options).map((label, idx) => {
+                const alreadySubmitted = !!myChoice
+                const mySelectedNow = alreadySubmitted
+                  ? Array.isArray(myChoice) ? myChoice.includes(label) : myChoice === label
+                  : pendingMulti.includes(label)
+                const isOpp = revealed && (Array.isArray(oppChoice) ? oppChoice.includes(label) : oppChoice === label)
+                const canToggle = !alreadySubmitted && (mySelectedNow || pendingMulti.length < round.maxSelect)
+                return (
+                  <button key={idx} disabled={alreadySubmitted || !canToggle}
+                    onClick={() => {
+                      if (round.maxSelect <= 1) { choose(label); return }
+                      setPendingMulti(prev => prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label].slice(0, round.maxSelect))
+                    }}
+                    className="mc-answer-btn w-full rounded-2xl py-4 px-5 text-[14px] font-bold flex items-center justify-between gap-2.5 cursor-pointer disabled:cursor-default text-left"
+                    style={{
+                      background: mySelectedNow ? 'linear-gradient(135deg,#ff3384,#d84dd8)' : 'rgba(255,255,255,0.05)',
+                      color: mySelectedNow ? '#fff' : 'rgba(255,255,255,0.88)',
+                      border: isOpp && !mySelectedNow ? '2px solid #7c72ff' : '1px solid rgba(255,255,255,0.12)',
+                      boxShadow: mySelectedNow ? '0 8px 24px rgba(253,41,123,0.4)' : 'none',
+                      opacity: alreadySubmitted && !mySelectedNow && !revealed ? 0.45 : 1,
+                      transition: 'all 0.2s ease',
+                    }}>
+                    <span>{label}</span>
+                    {isOpp && !mySelectedNow && <span className="text-[11px]" style={{ color: '#7c72ff' }}>{lang==='gr'?'(αυτός/ή)':'(them)'}</span>}
+                  </button>
+                )
+              })}
+              {!myChoice && round.maxSelect > 1 && (
+                <button onClick={() => choose(pendingMulti)} disabled={pendingMulti.length === 0}
+                  className="rounded-2xl py-3.5 text-[13px] font-bold mt-1 cursor-pointer disabled:cursor-default"
                   style={{
-                    background: isMine
-                      ? 'linear-gradient(135deg,#ff3384,#d84dd8)'
-                      : 'rgba(255,255,255,0.05)',
-                    color: isMine ? '#fff' : 'rgba(255,255,255,0.88)',
-                    border: isOpp && !isMine ? '2px solid #7c72ff' : '1px solid rgba(255,255,255,0.12)',
-                    boxShadow: isMine ? '0 10px 30px rgba(253,41,123,0.45)' : 'none',
-                    opacity: myChoice && !isMine && !revealed ? 0.45 : 1,
-                    transform: revealed && revealing ? 'rotateX(6deg)' : 'none',
-                    transition: 'transform 0.25s ease, opacity 0.25s ease, box-shadow 0.25s ease, background 0.25s ease',
+                    background: pendingMulti.length > 0 ? 'linear-gradient(135deg,#7c72ff,#d84dd8)' : 'rgba(255,255,255,0.05)',
+                    color: pendingMulti.length > 0 ? '#fff' : 'rgba(255,255,255,0.3)',
                   }}>
-                  <span className="text-[24px]">{emoji}</span>
-                  <span>{label}</span>
-                  {isOpp && !isMine && <span className="text-[11px] ml-1" style={{ color: '#7c72ff' }}>{lang==='gr'?'(αυτός/ή)':'(them)'}</span>}
+                  {lang === 'gr' ? `Επιβεβαίωση (${pendingMulti.length}/${round.maxSelect})` : `Confirm (${pendingMulti.length}/${round.maxSelect})`}
                 </button>
-              )
-            })}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Waiting state */}
