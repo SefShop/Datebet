@@ -148,16 +148,24 @@ function initStateFor(gameType: string): any {
     // Question Engine: randomly generates 10 questions (3 easy, 4 medium, 3 deep)
     // from the full question bank in lib/mysteryChoiceQuestions.ts. Scales to
     // any number of questions without any change needed here.
-    const generated = generateMysteryQuestions().map(toRoundData)
+    // Each round keeps id/question/optionA/optionB (for validation) PLUS the
+    // existing emoji/en/gr fields the game screen already renders — the UI
+    // is unaffected, it just gets a couple of extra, unused fields.
+    const generated = generateMysteryQuestions().map(q => {
+      const base = toRoundData(q)
+      return { id: q.id, question: q.question, optionA: q.optionA, optionB: q.optionB, ...base }
+    })
+    const rounds = generated.length === 10 ? generated : MYSTERY_CHOICE_ROUNDS
     return {
       game_type: 'mystery_choice',
       current_round: 0,
-      rounds: generated.length === 10 ? generated : MYSTERY_CHOICE_ROUNDS,
+      rounds,
       player_one_choice: null,
       player_two_choice: null,
       player_one_ready: false,
       player_two_ready: false,
       round_result: null,
+      matches: 0,
       status: 'active',
       progressCounted: false,
     }
@@ -220,7 +228,10 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
 
     if (error) { console.error('GAME SESSION error:', error); return { error: error.message } }
     console.log('NEW GAME SESSION CREATED:', data.id)
-    if (invite.game_type === 'mystery_choice') console.log('MYSTERY CHOICE SESSION CREATED:', data.id)
+    if (invite.game_type === 'mystery_choice') {
+      console.log('MYSTERY CHOICE SESSION CREATED:', data.id)
+      console.log('MYSTERY SESSION CREATED:', data.id, 'players', invite.sender_id, invite.receiver_id)
+    }
     return { session: data }
   } catch (e: any) { return { error: e.message } }
 }

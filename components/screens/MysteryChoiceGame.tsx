@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import { getPresence, isOnlineNow } from '@/lib/presence'
+import { generateMysteryQuestions, CATEGORY_EMOJI, MysteryQuestion } from '@/lib/mysteryChoiceQuestions'
 
 interface RoundData { emoji: [string, string]; en: [string, string]; gr: [string, string] }
 
@@ -20,12 +21,62 @@ interface MysteryChoiceState {
   status: 'active' | 'finished'
   result?: 'completed' | null
   progressCounted?: boolean
+  matches?: number
 }
 
 // Fallback in case a session's state is missing rounds (defensive only)
 const FALLBACK_ROUNDS: RoundData[] = [
   { emoji: ['☕','🍷'], en: ['Coffee', 'Wine'], gr: ['Καφές', 'Κρασί'] },
 ]
+
+// ── Validation helpers (module-level, no component state needed) ──
+function isValidRound(r: any): boolean {
+  return !!r
+    && typeof r.id === 'string' && r.id.length > 0
+    && typeof r.question === 'string' && r.question.length > 0
+    && typeof r.optionA === 'string' && r.optionA.length > 0
+    && typeof r.optionB === 'string' && r.optionB.length > 0
+}
+
+function isValidMysteryState(s: any): s is MysteryChoiceState {
+  return !!s
+    && s.game_type === 'mystery_choice'
+    && typeof s.current_round === 'number' && s.current_round >= 0
+    && Array.isArray(s.rounds) && s.rounds.length === 10
+    && s.rounds.every(isValidRound)
+}
+
+// Build a complete, valid Mystery Choice state from the question engine
+// (does NOT modify the question bank — only reads from it) for safe
+// initialization or repair when a session's stored state is missing/invalid.
+function buildFreshMysteryState(): MysteryChoiceState {
+  const questions: MysteryQuestion[] = generateMysteryQuestions()
+  const rounds: RoundData[] = questions.map(q => {
+    const emoji = CATEGORY_EMOJI[q.category] || ['🎭', '✨']
+    return {
+      id: q.id,
+      question: q.question,
+      optionA: q.optionA,
+      optionB: q.optionB,
+      emoji,
+      en: [q.optionA, q.optionB],
+      gr: [q.optionAGr, q.optionBGr],
+    } as any
+  })
+  return {
+    game_type: 'mystery_choice',
+    current_round: 0,
+    rounds,
+    player_one_choice: null,
+    player_two_choice: null,
+    player_one_ready: false,
+    player_two_ready: false,
+    round_result: null,
+    matches: 0,
+    status: 'active',
+    progressCounted: false,
+  }
+}
 
 export default function MysteryChoiceGame() {
   const { navigate, lang } = useApp()
@@ -35,6 +86,7 @@ export default function MysteryChoiceGame() {
   const [myId, setMyId] = useState<string | null>(null)
   const [names, setNames] = useState<{ one: string; two: string }>({ one: 'Player 1', two: 'Player 2' })
   const [loading, setLoading] = useState(true)
+  const [preparing, setPreparing] = useState(false)
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
   const resultWriteLock = useRef(false)
@@ -66,33 +118,55 @@ export default function MysteryChoiceGame() {
       return
     }
 
+    // Both player IDs must exist on the session itself
+    if (!session.player_one_id || !session.player_two_id) {
+      console.log('MYSTERY ERROR:', 'session missing player ids', session.id)
+      setLoading(false)
+      return
+    }
+
+    // Session switching: clear all previous local state before loading the new one
     console.log('MYSTERY CHOICE SESSION LOADED')
+    setState(null)
+    setPreparing(false)
     const sess0 = session
     activeSessionRef.current = sess0.id
 
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      setMyId(user?.id ?? null)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setMyId(user?.id ?? null)
 
-      const nm = new Map<string, string>()
-      const { data: profs } = await supabase.from('profiles').select('id, name').in('id', [sess0.player_one_id, sess0.player_two_id])
-      profs?.forEach(p => nm.set(p.id, p.name))
-      setNames({ one: nm.get(sess0.player_one_id) || 'Player 1', two: nm.get(sess0.player_two_id) || 'Player 2' })
+        const nm = new Map<string, string>()
+        const { data: profs } = await supabase.from('profiles').select('id, name').in('id', [sess0.player_one_id, sess0.player_two_id])
+        profs?.forEach(p => nm.set(p.id, p.name))
+        setNames({ one: nm.get(sess0.player_one_id) || 'Player 1', two: nm.get(sess0.player_two_id) || 'Player 2' })
 
-      // Both users load the SAME game_session by session_id
-      const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
-      let s: MysteryChoiceState = sess?.state?.current_round !== undefined
-        ? sess.state
-        : {
-            game_type: 'mystery_choice', current_round: 0, rounds: FALLBACK_ROUNDS,
-            player_one_choice: null, player_two_choice: null,
-            player_one_ready: false, player_two_ready: false,
-            round_result: null, status: 'active',
-          }
-      setState(s)
-      console.log('MYSTERY CHOICE SESSION LOADED', s)
-      setLoading(false)
-      checkAndRecover(s)
+        // Both users load the SAME game_session by session_id
+        const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
+        console.log('MYSTERY SESSION LOADED:', sess0.id)
+
+        let s: MysteryChoiceState
+        if (isValidMysteryState(sess?.state)) {
+          s = sess!.state
+          console.log('MYSTERY STATE VALIDATED:', sess0.id)
+        } else {
+          console.log('MYSTERY ERROR:', 'invalid or incomplete session state', sess0.id)
+          setPreparing(true)
+          s = buildFreshMysteryState()
+          await supabase.from('game_sessions').update({ state: s }).eq('id', sess0.id)
+          console.log('MYSTERY STATE REPAIRED:', sess0.id)
+          setPreparing(false)
+        }
+
+        setState(s)
+        setLoading(false)
+        checkAndRecover(s)
+      } catch (e: any) {
+        console.log('MYSTERY ERROR:', e?.message || e)
+        setLoading(false)
+        setPreparing(false)
+      }
 
       // Subscribe to THIS game_session row via Supabase realtime
       const channel = supabase
@@ -101,6 +175,10 @@ export default function MysteryChoiceGame() {
           if (payload.new?.id !== activeSessionRef.current) return  // hard guard: ignore stale/other-session updates
           const newState = payload.new.state as MysteryChoiceState
           console.log('MYSTERY CHOICE REALTIME UPDATE', newState)
+          if (!isValidMysteryState(newState)) {
+            console.log('MYSTERY ERROR:', 'invalid realtime state received', sess0.id)
+            return  // ignore malformed broadcasts; local state stays as last-known-good
+          }
           setState(newState)
           checkAndRecover(newState)
         })
@@ -174,6 +252,7 @@ export default function MysteryChoiceGame() {
       player_two_choice: !isPlayerOne ? choice : latest.player_two_choice,
     }
     console.log('PLAYER CHOICE SAVED', isPlayerOne ? 'player_one' : 'player_two', choice)
+    console.log('MYSTERY CHOICE SAVED:', session.id, isPlayerOne ? 'player_one' : 'player_two', choice)
     await writeState(next)
 
     // Both now chosen — compute + write the result on the SAME fresh base we just wrote
@@ -182,7 +261,9 @@ export default function MysteryChoiceGame() {
       console.log('BOTH CHOICES READY')
       const result = next.player_one_choice === next.player_two_choice ? 'match' : 'different'
       console.log('ROUND RESULT', result)
-      await writeState({ ...next, round_result: result })
+      const matches = (next.matches || 0) + (result === 'match' ? 1 : 0)
+      await writeState({ ...next, round_result: result, matches })
+      console.log('MYSTERY ROUND COMPLETE:', session.id, 'round', next.current_round, result)
       resultWriteLock.current = false
     }
   }
@@ -200,7 +281,9 @@ export default function MysteryChoiceGame() {
           console.log('BOTH CHOICES READY')
           const result = latest.player_one_choice === latest.player_two_choice ? 'match' : 'different'
           console.log('ROUND RESULT', result)
-          await writeState({ ...latest, round_result: result })
+          const matches = (latest.matches || 0) + (result === 'match' ? 1 : 0)
+          await writeState({ ...latest, round_result: result, matches })
+          console.log('MYSTERY ROUND COMPLETE:', session?.id, 'round', latest.current_round, result)
         }
         resultWriteLock.current = false
       })()
@@ -247,9 +330,11 @@ export default function MysteryChoiceGame() {
     let next: MysteryChoiceState
     if (isLastRound) {
       console.log('GAME COMPLETE')
+      console.log('MYSTERY GAME COMPLETE:', session?.id, 'matches', latest.matches || 0)
       next = { ...latest, status: 'finished', result: 'completed' }
     } else {
       console.log('NEXT ROUND STARTED')
+      console.log('MYSTERY NEXT ROUND:', session?.id, 'round', latest.current_round + 1)
       next = {
         ...latest,
         current_round: latest.current_round + 1,
@@ -339,6 +424,11 @@ export default function MysteryChoiceGame() {
   // Reset the tally if we land on a brand-new session
   useEffect(() => { setMatchTally(0); tallyRoundRef.current = -1 }, [session?.id])
 
+  // Diagnostic: log whenever the active round changes (load or transition)
+  useEffect(() => {
+    if (state && session?.id) console.log('MYSTERY ROUND:', session.id, state.current_round + 1, '/', state.rounds?.length || 10)
+  }, [state?.current_round, session?.id])
+
   // Read-only presence indicators for the player header (reuses existing presence API)
   useEffect(() => {
     if (!session) return
@@ -373,14 +463,18 @@ export default function MysteryChoiceGame() {
     return lang === 'gr' ? 'Συνέχισε να Ανακαλύπτεις' : 'Keep Discovering'
   }
 
-  if (loading) {
+  if (loading || preparing) {
     return (
       <div className="flex items-center justify-center h-full" style={{ background: '#0a0a10' }}>
         <div className="relative w-14 h-14">
           <div className="absolute inset-0 rounded-full" style={{ border: '3px solid rgba(255,255,255,0.08)' }} />
           <div className="absolute inset-0 rounded-full" style={{ border: '3px solid transparent', borderTopColor: '#ff3384', borderRightColor: '#d84dd8', animation: 'mcSpin 0.9s linear infinite' }} />
         </div>
-        <div className="text-white/40 text-[13px] mt-4 absolute" style={{ marginTop: 64 }}>{lang === 'gr' ? 'Φόρτωση...' : 'Loading...'}</div>
+        <div className="text-white/40 text-[13px] mt-4 absolute" style={{ marginTop: 64 }}>
+          {preparing
+            ? (lang === 'gr' ? 'Προετοιμασία του Mystery Choice...' : 'Preparing Mystery Choice...')
+            : (lang === 'gr' ? 'Φόρτωση...' : 'Loading...')}
+        </div>
       </div>
     )
   }
