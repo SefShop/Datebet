@@ -427,6 +427,7 @@ export function generateMysteryQuestions(): MysteryQuestion[] {
 // multi-select / preference questions can render up to 6 choices.
 export interface RoundData {
   id: string
+  category: MysteryChoiceCategory
   type: MysteryQuestionType
   question: string
   questionGr: string
@@ -445,6 +446,7 @@ export function toRoundData(q: MysteryQuestion): RoundData {
   const emoji = CATEGORY_EMOJI[q.category] || ['🎭', '✨']
   return {
     id: q.id,
+    category: q.category,
     type: q.type,
     question: q.question,
     questionGr: q.questionGr,
