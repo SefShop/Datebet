@@ -270,6 +270,8 @@ export default function MysteryChoiceGame() {
   const recoveryLockRef = useRef(false)
   const [pairCount, setPairCount] = useState(0)
   const [progressError, setProgressError] = useState<string | null>(null)
+  const [pairProgressLoading, setPairProgressLoading] = useState(true)  // final-screen chat unlock display
+  const [chatUnlocked, setChatUnlocked] = useState(false)
 
   // ── UI-only presentational state (does NOT affect game logic / sync / DB) ──
   const [revealing, setRevealing] = useState(false)          // ~800ms freeze before flip reveal
@@ -589,6 +591,45 @@ export default function MysteryChoiceGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.status])
 
+  // Dedicated read-only fetch for the final screen's chat-unlock display —
+  // uses the SAME canonical pair_progress row (via getPairProgress, which
+  // already sorts the pair ids) that Discover and Messages read. This runs
+  // independently of countMysteryProgress() below, so the correct state
+  // always shows even when this pair's progress was already counted before.
+  async function refreshPairProgressForDisplay() {
+    if (!session || !myId) return
+    const otherId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
+    console.log('FINAL SCREEN PAIR IDS:', myId, otherId)
+    console.log('FINAL SCREEN PAIR PROGRESS LOADING')
+    setPairProgressLoading(true)
+    try {
+      const prog = await getPairProgress(otherId)
+      if (prog.error) {
+        console.error('FINAL SCREEN PAIR PROGRESS ERROR:', prog.error)
+        setProgressError(prog.error)
+        return
+      }
+      console.log('FINAL SCREEN PAIR PROGRESS:', prog.games_completed)
+      console.log('FINAL SCREEN CHAT UNLOCKED:', prog.chat_unlocked)
+      console.log('FINAL SCREEN CHAT PROGRESS:', prog.games_completed, '/10')
+      setPairCount(prog.games_completed)
+      setChatUnlocked(prog.chat_unlocked)
+      setProgressError(null)
+    } catch (e: any) {
+      console.error('FINAL SCREEN PAIR PROGRESS ERROR:', e.message)
+      setProgressError(e.message)
+    } finally {
+      setPairProgressLoading(false)
+    }
+  }
+
+  // Refresh the display the moment the game finishes — independent of
+  // whether progress counting has already happened for this session.
+  useEffect(() => {
+    if (state?.status === 'finished') refreshPairProgressForDisplay()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.status, session?.id])
+
   async function countMysteryProgress() {
     if (!session || !myId || countLockRef.current) return
     countLockRef.current = true
@@ -601,6 +642,7 @@ export default function MysteryChoiceGame() {
 
       if (freshState.progressCounted) {
         console.log('MYSTERY CHOICE PROGRESS CHECK: already counted', session.id)
+        await refreshPairProgressForDisplay()
         return
       }
 
@@ -624,6 +666,7 @@ export default function MysteryChoiceGame() {
         setPairCount(after.games_completed)
         setProgressError(null)
         console.log('MYSTERY CHOICE PROGRESS COUNTED')
+        await refreshPairProgressForDisplay()
       }
     } finally {
       countLockRef.current = false
@@ -753,7 +796,7 @@ export default function MysteryChoiceGame() {
     const learned = whatWeLearned(history, lang as 'en' | 'gr')
     const starters = conversationStarters(history, lang as 'en' | 'gr')
     const matchCount = state.matches || 0
-    const canChat = pairCount >= 10
+    const canChat = chatUnlocked
 
     return (
       <div className="relative flex flex-col h-full items-center justify-center px-6 overflow-hidden" style={{ background: '#0a0a10' }}>
@@ -823,6 +866,22 @@ export default function MysteryChoiceGame() {
               </div>
 
               <div className="flex flex-col gap-3">
+                <div className="text-center text-[11px] font-bold" style={{
+                  color: pairProgressLoading ? 'rgba(255,255,255,0.4)'
+                    : progressError ? '#f87171'
+                    : canChat ? '#4ade80'
+                    : 'rgba(255,255,255,0.4)',
+                }}>
+                  {
+                    pairProgressLoading
+                      ? (lang === 'gr' ? 'Έλεγχος προόδου ξεκλειδώματος...' : 'Checking unlock progress...')
+                      : progressError
+                      ? (lang === 'gr' ? 'Αδυναμία φόρτωσης προόδου' : 'Unable to load unlock progress')
+                      : canChat
+                      ? (lang === 'gr' ? '✓ Chat Ξεκλειδωμένο' : '✓ Chat Unlocked')
+                      : (lang === 'gr' ? `Chat στα ${pairCount}/10` : `Chat at ${pairCount}/10`)
+                  }
+                </div>
                 <button onClick={() => {
                     if (!canChat || !session) return
                     const isPlayerOne = myId === session.player_one_id
@@ -834,7 +893,7 @@ export default function MysteryChoiceGame() {
                   disabled={!canChat}
                   className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer disabled:cursor-default"
                   style={{ background: canChat ? 'linear-gradient(135deg,#7c72ff,#d84dd8)' : 'rgba(255,255,255,0.06)', color: canChat ? '#fff' : 'rgba(255,255,255,0.35)', boxShadow: canChat ? '0 8px 24px rgba(108,99,255,0.4)' : 'none' }}>
-                  💬 {canChat ? (lang === 'gr' ? 'Έναρξη Chat' : 'Start Chat') : (lang === 'gr' ? `Chat στα ${pairCount}/10` : `Chat unlocks at ${pairCount}/10`)}
+                  💬 {lang === 'gr' ? 'Έναρξη Chat' : 'Start Chat'}
                 </button>
                 <button onClick={playAgain} className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
                   style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 28px rgba(253,41,123,0.45)' }}>
