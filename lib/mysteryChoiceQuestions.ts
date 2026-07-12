@@ -189,8 +189,9 @@ export interface RoundData {
   emoji: [string, string]
   en: [string, string]        // options[0]/options[1] — binary-compatible pair
   gr: [string, string]        // optionsGr[0]/optionsGr[1]
-  options: string[]           // full option list (2 for binary, 4 for multi)
-  optionsGr: string[]
+  options: string[]           // full option list (2 for binary, 4 for multi) — DISPLAY TEXT ONLY, English
+  optionsGr: string[]         // DISPLAY TEXT ONLY, Greek
+  optionIds: string[]         // stable, language-independent id per option (parallel to options/optionsGr) — this is what gets saved/compared, never the localized text
   optionTraits: string[][]    // traits per option, parallel to options
   maxSelect: number           // always 1 — every question in this bank is single-select
   weight: number
@@ -200,6 +201,12 @@ export interface RoundData {
 // Convert an engine question into the RoundData shape the game screen renders.
 export function toRoundData(q: MysteryQuestion): RoundData {
   const emoji = THEME_EMOJI[q.category] || ['🎭', '✨']
+  // Stable, language-independent id per option — derived from the question's
+  // own stable id + option index, so it never changes based on which
+  // language (EN/GR) a player happens to be viewing. This is what actually
+  // gets saved as player_one_choice/player_two_choice and compared for
+  // matching — never the localized display text.
+  const optionIds = q.options.map((_, i) => `${q.id}__opt${i}`)
   return {
     id: q.id,
     category: q.category,
@@ -212,6 +219,7 @@ export function toRoundData(q: MysteryQuestion): RoundData {
     gr: [q.optionsGr[0] || '', q.optionsGr[1] || ''],
     options: q.options,
     optionsGr: q.optionsGr,
+    optionIds,
     optionTraits: q.optionTraits,
     maxSelect: 1,
     weight: q.weight,
@@ -240,10 +248,23 @@ export function computeRoundScore(
 ): RoundScoreResult {
   const weight = round.weight || 1
   if (choiceA == null || choiceB == null) return { score: 0, maxScore: weight, outcome: 'different' }
-  const a = Array.isArray(choiceA) ? choiceA[0] : choiceA
-  const b = Array.isArray(choiceB) ? choiceB[0] : choiceB
-  const matched = !!a && a === b
-  return { score: matched ? weight : 0, maxScore: weight, outcome: matched ? 'match' : 'different' }
+
+  // Order-independent set comparison — correct for single-select (1 option
+  // id each) and true multi-select alike. ["travel","movies"] must match
+  // ["movies","travel"]; array position never matters.
+  const arrA = Array.isArray(choiceA) ? choiceA : [choiceA]
+  const arrB = Array.isArray(choiceB) ? choiceB : [choiceB]
+  if (arrA.length === 0 || arrB.length === 0) return { score: 0, maxScore: weight, outcome: 'different' }
+
+  const setA = new Set(arrA)
+  const setB = new Set(arrB)
+  const union = new Set([...Array.from(setA), ...Array.from(setB)])
+  let intersectionCount = 0
+  setA.forEach(v => { if (setB.has(v)) intersectionCount++ })
+  const similarity = union.size === 0 ? 0 : intersectionCount / union.size
+  const score = similarity * weight
+  const outcome: RoundOutcome = similarity === 1 ? 'match' : similarity > 0 ? 'partial' : 'different'
+  return { score, maxScore: weight, outcome }
 }
 
 export function computeCompatibilityPercent(results: RoundScoreResult[]): number {

@@ -55,6 +55,7 @@ const FALLBACK_ROUNDS: RoundData[] = [
     conversationGoal: 'Learn their preferred first-date vibe',
     emoji: ['☕','🍽️'], en: ['Coffee date', 'Dinner date'], gr: ['Καφές', 'Δείπνο'],
     options: ['Coffee date', 'Dinner date'], optionsGr: ['Καφές', 'Δείπνο'],
+    optionIds: ['fallback_weekend__opt0', 'fallback_weekend__opt1'],
     optionTraits: [['casual'], ['romantic']], maxSelect: 1, weight: 1, tags: ['casual', 'romantic'] },
 ]
 
@@ -79,10 +80,61 @@ function isValidMysteryState(s: any): s is MysteryChoiceState {
 // Resolve which traits a player's choice earned for a given round (single-select only)
 function resolveTraits(round: RoundData, choice: Selection): string[] {
   if (!choice) return []
-  const label = Array.isArray(choice) ? choice[0] : choice
-  const idx = round.options.indexOf(label)
+  const id = Array.isArray(choice) ? choice[0] : choice
+  const ids = getOptionIds(round)
+  const idx = ids.indexOf(id)
   if (idx === -1 || !round.optionTraits) return []
   return round.optionTraits[idx] || []
+}
+
+// Resilient accessor: use the stored optionIds if present, otherwise derive
+// them on the fly using the same deterministic formula toRoundData() uses.
+// This means even a round object saved by an older version of the game
+// (before optionIds existed) still resolves to the exact same stable ids —
+// no session repair, no lost game.
+function getOptionIds(round: RoundData): string[] {
+  if (round.optionIds && round.optionIds.length === round.options.length) return round.optionIds
+  return round.options.map((_, i) => `${round.id}__opt${i}`)
+}
+
+// ── Cross-language answer normalization ──────────────────────────
+// Saved answers must always be the stable, language-independent option id
+// (e.g. "questionId__opt0"), never the localized display text — otherwise
+// "Coffee" (English) and "Καφές" (Greek) would never match even though
+// they're the same logical answer. This also transparently upgrades any
+// legacy session that still has old localized text saved, without crashing
+// or losing the game in progress.
+function normalizeSingleAnswer(round: RoundData, raw: string): string | null {
+  console.log('MYSTERY RAW SAVED ANSWER:', raw)
+
+  const ids = getOptionIds(round)
+  if (ids.includes(raw)) {
+    console.log('MYSTERY NORMALIZED ANSWER ID:', raw)
+    return raw
+  }
+
+  // Legacy session: raw is likely old localized display text — map it back
+  // to the correct stable id using either language's option list.
+  let idx = round.options.indexOf(raw)
+  if (idx === -1) idx = round.optionsGr.indexOf(raw)
+  if (idx !== -1 && ids[idx]) {
+    const id = ids[idx]
+    console.log('MYSTERY LEGACY ANSWER NORMALIZED:', raw, '->', id)
+    console.log('MYSTERY NORMALIZED ANSWER ID:', id)
+    return id
+  }
+
+  console.error('MYSTERY ANSWER ID ERROR:', 'could not resolve saved answer to an option id', raw)
+  return null
+}
+
+function normalizeAnswer(round: RoundData, raw: Selection): Selection {
+  if (raw == null) return null
+  if (Array.isArray(raw)) {
+    const mapped = raw.map(v => normalizeSingleAnswer(round, v)).filter((v): v is string => v !== null)
+    return mapped
+  }
+  return normalizeSingleAnswer(round, raw)
 }
 
 // Build a complete, valid Mystery Choice state from the question engine
@@ -294,7 +346,15 @@ export default function MysteryChoiceGame() {
       }
       console.log('BOTH CHOICES READY')
       const round = fresh.rounds[fresh.current_round]
-      const scoreResult: RoundScoreResult = computeRoundScore(round, fresh.player_one_choice, fresh.player_two_choice)
+      // Normalize both saved answers to stable option ids before comparing —
+      // this is what makes matching correct regardless of which language
+      // either player was viewing when they answered.
+      const p1Id = normalizeAnswer(round, fresh.player_one_choice)
+      const p2Id = normalizeAnswer(round, fresh.player_two_choice)
+      console.log('MYSTERY PLAYER ONE ANSWER ID:', p1Id)
+      console.log('MYSTERY PLAYER TWO ANSWER ID:', p2Id)
+      const scoreResult: RoundScoreResult = computeRoundScore(round, p1Id, p2Id)
+      console.log('MYSTERY CROSS LANGUAGE MATCH:', scoreResult.outcome === 'match')
       console.log('ROUND RESULT', scoreResult.outcome, 'score', scoreResult.score, '/', scoreResult.maxScore)
       const matches = (fresh.matches || 0) + (scoreResult.outcome === 'match' ? 1 : 0)
       const scoreTotal = (fresh.scoreTotal || 0) + scoreResult.score
@@ -302,9 +362,9 @@ export default function MysteryChoiceGame() {
       const historyEntry: RoundHistoryEntry = {
         round: fresh.current_round, category: round.category,
         weight: round.weight, outcome: scoreResult.outcome, question: round.question,
-        playerOneChoice: fresh.player_one_choice, playerTwoChoice: fresh.player_two_choice,
-        playerOneTraits: resolveTraits(round, fresh.player_one_choice),
-        playerTwoTraits: resolveTraits(round, fresh.player_two_choice),
+        playerOneChoice: p1Id, playerTwoChoice: p2Id,
+        playerOneTraits: resolveTraits(round, p1Id),
+        playerTwoTraits: resolveTraits(round, p2Id),
       }
       const history = [...(fresh.history || []), historyEntry]
       await writeState({ ...fresh, round_result: scoreResult.outcome, matches, scoreTotal, scoreMax, history })
@@ -768,13 +828,16 @@ export default function MysteryChoiceGame() {
   }
 
   const isPlayerOne = myId === session.player_one_id
-  const myChoice = isPlayerOne ? state.player_one_choice : state.player_two_choice
-  const oppChoice = isPlayerOne ? state.player_two_choice : state.player_one_choice
   const myReady = isPlayerOne ? state.player_one_ready : state.player_two_ready
   const oppReady = isPlayerOne ? state.player_two_ready : state.player_one_ready
   const rounds = state.rounds?.length ? state.rounds : FALLBACK_ROUNDS
   const safeRoundIndex = Number.isFinite(state.current_round) ? state.current_round % rounds.length : 0
   const round = rounds[safeRoundIndex] || FALLBACK_ROUNDS[0]
+  const roundOptionIds = getOptionIds(round)
+  // Normalize both players' saved answers to stable option ids for display/
+  // comparison — bridges legacy sessions that may still hold localized text.
+  const myChoice = normalizeAnswer(round, isPlayerOne ? state.player_one_choice : state.player_two_choice)
+  const oppChoice = normalizeAnswer(round, isPlayerOne ? state.player_two_choice : state.player_one_choice)
   const optA = lang === 'gr' ? round.gr[0] : round.en[0]
   const optB = lang === 'gr' ? round.gr[1] : round.en[1]
   const isBinaryRound = round.type === 'binary' || (round.options.length === 2 && round.maxSelect === 1)
@@ -990,11 +1053,12 @@ export default function MysteryChoiceGame() {
             <div className="flex flex-col gap-3">
               {([0, 1] as const).map(idx => {
                 const label = idx === 0 ? optA : optB
+                const optionId = roundOptionIds[idx]
                 const emoji = getAnswerEmoji(label, round.optionTraits?.[idx])
-                const isMine = myChoice === label
-                const isOpp = revealed && oppChoice === label
+                const isMine = myChoice === optionId
+                const isOpp = revealed && oppChoice === optionId
                 return (
-                  <button key={idx} onClick={() => choose(label)} disabled={!!myChoice || submittingChoice}
+                  <button key={idx} onClick={() => choose(optionId)} disabled={!!myChoice || submittingChoice}
                     className="mc-answer-btn w-full rounded-2xl py-5 text-[16px] font-bold flex items-center justify-center gap-2.5 cursor-pointer disabled:cursor-default"
                     style={{
                       background: isMine ? 'linear-gradient(135deg,#ff3384,#d84dd8)' : 'rgba(255,255,255,0.05)',
@@ -1016,17 +1080,18 @@ export default function MysteryChoiceGame() {
             /* Multi-select / preference — up to 6 chip options, same premium visual language */
             <div className="flex flex-col gap-2.5">
               {(lang === 'gr' ? round.optionsGr : round.options).map((label, idx) => {
+                const optionId = roundOptionIds[idx]
                 const alreadySubmitted = !!myChoice
                 const mySelectedNow = alreadySubmitted
-                  ? Array.isArray(myChoice) ? myChoice.includes(label) : myChoice === label
-                  : pendingMulti.includes(label)
-                const isOpp = revealed && (Array.isArray(oppChoice) ? oppChoice.includes(label) : oppChoice === label)
+                  ? Array.isArray(myChoice) ? myChoice.includes(optionId) : myChoice === optionId
+                  : pendingMulti.includes(optionId)
+                const isOpp = revealed && (Array.isArray(oppChoice) ? oppChoice.includes(optionId) : oppChoice === optionId)
                 const canToggle = !alreadySubmitted && !submittingChoice && (mySelectedNow || pendingMulti.length < round.maxSelect)
                 return (
                   <button key={idx} disabled={alreadySubmitted || submittingChoice || !canToggle}
                     onClick={() => {
-                      if (round.maxSelect <= 1) { choose(label); return }
-                      setPendingMulti(prev => prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label].slice(0, round.maxSelect))
+                      if (round.maxSelect <= 1) { choose(optionId); return }
+                      setPendingMulti(prev => prev.includes(optionId) ? prev.filter(x => x !== optionId) : [...prev, optionId].slice(0, round.maxSelect))
                     }}
                     className="mc-answer-btn w-full rounded-2xl py-4 px-5 text-[14px] font-bold flex items-center justify-between gap-2.5 cursor-pointer disabled:cursor-default text-left"
                     style={{
