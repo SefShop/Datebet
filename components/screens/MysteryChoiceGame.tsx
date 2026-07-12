@@ -183,74 +183,124 @@ function genericTraitLine(trait: string, lang: 'en' | 'gr'): string {
   return lang === 'gr' ? `Και οι δύο μοιράζεστε: ${readable}.` : `You both share: ${readable}.`
 }
 
-function biggestDifferenceInsight(history: RoundHistoryEntry[], lang: 'en' | 'gr'): { line: string; starter: string; category: string } | null {
-  const diffs = history.filter(h => h.outcome === 'different').sort((a, b) => b.weight - a.weight)
-  if (diffs.length === 0) return null
-  const d = diffs[0]
-  const themeLabel = THEME_LABEL[d.category]?.[lang] || d.category
-  const line = lang === 'gr' ? `Έχετε διαφορετικό τρόπο για ${themeLabel}.` : `You have different ways of approaching ${themeLabel}.`
-  const starter = lang === 'gr'
-    ? 'Απαντήσατε διαφορετικά εδώ — ποιος νομίζεις θα έπειθε τον άλλον πρώτος;'
-    : 'You answered differently here — who do you think would convince the other first?'
-  return { line, starter, category: d.category }
+// One difference entry (category + natural line + starter), used to build
+// up to 2 distinct "Where You Differ" insights without repeating a category.
+function differenceEntries(history: RoundHistoryEntry[], lang: 'en' | 'gr', max: number): { line: string; starter: string; category: string }[] {
+  const seenCategory = new Set<string>()
+  const out: { line: string; starter: string; category: string }[] = []
+  const diffs = [...history].filter(h => h.outcome === 'different').sort((a, b) => b.weight - a.weight)
+  for (const d of diffs) {
+    if (seenCategory.has(d.category)) continue
+    seenCategory.add(d.category)
+    const themeLabel = THEME_LABEL[d.category]?.[lang] || d.category
+    const line = lang === 'gr' ? `Έχετε διαφορετικό τρόπο για ${themeLabel}.` : `You have different ways of approaching ${themeLabel}.`
+    const starter = lang === 'gr'
+      ? 'Απαντήσατε διαφορετικά εδώ — ποιος νομίζεις θα έπειθε τον άλλον πρώτος;'
+      : 'You answered differently here — who do you think would convince the other first?'
+    out.push({ line, starter, category: d.category })
+    if (out.length >= max) break
+  }
+  return out
 }
 
-// "What We Learned About Each Other" — a natural mix of shared-trait insights
-// plus one honest difference, exactly like two people comparing notes after a date.
-function whatWeLearned(history: RoundHistoryEntry[], lang: 'en' | 'gr'): string[] {
+// "What You Share" — up to `max` REAL shared-trait insights, sorted by
+// question weight. Returns an empty array (hide the section) if there are
+// no genuine matches — never invents content.
+function topSharedInsights(history: RoundHistoryEntry[], lang: 'en' | 'gr', max: number): string[] {
   const seen = new Set<string>()
   const lines: string[] = []
   const sorted = [...history].sort((a, b) => b.weight - a.weight)
   for (const h of sorted) {
+    if (h.outcome === 'different') continue
     const shared = h.playerOneTraits.filter(t => h.playerTwoTraits.includes(t))
     for (const trait of shared) {
       if (seen.has(trait)) continue
       seen.add(trait)
       lines.push(TRAIT_INSIGHT[trait]?.line[lang] || genericTraitLine(trait, lang))
-      if (lines.length >= 3) break
+      if (lines.length >= max) break
     }
-    if (lines.length >= 3) break
-  }
-  const diff = biggestDifferenceInsight(history, lang)
-  if (diff) lines.push(diff.line)
-  if (lines.length === 0) {
-    lines.push(lang === 'gr' ? 'Μόλις αρχίσατε να γνωρίζεστε — υπάρχουν πολλά ακόμα να ανακαλύψετε.' : "You're just getting to know each other — there's plenty more to discover.")
+    if (lines.length >= max) break
   }
   return lines
 }
 
-// Three natural conversation starters to actually use in chat afterward.
-function conversationStarters(history: RoundHistoryEntry[], lang: 'en' | 'gr'): string[] {
-  const seen = new Set<string>()
+// "Where You Differ" — up to `max` REAL differences (one per theme, highest
+// weight first). Returns [] if the pair matched on everything — hides the section.
+function topDifferences(history: RoundHistoryEntry[], lang: 'en' | 'gr', max: number): string[] {
+  return differenceEntries(history, lang, max).map(d => d.line)
+}
+
+// Exactly 3 UNIQUE conversation starters, built from real shared traits and
+// real differences. Only falls back to a rotating (non-repeating) generic
+// pool if there truly isn't enough real material — never repeats one line.
+function generateStarters(history: RoundHistoryEntry[], lang: 'en' | 'gr'): string[] {
+  const seenTrait = new Set<string>()
   const starters: string[] = []
   const sorted = [...history].sort((a, b) => b.weight - a.weight)
+
   for (const h of sorted) {
+    if (starters.length >= 2) break
+    if (h.outcome === 'different') continue
     const shared = h.playerOneTraits.filter(t => h.playerTwoTraits.includes(t))
     for (const trait of shared) {
-      if (seen.has(trait) || !TRAIT_INSIGHT[trait]) continue
-      seen.add(trait)
+      if (seenTrait.has(trait) || !TRAIT_INSIGHT[trait]) continue
+      seenTrait.add(trait)
       const t = TRAIT_INSIGHT[trait]
       starters.push(`${t.line[lang]}\n${t.starter[lang]}`)
       if (starters.length >= 2) break
     }
-    if (starters.length >= 2) break
   }
-  const diff = biggestDifferenceInsight(history, lang)
-  if (diff) starters.push(`${diff.line}\n${diff.starter}`)
-  while (starters.length < 3) {
-    starters.push(lang === 'gr'
-      ? 'Τι σε εξέπληξε περισσότερο σε αυτό το παιχνίδι;'
-      : "What surprised you most about this game?")
+
+  const diffs = differenceEntries(history, lang, 1)
+  if (diffs.length > 0) starters.push(`${diffs[0].line}\n${diffs[0].starter}`)
+
+  // Distinct fallback pool — used only to fill remaining slots, never repeated.
+  const fallbackPool = lang === 'gr'
+    ? [
+        'Τι σε εξέπληξε περισσότερο σε αυτό το παιχνίδι;',
+        'Ποια απάντηση του/της σε έκανε να χαμογελάσεις;',
+        'Αν έπρεπε να διαλέξεις μια ερώτηση να ξαναπαίξετε, ποια θα ήταν;',
+      ]
+    : [
+        'What surprised you most about this game?',
+        "Which of their answers made you smile?",
+        "If you could replay one question together, which would it be?",
+      ]
+  let i = 0
+  while (starters.length < 3 && i < fallbackPool.length) {
+    starters.push(fallbackPool[i])
+    i++
   }
   return starters.slice(0, 3)
 }
 
-function compatibilityLabel(score: number, lang: 'en' | 'gr'): string {
-  if (score >= 8) return lang === 'gr' ? 'Τέλειο Ταίριασμα' : 'Great Match!'
-  if (score >= 6) return lang === 'gr' ? 'Καταπληκτική Χημεία' : 'Amazing Chemistry'
-  if (score >= 4) return lang === 'gr' ? 'Υπέροχη Σύνδεση' : 'Great Connection'
-  if (score >= 2) return lang === 'gr' ? 'Καλές Προοπτικές' : 'Good Potential'
-  return lang === 'gr' ? 'Συνέχισε να Ανακαλύπτεις' : 'Keep Discovering'
+// Honest, score-based result label — never overstates the connection.
+function finalResultLabel(score: number, lang: 'en' | 'gr'): string {
+  if (score >= 90) return lang === 'gr' ? 'Εξαιρετική Σύνδεση' : 'Exceptional Connection'
+  if (score >= 80) return lang === 'gr' ? 'Δυνατό Ταίριασμα' : 'Strong Match'
+  if (score >= 70) return lang === 'gr' ? 'Πολύ Καλές Προοπτικές' : 'Great Potential'
+  if (score >= 60) return lang === 'gr' ? 'Υποσχόμενη Σύνδεση' : 'Promising Connection'
+  if (score >= 40) return lang === 'gr' ? 'Αξίζει να Γνωριστείτε Καλύτερα' : 'Worth Exploring'
+  return lang === 'gr' ? 'Διαφορετικές Οπτικές' : 'Different Perspectives'
+}
+
+// Short, honest summary sentence for the main result card — built from real
+// top shared/differing themes, not a canned phrase.
+function finalResultSummary(history: RoundHistoryEntry[], score: number, lang: 'en' | 'gr'): string {
+  const shared = topSharedInsights(history, lang, 1)
+  const diffs = topDifferences(history, lang, 1)
+  if (shared.length > 0 && diffs.length > 0) {
+    return lang === 'gr'
+      ? `Ταιριάζετε αρκετά καλά, με λίγες διαφορές που κάνουν τη σχέση ενδιαφέρουσα.`
+      : `You connect well, with a few differences that make things interesting.`
+  }
+  if (shared.length > 0) {
+    return lang === 'gr' ? 'Μοιράζεστε αρκετά κοινά σημεία.' : 'You share quite a few things in common.'
+  }
+  if (diffs.length > 0) {
+    return lang === 'gr' ? 'Βλέπετε τα πράγματα αρκετά διαφορετικά — αυτό δεν είναι κακό.' : "You see things quite differently — that's not a bad thing."
+  }
+  return lang === 'gr' ? 'Μόλις αρχίσατε να γνωρίζεστε.' : "You're just getting to know each other."
 }
 
 export default function MysteryChoiceGame() {
@@ -276,12 +326,10 @@ export default function MysteryChoiceGame() {
 
   // ── UI-only presentational state (does NOT affect game logic / sync / DB) ──
   const [revealing, setRevealing] = useState(false)          // ~800ms freeze before flip reveal
-  const [matchTally, setMatchTally] = useState(0)             // session-local "compatibility" tally for the celebration screen
   const [onlineOne, setOnlineOne] = useState(false)
   const [onlineTwo, setOnlineTwo] = useState(false)
   const [pendingMulti, setPendingMulti] = useState<string[]>([])  // local staged picks before Confirm (multi-select only)
-  const [revealStep, setRevealStep] = useState(0)  // 0=analyzing, 1-3=insight cards, 4=final card (reveal-screen presentation only)
-  const tallyRoundRef = useRef<number>(-1)
+  const [revealStep, setRevealStep] = useState(0)  // 0=analyzing, 1=final result card (reveal-screen presentation only)
   const revealTimerRef = useRef<any>(null)
 
   // Require a session_id — otherwise show "No game session found."
@@ -687,23 +735,11 @@ export default function MysteryChoiceGame() {
     return () => { if (revealTimerRef.current) clearTimeout(revealTimerRef.current) }
   }, [state?.round_result, state?.current_round])
 
-  // Session-local match tally for the celebration screen (view-only, not persisted)
-  useEffect(() => {
-    if (!state) return
-    if (state.round_result === 'match' && tallyRoundRef.current !== state.current_round) {
-      tallyRoundRef.current = state.current_round
-      setMatchTally(t => t + 1)
-    }
-  }, [state?.round_result, state?.current_round])
-
-  // Reset the tally if we land on a brand-new session
-  useEffect(() => { setMatchTally(0); tallyRoundRef.current = -1 }, [session?.id])
-
   // Reveal screen: reset to the "Analyzing..." step when the game finishes,
   // then auto-advance to the first insight card after ~2s (presentation only)
   useEffect(() => {
     if (state?.status === 'finished' && revealStep === 0) {
-      const t = setTimeout(() => setRevealStep(1), 2000)
+      const t = setTimeout(() => setRevealStep(1), 1800)
       return () => clearTimeout(t)
     }
   }, [state?.status, revealStep])
@@ -794,108 +830,167 @@ export default function MysteryChoiceGame() {
   // Game complete screen — premium celebration
   if (state.status === 'finished') {
     const history = state.history || []
-    const learned = whatWeLearned(history, lang as 'en' | 'gr')
-    const starters = conversationStarters(history, lang as 'en' | 'gr')
-    const matchCount = state.matches || 0
+    const finalScore = (state.scoreMax || 0) > 0 ? Math.round(((state.scoreTotal || 0) / (state.scoreMax || 1)) * 100) : 0
+    const resultLabel = finalResultLabel(finalScore, lang as 'en' | 'gr')
+    const summary = finalResultSummary(history, finalScore, lang as 'en' | 'gr')
+    const shared = topSharedInsights(history, lang as 'en' | 'gr', 3)
+    const differences = topDifferences(history, lang as 'en' | 'gr', 2)
+    const starters = generateStarters(history, lang as 'en' | 'gr')
     const canChat = chatUnlocked
 
+    console.log('MYSTERY FINAL SCORE:', finalScore)
+    console.log('MYSTERY FINAL LABEL:', resultLabel)
+    console.log('MYSTERY FINAL SIMILARITIES:', shared)
+    console.log('MYSTERY FINAL DIFFERENCES:', differences)
+    console.log('MYSTERY FINAL STARTERS:', starters)
+    console.log('MYSTERY FINAL CHAT STATUS:', pairProgressLoading ? 'loading' : progressError ? 'error' : canChat ? 'unlocked' : `locked ${pairCount}/10`)
+
+    const circumference = 2 * Math.PI * 52
+    const dashOffset = circumference - (finalScore / 100) * circumference
+
     return (
-      <div className="relative flex flex-col h-full items-center justify-center px-6 overflow-hidden" style={{ background: '#0a0a10' }}>
+      <div className="relative flex flex-col h-full items-center justify-center px-5 overflow-hidden" style={{ background: '#0a0a10' }}>
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.16) 0%, transparent 60%), radial-gradient(ellipse at 50% 75%, rgba(108,99,255,0.14) 0%, transparent 60%)', animation: 'mcBgPulse 6s ease-in-out infinite' }} />
         <McParticles />
 
-        {/* Step 0 — Analyzing */}
+        {/* Step 0 — Analyzing, with a smooth progress bar */}
         {revealStep === 0 && (
-          <div className="relative z-10 flex flex-col items-center" style={{ animation: 'mcFadeIn 0.4s ease both' }}>
-            <div className="relative w-20 h-20 mb-6">
+          <div className="relative z-10 flex flex-col items-center w-full max-w-[280px]" style={{ animation: 'mcFadeIn 0.4s ease both' }}>
+            <div className="relative w-16 h-16 mb-5">
               <div className="absolute inset-0 rounded-full" style={{ border: '3px solid rgba(255,255,255,0.08)' }} />
               <div className="absolute inset-0 rounded-full" style={{ border: '3px solid transparent', borderTopColor: '#ff3384', borderRightColor: '#d84dd8', borderBottomColor: '#7c72ff', animation: 'mcSpin 1.1s linear infinite' }} />
-              <div className="absolute inset-0 flex items-center justify-center text-[26px]" style={{ animation: 'mcFloat 2s ease-in-out infinite' }}>💫</div>
+              <div className="absolute inset-0 flex items-center justify-center text-[22px]" style={{ animation: 'mcFloat 2s ease-in-out infinite' }}>💫</div>
             </div>
-            <div className="text-[16px] font-bold text-white text-center" style={{ animation: 'mcPulseText 1.6s ease-in-out infinite' }}>
-              {lang === 'gr' ? 'Ανάλυση της συμβατότητάς σας...' : 'Analyzing your compatibility...'}
+            <div className="text-[15px] font-bold text-white text-center mb-4">
+              {lang === 'gr' ? 'Ανάλυση της σύνδεσής σας...' : 'Analyzing your connection...'}
+            </div>
+            <div className="w-full h-[4px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div className="h-full rounded-full" style={{ background: 'linear-gradient(90deg,#ff3384,#d84dd8,#7c72ff)', animation: 'mcProgressFill 1.8s ease-out forwards' }} />
             </div>
           </div>
         )}
 
-        {/* Step 1 — What We Learned About Each Other */}
+        {/* Final result — one cohesive card, no page-within-page scroll */}
         {revealStep === 1 && (
-          <div key="learned" className="relative z-10 flex flex-col items-center w-full max-w-[380px]" style={{ animation: 'mcCardIn 0.5s cubic-bezier(0.34,1.4,0.64,1) both' }}>
-            <div className="rounded-3xl p-7 w-full" style={{ background: 'rgba(15,12,25,0.78)', backdropFilter: 'blur(28px) saturate(1.5)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 50px rgba(253,41,123,0.12)' }}>
-              <div className="text-center mb-5">
-                <div className="text-[36px] mb-2">❤️</div>
-                <div className="text-[16px] font-extrabold text-white">
-                  {lang === 'gr' ? 'Τι Μάθατε ο Ένας για τον Άλλον' : 'What We Learned About Each Other'}
+          <div key="result" className="relative z-10 w-full max-w-[400px] h-full flex flex-col justify-center py-4" style={{ animation: 'mcCardIn 0.5s cubic-bezier(0.34,1.4,0.64,1) both' }}>
+            <div className="rounded-3xl w-full overflow-y-auto" style={{
+              background: 'rgba(15,12,25,0.78)', backdropFilter: 'blur(28px) saturate(1.5)',
+              border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 60px rgba(253,41,123,0.12)',
+              maxHeight: '100%', padding: '24px 20px',
+            }}>
+
+              {/* A — Main result */}
+              <div className="text-center mb-6">
+                <div className="relative w-[128px] h-[128px] mx-auto mb-4">
+                  <svg width="128" height="128" viewBox="0 0 120 120" className="-rotate-90">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="url(#mcFinalRingGrad)" strokeWidth="8" strokeLinecap="round"
+                      strokeDasharray={circumference} strokeDashoffset={dashOffset}
+                      style={{ transition: 'stroke-dashoffset 1.1s cubic-bezier(0.34,1.2,0.64,1)' }} />
+                    <defs>
+                      <linearGradient id="mcFinalRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#ff3384" />
+                        <stop offset="50%" stopColor="#d84dd8" />
+                        <stop offset="100%" stopColor="#7c72ff" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-[30px] font-black text-white">{finalScore}%</span>
+                  </div>
+                </div>
+                <div className="text-[17px] font-extrabold mb-2" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8,#7c72ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                  {resultLabel}
+                </div>
+                <div className="text-[12px] leading-relaxed px-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                  {summary}
                 </div>
               </div>
+
+              {/* B — What You Share (hidden if no real matches) */}
+              {shared.length > 0 && (
+                <div className="mb-5">
+                  <div className="text-[11px] font-bold uppercase tracking-[1.5px] mb-2.5" style={{ color: 'rgba(74,222,128,0.85)' }}>
+                    {lang === 'gr' ? '💚 Τι Μοιράζεστε' : '💚 What You Share'}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {shared.map((line, i) => (
+                      <div key={i} className="flex items-start gap-2 rounded-xl px-3.5 py-2.5" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
+                        <span style={{ color: '#4ade80' }}>•</span>
+                        <span className="text-[12.5px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.85)' }}>{line}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* C — Where You Differ (hidden if no real differences) */}
+              {differences.length > 0 && (
+                <div className="mb-5">
+                  <div className="text-[11px] font-bold uppercase tracking-[1.5px] mb-2.5" style={{ color: 'rgba(255,51,132,0.85)' }}>
+                    {lang === 'gr' ? '🔥 Πού Διαφέρετε' : '🔥 Where You Differ'}
+                  </div>
+                  <div className="flex flex-col gap-2 mb-2">
+                    {differences.map((line, i) => (
+                      <div key={i} className="flex items-start gap-2 rounded-xl px-3.5 py-2.5" style={{ background: 'rgba(253,41,123,0.06)', border: '1px solid rgba(253,41,123,0.15)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
+                        <span style={{ color: '#ff3384' }}>•</span>
+                        <span className="text-[12.5px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.85)' }}>{line}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[10.5px] italic text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {lang === 'gr' ? 'Το διαφορετικό δεν σημαίνει ασύμβατο.' : "Different does not mean incompatible."}
+                  </div>
+                </div>
+              )}
+
+              {/* D — Conversation Starters (always exactly 3) */}
+              <div className="mb-6">
+                <div className="text-[11px] font-bold uppercase tracking-[1.5px] mb-2.5" style={{ color: 'rgba(124,114,255,0.85)' }}>
+                  {lang === 'gr' ? '💬 Αφορμές για Κουβέντα' : '💬 Conversation Starters'}
+                </div>
+                <div className="flex flex-col gap-2">
+                  {starters.map((s, i) => (
+                    <div key={i} className="rounded-xl px-3.5 py-3 text-[12px] leading-relaxed whitespace-pre-line" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
+                      {s}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Chat status + actions */}
               <div className="flex flex-col gap-2.5">
-                {learned.map((line, i) => (
-                  <div key={i} className="flex items-start gap-2.5 rounded-2xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
-                    <span style={{ color: '#4ade80' }}>•</span>
-                    <span className="text-[13px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.85)' }}>{line}</span>
+                {pairProgressLoading ? (
+                  <div className="text-center text-[11px] font-bold py-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {lang === 'gr' ? 'Έλεγχος προόδου ξεκλειδώματος...' : 'Checking unlock progress...'}
                   </div>
-                ))}
-              </div>
-            </div>
-            <button onClick={() => setRevealStep(2)} className="rounded-2xl px-10 py-3.5 text-[14px] font-bold mt-6 active:scale-95 transition-transform cursor-pointer"
-              style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 28px rgba(253,41,123,0.4)' }}>
-              {lang === 'gr' ? 'Συνέχεια →' : 'Continue →'}
-            </button>
-          </div>
-        )}
-
-        {/* Step 2 — Conversation starters + final actions */}
-        {revealStep === 2 && (
-          <div key="starters" className="relative z-10 flex flex-col items-center w-full max-w-[380px] overflow-y-auto" style={{ animation: 'mcCardIn 0.5s cubic-bezier(0.34,1.4,0.64,1) both', maxHeight: '100%' }}>
-            <div className="rounded-3xl p-7 w-full" style={{ background: 'rgba(15,12,25,0.78)', backdropFilter: 'blur(28px) saturate(1.5)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 60px rgba(124,114,255,0.14)' }}>
-              <div className="text-center mb-5">
-                <div className="text-[36px] mb-1" style={{ animation: 'mcFloat 3s ease-in-out infinite' }}>🎉</div>
-                <div className="text-[16px] font-extrabold mb-1" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8,#7c72ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                  {compatibilityLabel(matchCount, lang as 'en' | 'gr')}
-                </div>
-                <div className="text-[11px] font-bold uppercase tracking-[1.5px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  {lang === 'gr' ? 'Αφορμές για Κουβέντα' : 'Conversation Starters'}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 mb-5">
-                {starters.map((s, i) => (
-                  <div key={i} className="rounded-2xl px-4 py-3.5 text-[12px] leading-relaxed whitespace-pre-line" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
-                    {s}
+                ) : progressError ? (
+                  <div className="text-center text-[11px] font-bold py-2" style={{ color: '#f87171' }}>
+                    {lang === 'gr' ? 'Αδυναμία φόρτωσης προόδου' : 'Unable to load unlock progress'}
                   </div>
-                ))}
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <div className="text-center text-[11px] font-bold" style={{
-                  color: pairProgressLoading ? 'rgba(255,255,255,0.4)'
-                    : progressError ? '#f87171'
-                    : canChat ? '#4ade80'
-                    : 'rgba(255,255,255,0.4)',
-                }}>
-                  {
-                    pairProgressLoading
-                      ? (lang === 'gr' ? 'Έλεγχος προόδου ξεκλειδώματος...' : 'Checking unlock progress...')
-                      : progressError
-                      ? (lang === 'gr' ? 'Αδυναμία φόρτωσης προόδου' : 'Unable to load unlock progress')
-                      : canChat
-                      ? (lang === 'gr' ? '✓ Chat Ξεκλειδωμένο' : '✓ Chat Unlocked')
-                      : (lang === 'gr' ? `Chat στα ${pairCount}/10` : `Chat at ${pairCount}/10`)
-                  }
-                </div>
-                <button onClick={() => {
-                    if (!canChat || !session) return
-                    const isPlayerOne = myId === session.player_one_id
-                    const oppId = isPlayerOne ? session.player_two_id : session.player_one_id
-                    const oppName = isPlayerOne ? names.two : names.one
-                    setCurrentMatch({ id: oppId, name: oppName, age: 0, photo: '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)', location: { en: '', gr: '' }, online: false, interests: [], bio: { en: '', gr: '' } })
-                    navigate('chat')
-                  }}
-                  disabled={!canChat}
-                  className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer disabled:cursor-default"
-                  style={{ background: canChat ? 'linear-gradient(135deg,#7c72ff,#d84dd8)' : 'rgba(255,255,255,0.06)', color: canChat ? '#fff' : 'rgba(255,255,255,0.35)', boxShadow: canChat ? '0 8px 24px rgba(108,99,255,0.4)' : 'none' }}>
-                  💬 {lang === 'gr' ? 'Έναρξη Chat' : 'Start Chat'}
-                </button>
+                ) : canChat ? (
+                  <button onClick={() => {
+                      if (!session) return
+                      const isPlayerOne = myId === session.player_one_id
+                      const oppId = isPlayerOne ? session.player_two_id : session.player_one_id
+                      const oppName = isPlayerOne ? names.two : names.one
+                      setCurrentMatch({ id: oppId, name: oppName, age: 0, photo: '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)', location: { en: '', gr: '' }, online: false, interests: [], bio: { en: '', gr: '' } })
+                      navigate('chat')
+                    }}
+                    className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
+                    style={{ background: 'linear-gradient(135deg,#7c72ff,#d84dd8)', color: '#fff', boxShadow: '0 8px 24px rgba(108,99,255,0.4)' }}>
+                    💬 {lang === 'gr' ? 'Άνοιγμα Chat' : 'Open Chat'}
+                  </button>
+                ) : (
+                  <div className="text-center rounded-2xl py-3 px-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="text-[12px] font-bold mb-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      💬 {lang === 'gr' ? `Chat ${pairCount}/10` : `Chat ${pairCount}/10`}
+                    </div>
+                    <div className="text-[10.5px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      {lang === 'gr' ? 'Συνεχίστε να παίζετε μαζί για να ξεκλειδώσετε το chat.' : 'Keep playing together to unlock chat.'}
+                    </div>
+                  </div>
+                )}
                 <button onClick={playAgain} className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
                   style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 28px rgba(253,41,123,0.45)' }}>
                   🎮 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
@@ -910,15 +1005,17 @@ export default function MysteryChoiceGame() {
         )}
 
         <style>{`
-          @keyframes mcCelebrateIn { from{opacity:0;transform:scale(0.9) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
-          @keyframes mcFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
           @keyframes mcBgPulse { 0%,100%{opacity:0.7} 50%{opacity:1} }
+          @keyframes mcFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
           @keyframes mcCardIn { from{opacity:0;transform:translateY(20px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
-          @keyframes mcPulseText { 0%,100%{opacity:0.6} 50%{opacity:1} }
+          @keyframes mcProgressFill { from{width:0%} to{width:100%} }
+          @keyframes mcSpin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+          @keyframes mcFadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         `}</style>
       </div>
     )
   }
+
 
 
 
