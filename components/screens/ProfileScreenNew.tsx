@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
+import { appLangToIso } from '@/lib/langDetect'
 import { sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { getPairProgress, PairProgress } from '@/lib/pairProgress'
 import { supabase } from '@/lib/supabase'
@@ -28,6 +29,9 @@ export default function ProfileScreenNew() {
   const [progressLoaded, setProgressLoaded] = useState(false)
   const [pickerProfile, setPickerProfile] = useState<UserProfile|null>(null)
   const [showFullBio, setShowFullBio] = useState(false)  // layout-only: expands a bio detail sheet so the fixed card never grows
+  const [translatedBio, setTranslatedBio] = useState<string | null>(null)
+  const [translating, setTranslating] = useState(false)
+  const [translateError, setTranslateError] = useState(false)
 
   useEffect(() => {
     loadProfiles()
@@ -110,6 +114,23 @@ export default function ProfileScreenNew() {
   // Fully independent from the privacy/unlock effect above.
   useEffect(() => { setShowFullBio(false) }, [p?.id])
 
+  // Reset any shown translation when the card changes — never carry a
+  // translation of one person's bio onto another profile.
+  useEffect(() => {
+    setTranslatedBio(null)
+    setTranslating(false)
+    setTranslateError(false)
+  }, [p?.id])
+
+  // If the viewer changes the app's EN/GR language while a translation is
+  // showing, revert to the original bio — the Translate button reappears if
+  // a new translation is needed for the new language. The original bio
+  // itself is never touched.
+  useEffect(() => {
+    setTranslatedBio(null)
+    setTranslateError(false)
+  }, [lang])
+
   function transition(dir: 'left'|'right', then: () => void) {
     if (locked) return
     setLocked(true)
@@ -148,6 +169,36 @@ export default function ProfileScreenNew() {
     if (locked || !p) return
     setCurrentMatch(p)
     navigate('game_select')
+  }
+
+  async function translateBio() {
+    if (!p || !p.bio[lang] || translating) return
+    const targetIso = appLangToIso(lang)
+    console.log('BIO TRANSLATION REQUESTED:', p.id, p.bioLanguage, '->', targetIso)
+    setTranslating(true)
+    setTranslateError(false)
+    try {
+      const res = await fetch('/api/translate-bio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId: p.id, bio: p.bio[lang], sourceLang: p.bioLanguage, targetLang: targetIso }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.translated) throw new Error(data.error || 'Translation failed')
+      console.log('BIO TRANSLATION SUCCESS:', p.id, targetIso, data.cached ? '(from cache)' : '(new)')
+      setTranslatedBio(data.translated)
+    } catch (e: any) {
+      console.error('BIO TRANSLATION ERROR:', e?.message)
+      setTranslateError(true)
+    } finally {
+      setTranslating(false)
+    }
+  }
+
+  function showOriginalBio() {
+    console.log('SHOWING ORIGINAL BIO:', p?.id)
+    setTranslatedBio(null)
+    setTranslateError(false)
   }
 
   const tx = anim==='out-left' ? '-110%' : anim==='out-right' ? '110%' : '0'
@@ -388,15 +439,45 @@ export default function ProfileScreenNew() {
                         WebkitBoxOrient: 'vertical',
                         overflow: 'hidden',
                       }}>
-                      "{p.bio[lang]}"
+                      "{translatedBio || p.bio[lang]}"
                     </p>
-                    {p.bio[lang].length > 80 && (
-                      <button onClick={() => setShowFullBio(true)}
-                        className="text-[11px] font-bold mt-0.5 cursor-pointer"
-                        style={{ color: '#ff8fbb' }}>
-                        {lang === 'gr' ? 'Περισσότερα' : 'More'}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2.5 mt-0.5" style={{ height: 14 }}>
+                      {p.bio[lang].length > 80 && !translatedBio && (
+                        <button onClick={() => setShowFullBio(true)}
+                          className="text-[11px] font-bold cursor-pointer"
+                          style={{ color: '#ff8fbb' }}>
+                          {lang === 'gr' ? 'Περισσότερα' : 'More'}
+                        </button>
+                      )}
+                      {translating ? (
+                        <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                          {lang === 'gr' ? 'Μετάφραση...' : 'Translating...'}
+                        </span>
+                      ) : translatedBio ? (
+                        <button onClick={showOriginalBio}
+                          className="text-[11px] font-bold cursor-pointer"
+                          style={{ color: '#7c72ff' }}>
+                          {lang === 'gr' ? 'Εμφάνιση πρωτοτύπου' : 'Show original'}
+                        </button>
+                      ) : translateError ? (
+                        <>
+                          <span className="text-[10.5px]" style={{ color: 'rgba(248,113,113,0.85)' }}>
+                            {lang === 'gr' ? 'Η μετάφραση δεν είναι διαθέσιμη αυτή τη στιγμή.' : 'Translation is unavailable right now.'}
+                          </span>
+                          <button onClick={translateBio} className="text-[11px] font-bold cursor-pointer" style={{ color: '#ff8fbb' }}>
+                            {lang === 'gr' ? 'Ξανά' : 'Retry'}
+                          </button>
+                        </>
+                      ) : (
+                        !!p.bioLanguage && p.bioLanguage !== 'und' && p.bioLanguage !== appLangToIso(lang) && (
+                          <button onClick={translateBio}
+                            className="text-[11px] font-bold cursor-pointer"
+                            style={{ color: '#7c72ff' }}>
+                            🌐 {lang === 'gr' ? 'Μετάφραση' : 'Translate'}
+                          </button>
+                        )
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -551,7 +632,7 @@ export default function ProfileScreenNew() {
             top: calc(47% + 68px) !important;
             left: 20px !important;
             right: 20px !important;
-            height: 58px !important;
+            height: 68px !important;
             margin: 0 !important;
             overflow: hidden !important;
           }

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
+import { detectBioLanguage } from '@/lib/langDetect'
 
 type State = 'loading' | 'ready' | 'saving' | 'error'
 type PhotoState = 'idle' | 'uploading' | 'done' | 'error'
@@ -156,13 +157,18 @@ export default function EditProfileScreen() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError('Not logged in'); setState('ready'); return }
 
-      const payload = { id: user.id, name, age: parseInt(age) || 0, location, bio, photo, interests }
+      // Detect bio language ONCE, right here at save time — never on every
+      // render, never asked of the user.
+      const bioLanguage = bio.trim() ? detectBioLanguage(bio) : 'und'
+
+      const payload = { id: user.id, name, age: parseInt(age) || 0, location, bio, bio_language: bioLanguage, photo, interests }
       console.log('EDIT PROFILE: saving for user', user.id, payload)
 
       const { error: e } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' })
 
       if (e) { console.error('EDIT PROFILE: save error', e); setError(e.message); setState('ready'); return }
       console.log('INTERESTS SAVED', interests.length)
+      console.log('BIO LANGUAGE SAVED:', bioLanguage)
 
       // Immediately refetch to confirm save
       const { data: verify } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()

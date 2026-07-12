@@ -10,6 +10,7 @@ export interface UserProfile {
   location: { en: string; gr: string }
   online: boolean; lastSeen?: string | null; interests: string[]
   bio: { en: string; gr: string }
+  bioLanguage?: string  // ISO 639-1 code detected when the bio was saved (or "und"/absent = unknown)
 }
 
 const GRADIENTS = [
@@ -60,6 +61,7 @@ export async function fetchProfiles(): Promise<FetchResult> {
           lastSeen: row.last_seen || null,
           interests: Array.isArray(row.interests) ? row.interests : [],
           bio: { en: row.bio || '', gr: row.bio || '' },
+          bioLanguage: row.bio_language || 'und',
         }
       }),
     }
