@@ -46,6 +46,7 @@ interface MysteryChoiceState {
   scoreMax?: number
   history?: RoundHistoryEntry[]  // per-round record, used only by the reveal screen
   resultId?: string               // selected ONCE on completion; both players render this same id
+  round_transitioning?: string | null  // holds the claiming player's user id while a round transition is in flight — prevents duplicate transitions
 }
 
 // Fallback in case a session's state is missing rounds (defensive only)
@@ -123,6 +124,7 @@ export default function MysteryChoiceGame() {
   const advanceWriteLock = useRef(false)
   const countLockRef = useRef(false)
   const submittingAnswerRef = useRef(false)  // synchronous guard — blocks a second tap before any async work starts
+  const submittingReadyRef = useRef(false)   // same, for the "Next Round" ready button
   const recoveryLockRef = useRef(false)
   const [pairCount, setPairCount] = useState(0)
   const [progressError, setProgressError] = useState<string | null>(null)
@@ -135,6 +137,7 @@ export default function MysteryChoiceGame() {
   const [onlineTwo, setOnlineTwo] = useState(false)
   const [pendingMulti, setPendingMulti] = useState<string[]>([])  // local staged picks before Confirm (multi-select only)
   const [submittingChoice, setSubmittingChoice] = useState(false)  // brief "saving" state while an answer write/verify is in flight
+  const [submittingReady, setSubmittingReady] = useState(false)    // same, for the "Next Round" ready button
   const [revealStep, setRevealStep] = useState(0)  // 0=analyzing, 1=final result card (reveal-screen presentation only)
   const revealTimerRef = useRef<any>(null)
 
@@ -339,6 +342,20 @@ export default function MysteryChoiceGame() {
         await writeState({ ...latest, player_one_ready: false, player_two_ready: false })
       }
       recoveryLockRef.current = false
+      return
+    }
+
+    // Defensive: an orphaned round_transitioning claim (e.g. a client closed
+    // mid-transition) with neither ready flag set means a transition already
+    // completed successfully — the leftover claim marker is safe to clear.
+    if (observed.round_transitioning && !observed.player_one_ready && !observed.player_two_ready) {
+      recoveryLockRef.current = true
+      const latest = await fetchLatestState()
+      if (latest && latest.round_transitioning && !latest.player_one_ready && !latest.player_two_ready) {
+        console.log('MYSTERY CHOICE STUCK STATE RECOVERED', session?.id, 'orphaned round_transitioning')
+        await writeState({ ...latest, round_transitioning: null })
+      }
+      recoveryLockRef.current = false
     }
   }
 
@@ -416,19 +433,61 @@ export default function MysteryChoiceGame() {
 
   async function markReady() {
     if (!session || !myId) return
-    const latest = await fetchLatestState()
-    if (!latest || latest.status === 'finished') return
-    const isPlayerOne = myId === session.player_one_id
+    if (submittingReadyRef.current) return  // synchronous guard — a second tap while saving does nothing
+    submittingReadyRef.current = true
+    setSubmittingReady(true)
+    console.log('MYSTERY NEXT ROUND CLICK:', session.id)
 
-    // Only set MY OWN ready flag — do NOT clear choices immediately
-    const next: MysteryChoiceState = {
-      ...latest,
-      player_one_ready: isPlayerOne ? true : latest.player_one_ready,
-      player_two_ready: !isPlayerOne ? true : latest.player_two_ready,
+    try {
+      const isPlayerOne = myId === session.player_one_id
+      const myField: 'player_one_ready' | 'player_two_ready' = isPlayerOne ? 'player_one_ready' : 'player_two_ready'
+      console.log('MYSTERY PLAYER READY FIELD:', myField)
+
+      const base = await fetchLatestState()
+      console.log('MYSTERY LATEST STATE BEFORE READY:', base)
+      if (!base || base.status === 'finished') return
+      if (base[myField]) return  // already marked ready (fresh check, not stale local state)
+
+      // Write my ready flag, then verify against a fresh read that it stuck —
+      // a concurrent write from the other player can otherwise silently
+      // overwrite it (last-write-wins on the full state object).
+      async function attempt(fromState: MysteryChoiceState, attemptNum: number): Promise<MysteryChoiceState | null> {
+        const next: MysteryChoiceState = { ...fromState, [myField]: true }
+        console.log('MYSTERY READY UPDATE ATTEMPT:', attemptNum, myField)
+        await writeState(next)
+        const verify = await fetchLatestState()
+        console.log('MYSTERY READY VERIFY:', attemptNum, verify ? verify[myField] : null)
+        if (verify && verify[myField] === true) {
+          console.log('MYSTERY READY UPDATE SUCCESS:', myField)
+          return verify
+        }
+        return null
+      }
+
+      let result = await attempt(base, 1)
+      if (!result) {
+        console.log('MYSTERY READY RETRY:', myField)
+        const fresh = await fetchLatestState()
+        if (fresh && fresh[myField] === true) {
+          result = fresh  // already saved by the time we re-checked
+        } else if (fresh && fresh.status !== 'finished') {
+          result = await attempt(fresh, 2)
+        }
+      }
+
+      if (!result) {
+        console.error('MYSTERY NEXT ROUND ERROR:', 'failed to save ready flag after retry', myField)
+        return
+      }
+
+      if (result.player_one_ready && result.player_two_ready) {
+        console.log('MYSTERY BOTH PLAYERS READY:')
+        await performRoundTransition()
+      }
+    } finally {
+      submittingReadyRef.current = false
+      setSubmittingReady(false)
     }
-    console.log('MYSTERY CHOICE PLAYER READY SET', isPlayerOne ? 'player_one' : 'player_two')
-    console.log('NEXT ROUND READY', isPlayerOne ? 'player_one' : 'player_two')
-    await writeState(next)
   }
 
   // When both ready flags are observed true, perform ONE atomic round transition
@@ -436,63 +495,95 @@ export default function MysteryChoiceGame() {
   useEffect(() => {
     if (!state || !session) return
     console.log('MYSTERY CHOICE BOTH READY CHECK', state.player_one_ready, state.player_two_ready)
-    if (state.player_one_ready && state.player_two_ready && !advanceWriteLock.current) {
-      advanceWriteLock.current = true
-      performRoundTransition().finally(() => { advanceWriteLock.current = false })
+    if (state.player_one_ready && state.player_two_ready) {
+      performRoundTransition()
     }
   }, [state?.player_one_ready, state?.player_two_ready])
 
+  // Round transition, protected by a shared claim written into the session
+  // state itself (round_transitioning: <claiming player's id>), so that if
+  // BOTH clients observe both ready flags true at the same moment, only the
+  // client whose claim actually lands in the database proceeds.
   async function performRoundTransition() {
-    const latest = await fetchLatestState()
-    if (!latest) return
-    // Re-verify against the FRESH row — avoid transitioning on stale local flags
-    if (!(latest.player_one_ready && latest.player_two_ready)) return
-    if (latest.status === 'finished') return
+    if (advanceWriteLock.current || !session || !myId) return
+    advanceWriteLock.current = true
+    try {
+      const latest = await fetchLatestState()
+      if (!latest) return
+      if (!(latest.player_one_ready && latest.player_two_ready)) {
+        console.log('MYSTERY ROUND ALREADY ADVANCED:', 'ready flags no longer both true')
+        return
+      }
+      if (latest.status === 'finished') {
+        console.log('MYSTERY ROUND ALREADY ADVANCED:', 'game already finished')
+        return
+      }
+      if (latest.round_transitioning) {
+        console.log('MYSTERY ROUND ALREADY ADVANCED:', 'transition already claimed by', latest.round_transitioning)
+        return
+      }
 
-    console.log('MYSTERY CHOICE ROUND TRANSITION START')
-    const isLastRound = latest.current_round + 1 >= (latest.rounds?.length || FALLBACK_ROUNDS.length)
-    let next: MysteryChoiceState
-    if (isLastRound) {
-      console.log('GAME COMPLETE')
-      console.log('MYSTERY GAME COMPLETE:', session?.id, 'matches', latest.matches || 0)
+      // Claim the transition, then verify the claim actually landed as MINE.
+      const targetRound = latest.current_round
+      await writeState({ ...latest, round_transitioning: myId })
+      const claimVerify = await fetchLatestState()
+      if (!claimVerify || claimVerify.round_transitioning !== myId) {
+        console.log('MYSTERY ROUND ALREADY ADVANCED:', 'claim lost to', claimVerify?.round_transitioning)
+        return
+      }
+      if (!(claimVerify.player_one_ready && claimVerify.player_two_ready) || claimVerify.current_round !== targetRound) {
+        console.log('MYSTERY ROUND ALREADY ADVANCED:', 'state moved on before claim confirmed')
+        return
+      }
+      console.log('MYSTERY TRANSITION CLAIMED:', session.id, 'round', claimVerify.current_round, 'by', myId)
 
-      const matchCount = latest.matches || 0
-      console.log('MYSTERY MATCH COUNT:', matchCount)
+      console.log('MYSTERY CHOICE ROUND TRANSITION START')
+      const isLastRound = claimVerify.current_round + 1 >= (claimVerify.rounds?.length || FALLBACK_ROUNDS.length)
+      let next: MysteryChoiceState
+      if (isLastRound) {
+        console.log('GAME COMPLETE')
+        console.log('MYSTERY GAME COMPLETE:', session.id, 'matches', claimVerify.matches || 0)
 
-      const pool = getResultPool(matchCount)
-      console.log('MYSTERY RESULT POOL:', pool.length, 'variations for score', matchCount)
+        const matchCount = claimVerify.matches || 0
+        console.log('MYSTERY MATCH COUNT:', matchCount)
 
-      // Reuse an already-selected result if the fresh read already has one
-      // (guards against both clients racing to finish at the same moment) —
-      // otherwise select ONE result now, exactly once.
-      let resultId = latest.resultId
-      if (!resultId) {
-        const selected = selectRandomResult(matchCount)
-        resultId = selected.id
-        console.log('MYSTERY RESULT SELECTED:', selected.id)
+        const pool = getResultPool(matchCount)
+        console.log('MYSTERY RESULT POOL:', pool.length, 'variations for score', matchCount)
+
+        let resultId = claimVerify.resultId
+        if (!resultId) {
+          const selected = selectRandomResult(matchCount)
+          resultId = selected.id
+          console.log('MYSTERY RESULT SELECTED:', selected.id)
+        } else {
+          console.log('MYSTERY RESULT SELECTED:', resultId, '(already chosen by the other player)')
+        }
+
+        next = { ...claimVerify, status: 'finished', result: 'completed', resultId, round_transitioning: null }
       } else {
-        console.log('MYSTERY RESULT SELECTED:', resultId, '(already chosen by the other player)')
+        console.log('NEXT ROUND STARTED')
+        console.log('MYSTERY NEXT ROUND:', session.id, 'round', claimVerify.current_round + 1)
+        next = {
+          ...claimVerify,
+          current_round: claimVerify.current_round + 1,
+          player_one_choice: null,
+          player_two_choice: null,
+          player_one_ready: false,
+          player_two_ready: false,
+          round_result: null,
+          round_transitioning: null,
+        }
       }
-
-      next = { ...latest, status: 'finished', result: 'completed', resultId }
-    } else {
-      console.log('NEXT ROUND STARTED')
-      console.log('MYSTERY NEXT ROUND:', session?.id, 'round', latest.current_round + 1)
-      next = {
-        ...latest,
-        current_round: latest.current_round + 1,
-        player_one_choice: null,
-        player_two_choice: null,
-        player_one_ready: false,
-        player_two_ready: false,
-        round_result: null,
-      }
+      await writeState(next)
+      if (isLastRound) console.log('MYSTERY RESULT SAVED:', next.resultId)
+      console.log('MYSTERY ROUND TRANSITION SUCCESS:', session.id, 'now at round', next.current_round, 'status', next.status)
+      console.log('MYSTERY CHOICE ROUND TRANSITION COMPLETE')
+    } finally {
+      advanceWriteLock.current = false
     }
-    await writeState(next)
-    if (isLastRound) console.log('MYSTERY RESULT SAVED:', next.resultId)
-    console.log('MYSTERY CHOICE ROUND TRANSITION COMPLETE')
   }
 
+  // Count pair progress ONLY when the full 10-round game finishes (not per round)
   // Count pair progress ONLY when the full 10-round game finishes (not per round)
   useEffect(() => {
     if (!state || !session || !myId) return
@@ -1011,15 +1102,15 @@ export default function MysteryChoiceGame() {
 
         {/* Next round — both users see it after a result; tapping sets ready flag */}
         {revealed && !revealing && (
-          <button onClick={markReady} disabled={myReady}
+          <button onClick={markReady} disabled={myReady || submittingReady}
             className="rounded-2xl px-8 py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer disabled:cursor-default"
             style={{
-              background: myReady ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg,#7c72ff,#d84dd8)',
-              color: myReady ? 'rgba(255,255,255,0.5)' : '#fff',
-              boxShadow: myReady ? 'none' : '0 10px 30px rgba(108,99,255,0.45)',
+              background: (myReady || submittingReady) ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg,#7c72ff,#d84dd8)',
+              color: (myReady || submittingReady) ? 'rgba(255,255,255,0.5)' : '#fff',
+              boxShadow: (myReady || submittingReady) ? 'none' : '0 10px 30px rgba(108,99,255,0.45)',
               animation: 'mcFadeIn 0.3s ease both',
             }}>
-            {myReady
+            {(myReady || submittingReady)
               ? (lang === 'gr' ? 'Αναμονή για τον άλλο...' : 'Waiting for other player...')
               : (lang === 'gr' ? 'Επόμενος Γύρος →' : 'Next Round →')}
           </button>
