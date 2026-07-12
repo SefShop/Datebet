@@ -27,6 +27,7 @@ export default function ProfileScreenNew() {
   const [progress, setProgress] = useState<PairProgress>({ games_completed: 0, photo_unlocked: false, chat_unlocked: false })
   const [progressLoaded, setProgressLoaded] = useState(false)
   const [pickerProfile, setPickerProfile] = useState<UserProfile|null>(null)
+  const [showFullBio, setShowFullBio] = useState(false)  // layout-only: expands a bio detail sheet so the fixed card never grows
 
   useEffect(() => {
     loadProfiles()
@@ -105,6 +106,10 @@ export default function ProfileScreenNew() {
     return () => { cancelled = true }
   }, [p?.id])
 
+  // Layout-only: collapse the bio detail sheet when the card changes.
+  // Fully independent from the privacy/unlock effect above.
+  useEffect(() => { setShowFullBio(false) }, [p?.id])
+
   function transition(dir: 'left'|'right', then: () => void) {
     if (locked) return
     setLocked(true)
@@ -161,8 +166,8 @@ export default function ProfileScreenNew() {
   return (
     <div className="flex flex-col overflow-hidden" style={{ background:'#0a0a10', height: '100dvh', maxHeight: '100dvh' }}>
 
-      {/* Top spacer */}
-      <div className="pt-12 pb-1" />
+      {/* Top spacer — compact */}
+      <div className="pt-8 pb-1 flex-shrink-0" />
 
       {/* Game picker modal */}
       {showPicker && (
@@ -253,10 +258,10 @@ export default function ProfileScreenNew() {
       {/* ── READY — show profile card (v2 design) ── */}
       {state === 'ready' && p && (
         <>
-          <div className="discover-card-area-v2 flex-1 min-h-0 flex items-center justify-center overflow-y-auto" style={{ scrollbarWidth: 'none', padding: '6px 10px' }}>
-            <div key={p.id + idx} className="discover-card-v2 rounded-[28px] overflow-hidden relative"
+          <div className="discover-card-area-v2 flex-1 min-h-0 flex items-center justify-center overflow-hidden" style={{ padding: '4px 10px' }}>
+            <div key={p.id + idx} className="discover-card-v2 rounded-[28px] overflow-hidden relative flex flex-col"
               style={{
-                width: 'calc(100% - 16px)', maxWidth: 460, margin: '0 auto',
+                width: 'calc(100% - 16px)', maxWidth: 460, height: '100%', margin: '0 auto',
                 transform: `translateX(${tx}) rotate(${rot})`, opacity: op,
                 transition: anim === 'in' ? 'none' : 'all 0.28s ease',
                 animation: anim === 'in' ? 'cardReveal 0.35s cubic-bezier(0.34,1.3,0.64,1) both' : 'none',
@@ -266,9 +271,10 @@ export default function ProfileScreenNew() {
                 backdropFilter: 'blur(12px)',
               }}>
 
-              {/* Photo — fills most of the card. Revealed at 5 games, else Mystery Mode (unchanged logic) */}
-              <div className="relative overflow-hidden flex items-center justify-center"
-                style={{ height: 'clamp(320px, 58vh, 560px)', background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.295) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.236) 0%, transparent 55%), linear-gradient(160deg, #1c1628 0%, #100a1a 100%)' }}>
+              {/* Photo — takes ~47% of the card's actual available height (never vh-based,
+                  so it always fits alongside the info section and action bar below) */}
+              <div className="relative overflow-hidden flex items-center justify-center flex-shrink-0"
+                style={{ flex: '0 0 47%', minHeight: 0, background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.295) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.236) 0%, transparent 55%), linear-gradient(160deg, #1c1628 0%, #100a1a 100%)' }}>
 
                 {canShowPhoto ? (
                   <img src={p.photo} alt={p.name} className="absolute inset-0 w-full h-full object-cover" />
@@ -341,68 +347,82 @@ export default function ProfileScreenNew() {
                 </div>
               </div>
 
-              {/* Info — compact sections below the photo */}
-              <div className="px-5 py-4" style={{ background:'#08080c' }}>
+              {/* Info — compact sections filling the remaining ~53% of the card, no scroll */}
+              <div className="px-5 py-3 flex flex-col" style={{ background:'#08080c', flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
 
-                {/* Interests */}
-                <div className="mb-3.5">
-                  <div className="text-[10.5px] font-bold uppercase tracking-[1.5px] mb-2 flex items-center gap-1.5"
+                {/* Interests — single compact row */}
+                <div className="mb-2.5 flex-shrink-0">
+                  <div className="text-[10px] font-bold uppercase tracking-[1.5px] mb-1.5 flex items-center gap-1.5"
                     style={{ color: 'rgba(255,255,255,0.4)' }}>
                     🏷 {lang === 'gr' ? 'Ενδιαφέροντα' : 'Interests'}
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5 overflow-hidden" style={{ maxHeight: 30 }}>
                     {p.interests.length > 0 ? (
                       p.interests.map(tag => (
-                        <span key={tag} className="text-[11.5px] font-medium px-2.5 py-1 rounded-full"
+                        <span key={tag} className="text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap"
                           style={{ background:'rgba(108,99,255,0.12)', color:'rgba(255,255,255,0.85)', border:'1px solid rgba(108,99,255,0.24)' }}>
                           {tag}
                         </span>
                       ))
                     ) : (
-                      <span className="text-[12px] italic" style={{ color:'rgba(255,255,255,0.35)' }}>
+                      <span className="text-[11.5px] italic" style={{ color:'rgba(255,255,255,0.35)' }}>
                         {lang === 'gr' ? 'Χωρίς ενδιαφέροντα ακόμα' : 'No interests yet'}
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* Bio */}
+                {/* Bio — max 2-line preview; "More" opens a detail sheet, card itself never grows */}
                 {p.bio[lang] && (
-                  <div className="mb-3.5">
-                    <div className="text-[10.5px] font-bold uppercase tracking-[1.5px] mb-1.5 flex items-center gap-1.5"
+                  <div className="mb-2.5 flex-shrink-0">
+                    <div className="text-[10px] font-bold uppercase tracking-[1.5px] mb-1 flex items-center gap-1.5"
                       style={{ color: 'rgba(255,255,255,0.4)' }}>
                       📝 Bio
                     </div>
-                    <p className="text-[13.5px] leading-relaxed italic" style={{ color:'rgba(255,255,255,0.78)' }}>
+                    <p className="text-[12.5px] leading-snug italic"
+                      style={{
+                        color:'rgba(255,255,255,0.78)',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}>
                       "{p.bio[lang]}"
                     </p>
+                    {p.bio[lang].length > 80 && (
+                      <button onClick={() => setShowFullBio(true)}
+                        className="text-[11px] font-bold mt-0.5 cursor-pointer"
+                        style={{ color: '#ff8fbb' }}>
+                        {lang === 'gr' ? 'Περισσότερα' : 'More'}
+                      </button>
+                    )}
                   </div>
                 )}
 
-                {/* Reveal progress + unlock status */}
-                <div className="rounded-2xl p-3.5"
+                {/* Reveal progress + unlock status — fixed compact block, always at the bottom of the info area */}
+                <div className="rounded-2xl p-3 mt-auto flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg, rgba(253,41,123,0.1), rgba(108,99,255,0.075))', border: '1px solid rgba(253,41,123,0.18)' }}>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[13px]">🔓</span>
-                      <span className="text-[11.5px] font-bold" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                      <span className="text-[12px]">🔓</span>
+                      <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.85)' }}>
                         {lang === 'gr' ? 'Πρόοδος Reveal' : 'Reveal Progress'}
                       </span>
                     </div>
-                    <span className="text-[11.5px] font-extrabold" style={{ color: '#ff3384' }}>
+                    <span className="text-[11px] font-extrabold" style={{ color: '#ff3384' }}>
                       {progress.games_completed} / 10
                     </span>
                   </div>
-                  <div className="w-full h-[5px] rounded-full overflow-hidden mb-2.5" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                  <div className="w-full h-[4px] rounded-full overflow-hidden mb-2" style={{ background: 'rgba(255,255,255,0.07)' }}>
                     <div className="h-full rounded-full" style={{ width: `${Math.min(100, progress.games_completed * 10)}%`, background: 'linear-gradient(90deg, #ff3384, #d84dd8)', boxShadow: '0 0 8px rgba(253,41,123,0.6)', transition: 'width 0.4s' }} />
                   </div>
                   <div className="flex gap-1.5">
-                    <div className="flex-1 text-center text-[9.5px] font-bold py-1.5 rounded-lg"
+                    <div className="flex-1 text-center text-[9px] font-bold py-1.5 rounded-lg"
                       style={{ background: progress.photo_unlocked ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.05)',
                                color: progress.photo_unlocked ? '#4ade80' : 'rgba(255,255,255,0.4)' }}>
                       {progress.photo_unlocked ? '📸 ' + (lang === 'gr' ? 'Ξεκλείδωτη' : 'Unlocked') : '🔒 ' + (lang === 'gr' ? 'Φωτό (5)' : 'Photo (5)')}
                     </div>
-                    <div className="flex-1 text-center text-[9.5px] font-bold py-1.5 rounded-lg"
+                    <div className="flex-1 text-center text-[9px] font-bold py-1.5 rounded-lg"
                       style={{ background: progress.chat_unlocked ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.05)',
                                color: progress.chat_unlocked ? '#4ade80' : 'rgba(255,255,255,0.4)' }}>
                       {progress.chat_unlocked ? '💬 ' + (lang === 'gr' ? 'Ξεκλείδωτο' : 'Unlocked') : '🔒 ' + (lang === 'gr' ? 'Chat (10)' : 'Chat (10)')}
@@ -413,6 +433,21 @@ export default function ProfileScreenNew() {
             </div>
           </div>
 
+          {/* Full bio detail sheet — transient overlay only, the main card stays fixed */}
+          {showFullBio && p.bio[lang] && (
+            <>
+              <div className="absolute inset-0 z-[105]" style={{ background:'rgba(6,6,10,0.7)', backdropFilter:'blur(6px)', animation:'fadeIn 0.25s ease both' }} onClick={() => setShowFullBio(false)} />
+              <div className="absolute bottom-0 left-0 right-0 z-[106] px-4 pb-6" style={{ animation:'sheetUp 0.4s cubic-bezier(0.34,1.4,0.64,1) both' }}>
+                <div className="rounded-3xl p-6 max-h-[60vh] overflow-y-auto" style={{ background:'rgba(15,12,25,0.97)', backdropFilter:'blur(28px)', border:'1px solid rgba(255,255,255,0.1)', boxShadow:'0 -8px 60px rgba(0,0,0,0.5)' }}>
+                  <div className="text-[11px] font-bold uppercase tracking-[1.5px] mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>📝 Bio — {p.name}</div>
+                  <p className="text-[14px] leading-relaxed italic mb-5" style={{ color:'rgba(255,255,255,0.85)' }}>"{p.bio[lang]}"</p>
+                  <button onClick={() => setShowFullBio(false)} className="w-full py-3 rounded-2xl text-[13px] font-bold cursor-pointer" style={{ background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.7)' }}>
+                    {lang === 'gr' ? 'Κλείσιμο' : 'Close'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
           {/* Action buttons — same DateDuel actions, unchanged handlers */}
           <div className="discover-actions-v2 flex-shrink-0 flex items-center justify-center gap-5 px-6 pt-2"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', background: 'linear-gradient(to top, #0a0a10 60%, transparent)' }}>
