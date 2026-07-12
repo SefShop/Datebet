@@ -6,6 +6,7 @@ import { getCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameI
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import { getPresence, isOnlineNow } from '@/lib/presence'
 import { setCurrentMatch } from '@/lib/profiles'
+import { getAnswerEmoji } from '@/lib/answerEmoji'
 import {
   generateMysteryQuestions, toRoundData, computeRoundScore, computeCompatibilityPercent,
   RoundData, RoundScoreResult,
@@ -988,7 +989,7 @@ export default function MysteryChoiceGame() {
             <div className="flex flex-col gap-3">
               {([0, 1] as const).map(idx => {
                 const label = idx === 0 ? optA : optB
-                const emoji = round.emoji[idx]
+                const emoji = getAnswerEmoji(label, round.optionTraits?.[idx])
                 const isMine = myChoice === label
                 const isOpp = revealed && oppChoice === label
                 return (
@@ -1035,7 +1036,10 @@ export default function MysteryChoiceGame() {
                       opacity: alreadySubmitted && !mySelectedNow && !revealed ? 0.45 : 1,
                       transition: 'all 0.2s ease',
                     }}>
-                    <span>{label}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-[16px]">{getAnswerEmoji(label, round.optionTraits?.[idx])}</span>
+                      <span>{label}</span>
+                    </span>
                     {isOpp && !mySelectedNow && <span className="text-[11px]" style={{ color: '#7c72ff' }}>{lang==='gr'?'(αυτός/ή)':'(them)'}</span>}
                   </button>
                 )
