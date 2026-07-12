@@ -1000,13 +1000,13 @@ export default function MysteryChoiceGame() {
       <McParticles />
 
       {/* Header */}
-      <div className="relative z-10 flex items-center gap-3 px-5 pt-14 pb-3">
+      <div className="mc-header-row relative z-10 flex items-center gap-3 px-5 pt-14 pb-3">
         <button onClick={() => navigate('profile')} className="text-white/50 text-[16px] cursor-pointer w-7 h-7 flex items-center justify-center rounded-full active:scale-90 transition-transform" style={{ background: 'rgba(255,255,255,0.06)' }}>←</button>
-        <h1 className="text-[16px] font-extrabold text-white flex-1">🎭 Mystery Choice</h1>
+        <h1 className="mc-header-title text-[16px] font-extrabold text-white flex-1">🎭 Mystery Choice</h1>
       </div>
 
       {/* Round indicator + progress bar */}
-      <div className="relative z-10 px-5 pb-4">
+      <div className="mc-round-indicator relative z-10 px-5 pb-4">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[11px] font-bold uppercase tracking-[1.5px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
             {lang === 'gr' ? 'Γύρος' : 'Round'} {safeRoundIndex + 1} / {rounds.length}
@@ -1023,7 +1023,7 @@ export default function MysteryChoiceGame() {
       </div>
 
       {/* Premium player header */}
-      <div className="relative z-10 flex items-center justify-center gap-3 px-6 pb-4">
+      <div className="mc-player-header relative z-10 flex items-center justify-center gap-3 px-6 pb-4">
         <PlayerCard name={names.one} colorA="#ff3384" colorB="#ff7a6e" online={onlineOne} active={waitingOnOpponent && isPlayerOne === false && !oppChoice} isMe={isPlayerOne} />
         <div className="flex flex-col items-center px-1">
           <div className="text-[15px] font-black" style={{ color: 'rgba(255,255,255,0.7)', animation: 'mcVsPulse 1.8s ease-in-out infinite' }}>VS</div>
@@ -1032,8 +1032,8 @@ export default function MysteryChoiceGame() {
       </div>
 
       {/* Question card */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-6 min-h-0 overflow-y-auto">
-        <div key={`round-${state.current_round}`} className="w-full max-w-[400px] rounded-3xl p-7 mb-5"
+      <div className="mc-question-wrap relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-6 min-h-0 overflow-y-auto">
+        <div key={`round-${state.current_round}`} className="mc-question-card w-full max-w-[400px] rounded-3xl p-7 mb-5"
           style={{
             background: 'rgba(15,12,25,0.72)',
             backdropFilter: 'blur(28px) saturate(1.5)',
@@ -1042,11 +1042,21 @@ export default function MysteryChoiceGame() {
             animation: 'mcCardFade 0.4s ease both',
           }}>
 
-          <div className="text-center text-[19px] font-extrabold mb-6 leading-snug" style={{ color: '#fff' }}>
-            {isBinaryRound
+          {(() => {
+            const displayQuestionText = isBinaryRound
               ? (lang === 'gr' ? `${optA} ή ${optB};` : `${optA} or ${optB}?`)
-              : (lang === 'gr' ? round.questionGr : round.question)}
-          </div>
+              : (lang === 'gr' ? round.questionGr : round.question)
+            // Mobile-only responsive sizing bucket — desktop always keeps the
+            // base text-[19px] class below; these classes only take effect
+            // under the max-width:768px media query further down.
+            const lengthBucket = displayQuestionText.length <= 30 ? 'mc-q-short'
+              : displayQuestionText.length <= 55 ? 'mc-q-medium' : 'mc-q-long'
+            return (
+              <div className={`mc-question-text text-center text-[19px] font-extrabold mb-6 leading-snug ${lengthBucket}`} style={{ color: '#fff' }}>
+                {displayQuestionText}
+              </div>
+            )
+          })()}
 
           {isBinaryRound ? (
             /* Binary — unchanged two-big-button layout */
@@ -1193,6 +1203,32 @@ export default function MysteryChoiceGame() {
         .mc-answer-btn:active { transform: scale(0.97); }
         .mc-dots::after { content:'...'; display:inline-block; width:1.2em; text-align:left; animation: mcDotsCycle 1.2s steps(4) infinite; }
         @keyframes mcDotsCycle { 0%{content:''} }
+
+        /* ── Mobile-only layout (max-width: 768px) ─────────────────────
+           Desktop is untouched — every rule below is scoped to this query,
+           and only reclaims vertical space in the header/player area so the
+           full question is always visible without scrolling. */
+        @media (max-width: 768px) {
+          .mc-header-row { padding-top: 30px !important; padding-bottom: 6px !important; }
+          .mc-header-title { font-size: 13px !important; }
+          .mc-round-indicator { padding-bottom: 8px !important; }
+          .mc-player-header { padding-bottom: 8px !important; gap: 8px !important; }
+          .mc-player-card { padding: 10px 11px !important; gap: 4px !important; }
+          .mc-player-avatar { width: 38px !important; height: 38px !important; font-size: 15px !important; }
+          .mc-player-name { font-size: 10px !important; max-width: 58px !important; }
+          .mc-question-wrap { padding-top: 4px !important; padding-bottom: 16px !important; }
+          .mc-question-card { padding: 18px 20px !important; margin-bottom: 12px !important; }
+          .mc-question-text {
+            margin-bottom: 14px !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+          }
+          /* Responsive question sizing by text length — never crops the
+             first line, always shows the full question. */
+          .mc-question-text.mc-q-short { font-size: 29px !important; line-height: 1.25 !important; }
+          .mc-question-text.mc-q-medium { font-size: 25px !important; line-height: 1.28 !important; }
+          .mc-question-text.mc-q-long { font-size: 21px !important; line-height: 1.3 !important; }
+        }
       `}</style>
     </div>
   )
@@ -1224,14 +1260,14 @@ function McParticles() {
 // Premium player card — avatar, name, online dot, subtle glow when it's this player we're waiting on
 function PlayerCard({ name, colorA, colorB, online, active, isMe }: { name: string; colorA: string; colorB: string; online: boolean; active: boolean; isMe: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 rounded-2xl px-3.5 py-3" style={{
+    <div className="mc-player-card flex flex-col items-center gap-1.5 rounded-2xl px-3.5 py-3" style={{
       background: 'rgba(255,255,255,0.04)',
       border: `1px solid ${active ? colorA + '80' : 'rgba(255,255,255,0.08)'}`,
       boxShadow: active ? `0 0 22px ${colorA}55` : 'none',
       transition: 'box-shadow 0.4s ease, border-color 0.4s ease',
     }}>
       <div className="relative">
-        <div className="w-11 h-11 rounded-full flex items-center justify-center text-[18px]" style={{
+        <div className="mc-player-avatar w-11 h-11 rounded-full flex items-center justify-center text-[18px]" style={{
           background: `linear-gradient(135deg,${colorA},${colorB})`,
           boxShadow: active ? `0 0 18px ${colorA}80` : `0 0 10px ${colorA}30`,
         }}>🎭</div>
@@ -1241,7 +1277,7 @@ function PlayerCard({ name, colorA, colorB, online, active, isMe }: { name: stri
           boxShadow: online ? '0 0 6px #4ade80' : 'none',
         }} />
       </div>
-      <div className="text-[11px] font-bold text-white text-center max-w-[70px] truncate">{name}{isMe ? ' (you)' : ''}</div>
+      <div className="mc-player-name text-[11px] font-bold text-white text-center max-w-[70px] truncate">{name}{isMe ? ' (you)' : ''}</div>
     </div>
   )
 }
