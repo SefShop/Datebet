@@ -122,6 +122,7 @@ export default function MysteryChoiceGame() {
   const resultWriteLock = useRef(false)
   const advanceWriteLock = useRef(false)
   const countLockRef = useRef(false)
+  const submittingAnswerRef = useRef(false)  // synchronous guard — blocks a second tap before any async work starts
   const recoveryLockRef = useRef(false)
   const [pairCount, setPairCount] = useState(0)
   const [progressError, setProgressError] = useState<string | null>(null)
@@ -133,6 +134,7 @@ export default function MysteryChoiceGame() {
   const [onlineOne, setOnlineOne] = useState(false)
   const [onlineTwo, setOnlineTwo] = useState(false)
   const [pendingMulti, setPendingMulti] = useState<string[]>([])  // local staged picks before Confirm (multi-select only)
+  const [submittingChoice, setSubmittingChoice] = useState(false)  // brief "saving" state while an answer write/verify is in flight
   const [revealStep, setRevealStep] = useState(0)  // 0=analyzing, 1=final result card (reveal-screen presentation only)
   const revealTimerRef = useRef<any>(null)
 
@@ -271,6 +273,44 @@ export default function MysteryChoiceGame() {
     setState(next)
   }
 
+  // Shared, guarded round-result computation. Always re-checks against a
+  // FRESH read (never the stale local `state`) whether the result was
+  // already calculated by the other client before writing — this is the
+  // single place that ever writes round_result, called from both choose()
+  // (right after an answer is confirmed saved) and the safety-net effect.
+  async function tryComputeRoundResult() {
+    if (resultWriteLock.current) return
+    resultWriteLock.current = true
+    try {
+      const fresh = await fetchLatestState()
+      if (!fresh) return
+      if (!(fresh.player_one_choice && fresh.player_two_choice)) return
+      if (fresh.round_result) {
+        console.log('MYSTERY RESULT ALREADY CALCULATED:', fresh.round_result)
+        return
+      }
+      console.log('BOTH CHOICES READY')
+      const round = fresh.rounds[fresh.current_round]
+      const scoreResult: RoundScoreResult = computeRoundScore(round, fresh.player_one_choice, fresh.player_two_choice)
+      console.log('ROUND RESULT', scoreResult.outcome, 'score', scoreResult.score, '/', scoreResult.maxScore)
+      const matches = (fresh.matches || 0) + (scoreResult.outcome === 'match' ? 1 : 0)
+      const scoreTotal = (fresh.scoreTotal || 0) + scoreResult.score
+      const scoreMax = (fresh.scoreMax || 0) + scoreResult.maxScore
+      const historyEntry: RoundHistoryEntry = {
+        round: fresh.current_round, category: round.category,
+        weight: round.weight, outcome: scoreResult.outcome, question: round.question,
+        playerOneChoice: fresh.player_one_choice, playerTwoChoice: fresh.player_two_choice,
+        playerOneTraits: resolveTraits(round, fresh.player_one_choice),
+        playerTwoTraits: resolveTraits(round, fresh.player_two_choice),
+      }
+      const history = [...(fresh.history || []), historyEntry]
+      await writeState({ ...fresh, round_result: scoreResult.outcome, matches, scoreTotal, scoreMax, history })
+      console.log('MYSTERY ROUND COMPLETE:', session?.id, 'round', fresh.current_round, scoreResult.outcome)
+    } finally {
+      resultWriteLock.current = false
+    }
+  }
+
   // Detect + repair an impossible combination: a ready flag stuck true while
   // choices are empty (can happen after a race or interrupted transition).
   async function checkAndRecover(observed: MysteryChoiceState) {
@@ -304,75 +344,73 @@ export default function MysteryChoiceGame() {
 
   async function choose(choice: string | string[]) {
     if (!session || !myId) return
-    const latest = await fetchLatestState()
-    if (!latest || latest.status === 'finished') return
-    const isPlayerOne = myId === session.player_one_id
-    if (isPlayerOne && latest.player_one_choice) return
-    if (!isPlayerOne && latest.player_two_choice) return
+    if (submittingAnswerRef.current) return  // synchronous guard — a second tap while saving does nothing
+    submittingAnswerRef.current = true
+    setSubmittingChoice(true)
+    console.log('MYSTERY ANSWER SUBMIT START:', choice)
 
-    const next: MysteryChoiceState = {
-      ...latest,
-      player_one_choice: isPlayerOne ? choice : latest.player_one_choice,
-      player_two_choice: !isPlayerOne ? choice : latest.player_two_choice,
-    }
-    console.log('PLAYER CHOICE SAVED', isPlayerOne ? 'player_one' : 'player_two', choice)
-    console.log('MYSTERY CHOICE SAVED:', session.id, isPlayerOne ? 'player_one' : 'player_two', choice)
-    await writeState(next)
+    try {
+      const isPlayerOne = myId === session.player_one_id
+      const myField: 'player_one_choice' | 'player_two_choice' = isPlayerOne ? 'player_one_choice' : 'player_two_choice'
+      console.log('MYSTERY PLAYER FIELD:', myField)
 
-    // Both now chosen — compute the WEIGHTED score on the SAME fresh base we just wrote
-    if (next.player_one_choice && next.player_two_choice && !next.round_result && !resultWriteLock.current) {
-      resultWriteLock.current = true
-      console.log('BOTH CHOICES READY')
-      const round = next.rounds[next.current_round]
-      const scoreResult: RoundScoreResult = computeRoundScore(round, next.player_one_choice, next.player_two_choice)
-      console.log('ROUND RESULT', scoreResult.outcome, 'score', scoreResult.score, '/', scoreResult.maxScore)
-      const matches = (next.matches || 0) + (scoreResult.outcome === 'match' ? 1 : 0)
-      const scoreTotal = (next.scoreTotal || 0) + scoreResult.score
-      const scoreMax = (next.scoreMax || 0) + scoreResult.maxScore
-      const historyEntry: RoundHistoryEntry = {
-        round: next.current_round, category: round.category,
-        weight: round.weight, outcome: scoreResult.outcome, question: round.question,
-        playerOneChoice: next.player_one_choice, playerTwoChoice: next.player_two_choice,
-        playerOneTraits: resolveTraits(round, next.player_one_choice),
-        playerTwoTraits: resolveTraits(round, next.player_two_choice),
+      const base = await fetchLatestState()
+      console.log('MYSTERY LATEST STATE BEFORE ANSWER:', base)
+      if (!base || base.status === 'finished') return
+      if (base[myField]) return  // already answered (fresh check, not stale local state)
+
+      // Write my answer, then verify against a fresh read that it actually
+      // stuck — a concurrent write from the other player can otherwise
+      // silently overwrite it (last-write-wins on the full state object).
+      async function attempt(fromState: MysteryChoiceState, attemptNum: number): Promise<MysteryChoiceState | null> {
+        const next: MysteryChoiceState = { ...fromState, [myField]: choice }
+        console.log('MYSTERY ANSWER UPDATE ATTEMPT:', attemptNum, myField, choice)
+        await writeState(next)
+        const verify = await fetchLatestState()
+        console.log('MYSTERY ANSWER VERIFY:', attemptNum, verify ? verify[myField] : null)
+        if (verify && verify[myField] === choice) {
+          console.log('MYSTERY ANSWER UPDATE SUCCESS:', myField, choice)
+          return verify
+        }
+        return null
       }
-      const history = [...(next.history || []), historyEntry]
-      await writeState({ ...next, round_result: scoreResult.outcome, matches, scoreTotal, scoreMax, history })
-      console.log('MYSTERY ROUND COMPLETE:', session.id, 'round', next.current_round, scoreResult.outcome)
-      resultWriteLock.current = false
+
+      let result = await attempt(base, 1)
+      if (!result) {
+        console.log('MYSTERY ANSWER RETRY:', myField)
+        const fresh = await fetchLatestState()
+        if (fresh && fresh[myField] === choice) {
+          result = fresh  // already saved by the time we re-checked
+        } else if (fresh && fresh.status !== 'finished') {
+          result = await attempt(fresh, 2)
+        }
+      }
+
+      if (!result) {
+        console.error('MYSTERY ANSWER ERROR:', 'failed to save answer after retry', myField, choice)
+        return
+      }
+
+      console.log('PLAYER CHOICE SAVED', myField, choice)
+      console.log('MYSTERY CHOICE SAVED:', session.id, myField, choice)
+
+      if (result.player_one_choice && result.player_two_choice && !result.round_result) {
+        console.log('MYSTERY BOTH ANSWERS PRESENT:')
+        await tryComputeRoundResult()
+      }
+    } finally {
+      submittingAnswerRef.current = false
+      setSubmittingChoice(false)
     }
   }
 
-  // Safety net: if a client ever observes both choices present but no result yet
-  // (e.g. the writer above got interrupted), any client can complete it — always
-  // against a freshly fetched base, never the stale local `state`.
+  // Safety net: if a client ever observes both choices present but no result
+  // yet (e.g. the writer above got interrupted), trigger the same guarded,
+  // fresh-state computation — never the stale local `state`.
   useEffect(() => {
     if (!state || !session) return
-    if (state.player_one_choice && state.player_two_choice && !state.round_result && !resultWriteLock.current) {
-      resultWriteLock.current = true
-      ;(async () => {
-        const latest = await fetchLatestState()
-        if (latest && latest.player_one_choice && latest.player_two_choice && !latest.round_result) {
-          console.log('BOTH CHOICES READY')
-          const round = latest.rounds[latest.current_round]
-          const scoreResult: RoundScoreResult = computeRoundScore(round, latest.player_one_choice, latest.player_two_choice)
-          console.log('ROUND RESULT', scoreResult.outcome, 'score', scoreResult.score, '/', scoreResult.maxScore)
-          const matches = (latest.matches || 0) + (scoreResult.outcome === 'match' ? 1 : 0)
-          const scoreTotal = (latest.scoreTotal || 0) + scoreResult.score
-          const scoreMax = (latest.scoreMax || 0) + scoreResult.maxScore
-          const historyEntry: RoundHistoryEntry = {
-            round: latest.current_round, category: round.category,
-            weight: round.weight, outcome: scoreResult.outcome, question: round.question,
-            playerOneChoice: latest.player_one_choice, playerTwoChoice: latest.player_two_choice,
-            playerOneTraits: resolveTraits(round, latest.player_one_choice),
-            playerTwoTraits: resolveTraits(round, latest.player_two_choice),
-          }
-          const history = [...(latest.history || []), historyEntry]
-          await writeState({ ...latest, round_result: scoreResult.outcome, matches, scoreTotal, scoreMax, history })
-          console.log('MYSTERY ROUND COMPLETE:', session?.id, 'round', latest.current_round, scoreResult.outcome)
-        }
-        resultWriteLock.current = false
-      })()
+    if (state.player_one_choice && state.player_two_choice && !state.round_result) {
+      tryComputeRoundResult()
     }
   }, [state?.player_one_choice, state?.player_two_choice])
 
@@ -865,7 +903,7 @@ export default function MysteryChoiceGame() {
                 const isMine = myChoice === label
                 const isOpp = revealed && oppChoice === label
                 return (
-                  <button key={idx} onClick={() => choose(label)} disabled={!!myChoice}
+                  <button key={idx} onClick={() => choose(label)} disabled={!!myChoice || submittingChoice}
                     className="mc-answer-btn w-full rounded-2xl py-5 text-[16px] font-bold flex items-center justify-center gap-2.5 cursor-pointer disabled:cursor-default"
                     style={{
                       background: isMine ? 'linear-gradient(135deg,#ff3384,#d84dd8)' : 'rgba(255,255,255,0.05)',
@@ -892,9 +930,9 @@ export default function MysteryChoiceGame() {
                   ? Array.isArray(myChoice) ? myChoice.includes(label) : myChoice === label
                   : pendingMulti.includes(label)
                 const isOpp = revealed && (Array.isArray(oppChoice) ? oppChoice.includes(label) : oppChoice === label)
-                const canToggle = !alreadySubmitted && (mySelectedNow || pendingMulti.length < round.maxSelect)
+                const canToggle = !alreadySubmitted && !submittingChoice && (mySelectedNow || pendingMulti.length < round.maxSelect)
                 return (
-                  <button key={idx} disabled={alreadySubmitted || !canToggle}
+                  <button key={idx} disabled={alreadySubmitted || submittingChoice || !canToggle}
                     onClick={() => {
                       if (round.maxSelect <= 1) { choose(label); return }
                       setPendingMulti(prev => prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label].slice(0, round.maxSelect))
