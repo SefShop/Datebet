@@ -107,176 +107,6 @@ function buildFreshMysteryState(): MysteryChoiceState {
   }
 }
 
-// ── Reveal-screen helpers (pure, presentation-only — no game logic) ──
-// DateDuel is a dating app, not a trivia game — the reveal focuses on real
-// conversation insight (shared traits, one honest difference, and starters
-// to talk about after the game), not a raw percentage.
-
-const THEME_LABEL: Record<string, { en: string; gr: string }> = {
-  ice_breaker: { en: 'spending free time', gr: 'τον ελεύθερο χρόνο' },
-  lifestyle: { en: 'everyday life', gr: 'την καθημερινότητα' },
-  personality: { en: 'who you are', gr: 'την προσωπικότητα' },
-  relationships: { en: 'relationships', gr: 'τις σχέσεις' },
-  future: { en: 'the future', gr: 'το μέλλον' },
-}
-
-// "You both ..." sentence for a shared trait, and a natural follow-up
-// conversation-starter question for that same trait.
-const TRAIT_INSIGHT: Record<string, { line: { en: string; gr: string }; starter: { en: string; gr: string } }> = {
-  likes_travel: { line: { en: 'You both love discovering new places.', gr: 'Και οι δύο λατρεύετε να ανακαλύπτετε νέα μέρη.' },
-    starter: { en: 'What destination is at the top of your bucket list?', gr: 'Ποιος προορισμός είναι στην κορυφή της λίστας σου;' } },
-  outdoor_person: { line: { en: 'You both feel most alive outdoors.', gr: 'Και οι δύο νιώθετε πιο ζωντανοί στη φύση.' },
-    starter: { en: "What's your favorite way to spend time outside?", gr: 'Ποιος είναι ο αγαπημένος σου τρόπος να περνάς χρόνο έξω;' } },
-  homebody: { line: { en: 'You both genuinely enjoy a quiet night in.', gr: 'Και οι δύο απολαμβάνετε μια ήσυχη βραδιά σπίτι.' },
-    starter: { en: "What does your perfect night in look like?", gr: 'Πώς είναι η τέλεια βραδιά σου σπίτι;' } },
-  social: { line: { en: 'You both light up around people.', gr: 'Και οι δύο ζωντανεύετε ανάμεσα σε κόσμο.' },
-    starter: { en: "Who's someone whose company always energizes you?", gr: 'Ποιος είναι κάποιος που η παρέα του πάντα σε φορτίζει;' } },
-  adventurous: { line: { en: "You both chase new experiences.", gr: 'Και οι δύο κυνηγάτε νέες εμπειρίες.' },
-    starter: { en: "What's the most adventurous thing you've ever done?", gr: 'Ποιο είναι το πιο τολμηρό πράγμα που έχεις κάνει;' } },
-  relaxed: { line: { en: 'You both know how to slow down and just be.', gr: 'Και οι δύο ξέρετε να χαλαρώνετε πραγματικά.' },
-    starter: { en: "What's your idea of a perfectly relaxing day?", gr: 'Ποια είναι η ιδανική σου χαλαρωτική μέρα;' } },
-  romantic: { line: { en: 'You both wear your heart on your sleeve.', gr: 'Και οι δύο δείχνετε ανοιχτά τα συναισθήματά σας.' },
-    starter: { en: 'What makes you feel most loved?', gr: 'Τι σε κάνει να νιώθεις πιο αγαπημένος/η;' } },
-  introvert: { line: { en: "You both recharge best with quiet time.", gr: 'Και οι δύο επαναφορτίζεστε καλύτερα με ησυχία.' },
-    starter: { en: 'How do you like to spend time completely alone?', gr: 'Πώς σου αρέσει να περνάς χρόνο εντελώς μόνος/η;' } },
-  extrovert: { line: { en: 'You both get your energy from being around others.', gr: 'Και οι δύο παίρνετε ενέργεια από τους άλλους.' },
-    starter: { en: "What's the best group hangout you've had recently?", gr: 'Ποια ήταν η καλύτερη παρέα πρόσφατα;' } },
-  deep_talker: { line: { en: 'You both love a real, honest conversation.', gr: 'Και οι δύο λατρεύετε μια αληθινή, ειλικρινή κουβέντα.' },
-    starter: { en: "What's a conversation that changed how you see something?", gr: 'Ποια συζήτηση άλλαξε τον τρόπο που βλέπεις κάτι;' } },
-  playful: { line: { en: 'You both don\'t take life too seriously.', gr: 'Και οι δύο δεν παίρνετε τη ζωή πολύ στα σοβαρά.' },
-    starter: { en: "What's something that always makes you laugh?", gr: 'Τι σε κάνει πάντα να γελάς;' } },
-  dependable: { line: { en: 'You both show up for the people you care about.', gr: 'Και οι δύο στηρίζετε τους ανθρώπους που νοιάζεστε.' },
-    starter: { en: 'How do you like to show someone you can be counted on?', gr: 'Πώς δείχνεις σε κάποιον ότι μπορεί να σε βασιστεί;' } },
-  planner: { line: { en: 'You both like knowing the plan.', gr: 'Και οι δύο σας αρέσει να ξέρετε το σχέδιο.' },
-    starter: { en: "What's a trip you'd love to plan together someday?", gr: 'Ποιο ταξίδι θα ήθελες να σχεδιάσετε μαζί κάποια μέρα;' } },
-  spontaneous: { line: { en: 'You both love keeping things unplanned.', gr: 'Και οι δύο λατρεύετε τον αυθορμητισμό.' },
-    starter: { en: "What's the most spontaneous thing you've ever done?", gr: 'Ποιο είναι το πιο αυθόρμητο πράγμα που έχεις κάνει;' } },
-  career_focused: { line: { en: 'You both take your goals seriously.', gr: 'Και οι δύο παίρνετε στα σοβαρά τους στόχους σας.' },
-    starter: { en: "What's a goal you're really proud of chasing?", gr: 'Ποιος στόχος σε κάνει περήφανο/η που τον κυνηγάς;' } },
-  likes_family: { line: { en: 'Family matters deeply to both of you.', gr: 'Η οικογένεια έχει μεγάλη σημασία και για τους δύο σας.' },
-    starter: { en: "What's your favorite family tradition?", gr: 'Ποια είναι η αγαπημένη σου οικογενειακή παράδοση;' } },
-  creative: { line: { en: 'You both express yourselves creatively.', gr: 'Και οι δύο εκφράζεστε δημιουργικά.' },
-    starter: { en: "What's a creative project you'd love to try?", gr: 'Ποιο δημιουργικό project θα ήθελες να δοκιμάσεις;' } },
-  pet_lover: { line: { en: 'You\'re both total softies for animals.', gr: 'Και οι δύο λιώνετε για τα ζώα.' },
-    starter: { en: "Tell me about a pet that means the world to you.", gr: 'Πες μου για ένα κατοικίδιο που σημαίνει πολλά για σένα.' } },
-  independent: { line: { en: 'You both value your own space and freedom.', gr: 'Και οι δύο εκτιμάτε τον δικό σας χώρο και ελευθερία.' },
-    starter: { en: 'What does having your own space mean to you?', gr: 'Τι σημαίνει για σένα να έχεις τον δικό σου χώρο;' } },
-  witty: { line: { en: 'You both appreciate clever humor.', gr: 'Και οι δύο εκτιμάτε το έξυπνο χιούμορ.' },
-    starter: { en: "What's the funniest thing someone's said to you recently?", gr: 'Ποιο ήταν το πιο αστείο πράγμα που σου είπε κάποιος πρόσφατα;' } },
-  active: { line: { en: 'Staying active matters to both of you.', gr: 'Η κίνηση έχει σημασία και για τους δύο σας.' },
-    starter: { en: "What's your favorite way to move your body?", gr: 'Ποιος είναι ο αγαπημένος σου τρόπος άσκησης;' } },
-  balanced: { line: { en: 'You both aim for a healthy middle ground.', gr: 'Και οι δύο ψάχνετε μια υγιή ισορροπία.' },
-    starter: { en: "How do you personally define balance in life?", gr: 'Πώς ορίζεις εσύ την ισορροπία στη ζωή;' } },
-  kind: { line: { en: 'How you both treat people really matters to you.', gr: 'Το πώς φέρεστε στους άλλους έχει σημασία και για τους δύο.' },
-    starter: { en: "Who's someone who taught you a lot about kindness?", gr: 'Ποιος σε δίδαξε πολλά για την καλοσύνη;' } },
-  growth_minded: { line: { en: "You're both always working on becoming better.", gr: 'Και οι δύο δουλεύετε συνεχώς να γίνεστε καλύτεροι.' },
-    starter: { en: 'What\'s something you\'ve grown a lot in recently?', gr: 'Σε τι έχεις εξελιχθεί πολύ τελευταία;' } },
-  confident: { line: { en: 'You both walk into a room with confidence.', gr: 'Και οι δύο μπαίνετε σε έναν χώρο με αυτοπεποίθηση.' },
-    starter: { en: "What's helped you build your confidence over time?", gr: 'Τι σε βοήθησε να χτίσεις την αυτοπεποίθησή σου;' } },
-  storyteller: { line: { en: 'You both love a good story.', gr: 'Και οι δύο λατρεύετε μια καλή ιστορία.' },
-    starter: { en: "What's a story you love telling people?", gr: 'Ποια ιστορία σου αρέσει να λες στον κόσμο;' } },
-  city_person: { line: { en: 'You both feel at home in the city.', gr: 'Και οι δύο νιώθετε σπίτι σας στην πόλη.' },
-    starter: { en: "What's your favorite thing about city life?", gr: 'Τι αγαπάς περισσότερο στη ζωή της πόλης;' } },
-}
-
-// Fallback for traits without a specific line (rare, keeps the reveal from ever being empty)
-function genericTraitLine(trait: string, lang: 'en' | 'gr'): string {
-  const readable = trait.replace(/_/g, ' ')
-  return lang === 'gr' ? `Και οι δύο μοιράζεστε: ${readable}.` : `You both share: ${readable}.`
-}
-
-// One difference entry (category + natural line + starter), used to build
-// up to 2 distinct "Where You Differ" insights without repeating a category.
-function differenceEntries(history: RoundHistoryEntry[], lang: 'en' | 'gr', max: number): { line: string; starter: string; category: string }[] {
-  const seenCategory = new Set<string>()
-  const out: { line: string; starter: string; category: string }[] = []
-  const diffs = [...history].filter(h => h.outcome === 'different').sort((a, b) => b.weight - a.weight)
-  for (const d of diffs) {
-    if (seenCategory.has(d.category)) continue
-    seenCategory.add(d.category)
-    const themeLabel = THEME_LABEL[d.category]?.[lang] || d.category
-    const line = lang === 'gr' ? `Έχετε διαφορετικό τρόπο για ${themeLabel}.` : `You have different ways of approaching ${themeLabel}.`
-    const starter = lang === 'gr'
-      ? 'Απαντήσατε διαφορετικά εδώ — ποιος νομίζεις θα έπειθε τον άλλον πρώτος;'
-      : 'You answered differently here — who do you think would convince the other first?'
-    out.push({ line, starter, category: d.category })
-    if (out.length >= max) break
-  }
-  return out
-}
-
-// "What You Share" — up to `max` REAL shared-trait insights, sorted by
-// question weight. Returns an empty array (hide the section) if there are
-// no genuine matches — never invents content.
-function topSharedInsights(history: RoundHistoryEntry[], lang: 'en' | 'gr', max: number): string[] {
-  const seen = new Set<string>()
-  const lines: string[] = []
-  const sorted = [...history].sort((a, b) => b.weight - a.weight)
-  for (const h of sorted) {
-    if (h.outcome === 'different') continue
-    const shared = h.playerOneTraits.filter(t => h.playerTwoTraits.includes(t))
-    for (const trait of shared) {
-      if (seen.has(trait)) continue
-      seen.add(trait)
-      lines.push(TRAIT_INSIGHT[trait]?.line[lang] || genericTraitLine(trait, lang))
-      if (lines.length >= max) break
-    }
-    if (lines.length >= max) break
-  }
-  return lines
-}
-
-// "Where You Differ" — up to `max` REAL differences (one per theme, highest
-// weight first). Returns [] if the pair matched on everything — hides the section.
-function topDifferences(history: RoundHistoryEntry[], lang: 'en' | 'gr', max: number): string[] {
-  return differenceEntries(history, lang, max).map(d => d.line)
-}
-
-// Exactly 3 UNIQUE conversation starters, built from real shared traits and
-// real differences. Only falls back to a rotating (non-repeating) generic
-// pool if there truly isn't enough real material — never repeats one line.
-function generateStarters(history: RoundHistoryEntry[], lang: 'en' | 'gr'): string[] {
-  const seenTrait = new Set<string>()
-  const starters: string[] = []
-  const sorted = [...history].sort((a, b) => b.weight - a.weight)
-
-  for (const h of sorted) {
-    if (starters.length >= 2) break
-    if (h.outcome === 'different') continue
-    const shared = h.playerOneTraits.filter(t => h.playerTwoTraits.includes(t))
-    for (const trait of shared) {
-      if (seenTrait.has(trait) || !TRAIT_INSIGHT[trait]) continue
-      seenTrait.add(trait)
-      const t = TRAIT_INSIGHT[trait]
-      starters.push(`${t.line[lang]}\n${t.starter[lang]}`)
-      if (starters.length >= 2) break
-    }
-  }
-
-  const diffs = differenceEntries(history, lang, 1)
-  if (diffs.length > 0) starters.push(`${diffs[0].line}\n${diffs[0].starter}`)
-
-  // Distinct fallback pool — used only to fill remaining slots, never repeated.
-  const fallbackPool = lang === 'gr'
-    ? [
-        'Τι σε εξέπληξε περισσότερο σε αυτό το παιχνίδι;',
-        'Ποια απάντηση του/της σε έκανε να χαμογελάσεις;',
-        'Αν έπρεπε να διαλέξεις μια ερώτηση να ξαναπαίξετε, ποια θα ήταν;',
-      ]
-    : [
-        'What surprised you most about this game?',
-        "Which of their answers made you smile?",
-        "If you could replay one question together, which would it be?",
-      ]
-  let i = 0
-  while (starters.length < 3 && i < fallbackPool.length) {
-    starters.push(fallbackPool[i])
-    i++
-  }
-  return starters.slice(0, 3)
-}
-
-
 export default function MysteryChoiceGame() {
   const { navigate, lang } = useApp()
   const session = getCurrentSession()
@@ -823,7 +653,6 @@ export default function MysteryChoiceGame() {
 
   // Game complete screen — premium celebration
   if (state.status === 'finished') {
-    const history = state.history || []
     const matchCount = state.matches || 0
 
     let resultVariation = state.resultId ? getResultById(state.resultId) : null
@@ -835,14 +664,8 @@ export default function MysteryChoiceGame() {
       resultVariation = selectRandomResult(matchCount)
     }
 
-    const shared = topSharedInsights(history, lang as 'en' | 'gr', 3)
-    const differences = topDifferences(history, lang as 'en' | 'gr', 2)
-    const starters = generateStarters(history, lang as 'en' | 'gr')
     const canChat = chatUnlocked
 
-    console.log('MYSTERY FINAL SIMILARITIES:', shared)
-    console.log('MYSTERY FINAL DIFFERENCES:', differences)
-    console.log('MYSTERY FINAL STARTERS:', starters)
     console.log('MYSTERY FINAL CHAT STATUS:', pairProgressLoading ? 'loading' : progressError ? 'error' : canChat ? 'unlocked' : `locked ${pairCount}/10`)
 
     const circumference = 2 * Math.PI * 52
@@ -907,57 +730,6 @@ export default function MysteryChoiceGame() {
                 </div>
                 <div className="text-[12.5px] leading-relaxed px-2" style={{ color: 'rgba(255,255,255,0.65)' }}>
                   {lang === 'gr' ? resultVariation.descriptionGr : resultVariation.descriptionEn}
-                </div>
-              </div>
-
-              {/* B — What You Share (hidden if no real matches) */}
-              {shared.length > 0 && (
-                <div className="mb-5">
-                  <div className="text-[11px] font-bold uppercase tracking-[1.5px] mb-2.5" style={{ color: 'rgba(74,222,128,0.85)' }}>
-                    {lang === 'gr' ? '💚 Τι Μοιράζεστε' : '💚 What You Share'}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {shared.map((line, i) => (
-                      <div key={i} className="flex items-start gap-2 rounded-xl px-3.5 py-2.5" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
-                        <span style={{ color: '#4ade80' }}>•</span>
-                        <span className="text-[12.5px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.85)' }}>{line}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* C — Where You Differ (hidden if no real differences) */}
-              {differences.length > 0 && (
-                <div className="mb-5">
-                  <div className="text-[11px] font-bold uppercase tracking-[1.5px] mb-2.5" style={{ color: 'rgba(255,51,132,0.85)' }}>
-                    {lang === 'gr' ? '🔥 Πού Διαφέρετε' : '🔥 Where You Differ'}
-                  </div>
-                  <div className="flex flex-col gap-2 mb-2">
-                    {differences.map((line, i) => (
-                      <div key={i} className="flex items-start gap-2 rounded-xl px-3.5 py-2.5" style={{ background: 'rgba(253,41,123,0.06)', border: '1px solid rgba(253,41,123,0.15)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
-                        <span style={{ color: '#ff3384' }}>•</span>
-                        <span className="text-[12.5px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.85)' }}>{line}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="text-[10.5px] italic text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    {lang === 'gr' ? 'Το διαφορετικό δεν σημαίνει ασύμβατο.' : "Different does not mean incompatible."}
-                  </div>
-                </div>
-              )}
-
-              {/* D — Conversation Starters (always exactly 3) */}
-              <div className="mb-6">
-                <div className="text-[11px] font-bold uppercase tracking-[1.5px] mb-2.5" style={{ color: 'rgba(124,114,255,0.85)' }}>
-                  {lang === 'gr' ? '💬 Αφορμές για Κουβέντα' : '💬 Conversation Starters'}
-                </div>
-                <div className="flex flex-col gap-2">
-                  {starters.map((s, i) => (
-                    <div key={i} className="rounded-xl px-3.5 py-3 text-[12px] leading-relaxed whitespace-pre-line" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
-                      {s}
-                    </div>
-                  ))}
                 </div>
               </div>
 
