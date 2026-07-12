@@ -7,6 +7,7 @@ import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import { getPresence, isOnlineNow } from '@/lib/presence'
 import { setCurrentMatch } from '@/lib/profiles'
 import { getAnswerEmoji } from '@/lib/answerEmoji'
+import { getResultPool, selectRandomResult, getResultById } from '@/lib/mysteryResultLibrary'
 import {
   generateMysteryQuestions, toRoundData, computeRoundScore, computeCompatibilityPercent,
   RoundData, RoundScoreResult,
@@ -44,6 +45,7 @@ interface MysteryChoiceState {
   scoreTotal?: number   // sum of weighted round scores (kept for pair-progress use, not shown as the headline anymore)
   scoreMax?: number
   history?: RoundHistoryEntry[]  // per-round record, used only by the reveal screen
+  resultId?: string               // selected ONCE on completion; both players render this same id
 }
 
 // Fallback in case a session's state is missing rounds (defensive only)
@@ -274,34 +276,6 @@ function generateStarters(history: RoundHistoryEntry[], lang: 'en' | 'gr'): stri
   return starters.slice(0, 3)
 }
 
-// Honest, score-based result label — never overstates the connection.
-function finalResultLabel(score: number, lang: 'en' | 'gr'): string {
-  if (score >= 90) return lang === 'gr' ? 'Εξαιρετική Σύνδεση' : 'Exceptional Connection'
-  if (score >= 80) return lang === 'gr' ? 'Δυνατό Ταίριασμα' : 'Strong Match'
-  if (score >= 70) return lang === 'gr' ? 'Πολύ Καλές Προοπτικές' : 'Great Potential'
-  if (score >= 60) return lang === 'gr' ? 'Υποσχόμενη Σύνδεση' : 'Promising Connection'
-  if (score >= 40) return lang === 'gr' ? 'Αξίζει να Γνωριστείτε Καλύτερα' : 'Worth Exploring'
-  return lang === 'gr' ? 'Διαφορετικές Οπτικές' : 'Different Perspectives'
-}
-
-// Short, honest summary sentence for the main result card — built from real
-// top shared/differing themes, not a canned phrase.
-function finalResultSummary(history: RoundHistoryEntry[], score: number, lang: 'en' | 'gr'): string {
-  const shared = topSharedInsights(history, lang, 1)
-  const diffs = topDifferences(history, lang, 1)
-  if (shared.length > 0 && diffs.length > 0) {
-    return lang === 'gr'
-      ? `Ταιριάζετε αρκετά καλά, με λίγες διαφορές που κάνουν τη σχέση ενδιαφέρουσα.`
-      : `You connect well, with a few differences that make things interesting.`
-  }
-  if (shared.length > 0) {
-    return lang === 'gr' ? 'Μοιράζεστε αρκετά κοινά σημεία.' : 'You share quite a few things in common.'
-  }
-  if (diffs.length > 0) {
-    return lang === 'gr' ? 'Βλέπετε τα πράγματα αρκετά διαφορετικά — αυτό δεν είναι κακό.' : "You see things quite differently — that's not a bad thing."
-  }
-  return lang === 'gr' ? 'Μόλις αρχίσατε να γνωρίζεστε.' : "You're just getting to know each other."
-}
 
 export default function MysteryChoiceGame() {
   const { navigate, lang } = useApp()
@@ -613,7 +587,26 @@ export default function MysteryChoiceGame() {
     if (isLastRound) {
       console.log('GAME COMPLETE')
       console.log('MYSTERY GAME COMPLETE:', session?.id, 'matches', latest.matches || 0)
-      next = { ...latest, status: 'finished', result: 'completed' }
+
+      const matchCount = latest.matches || 0
+      console.log('MYSTERY MATCH COUNT:', matchCount)
+
+      const pool = getResultPool(matchCount)
+      console.log('MYSTERY RESULT POOL:', pool.length, 'variations for score', matchCount)
+
+      // Reuse an already-selected result if the fresh read already has one
+      // (guards against both clients racing to finish at the same moment) —
+      // otherwise select ONE result now, exactly once.
+      let resultId = latest.resultId
+      if (!resultId) {
+        const selected = selectRandomResult(matchCount)
+        resultId = selected.id
+        console.log('MYSTERY RESULT SELECTED:', selected.id)
+      } else {
+        console.log('MYSTERY RESULT SELECTED:', resultId, '(already chosen by the other player)')
+      }
+
+      next = { ...latest, status: 'finished', result: 'completed', resultId }
     } else {
       console.log('NEXT ROUND STARTED')
       console.log('MYSTERY NEXT ROUND:', session?.id, 'round', latest.current_round + 1)
@@ -628,6 +621,7 @@ export default function MysteryChoiceGame() {
       }
     }
     await writeState(next)
+    if (isLastRound) console.log('MYSTERY RESULT SAVED:', next.resultId)
     console.log('MYSTERY CHOICE ROUND TRANSITION COMPLETE')
   }
 
@@ -830,23 +824,29 @@ export default function MysteryChoiceGame() {
   // Game complete screen — premium celebration
   if (state.status === 'finished') {
     const history = state.history || []
-    const finalScore = (state.scoreMax || 0) > 0 ? Math.round(((state.scoreTotal || 0) / (state.scoreMax || 1)) * 100) : 0
-    const resultLabel = finalResultLabel(finalScore, lang as 'en' | 'gr')
-    const summary = finalResultSummary(history, finalScore, lang as 'en' | 'gr')
+    const matchCount = state.matches || 0
+
+    let resultVariation = state.resultId ? getResultById(state.resultId) : null
+    console.log('MYSTERY RESULT LOADED:', state.resultId, resultVariation ? 'found' : 'not found')
+    if (!resultVariation) {
+      // Defensive fallback only — normal flow always has a saved resultId by
+      // the time this screen renders, since performRoundTransition selects
+      // and persists it before status ever becomes 'finished'.
+      resultVariation = selectRandomResult(matchCount)
+    }
+
     const shared = topSharedInsights(history, lang as 'en' | 'gr', 3)
     const differences = topDifferences(history, lang as 'en' | 'gr', 2)
     const starters = generateStarters(history, lang as 'en' | 'gr')
     const canChat = chatUnlocked
 
-    console.log('MYSTERY FINAL SCORE:', finalScore)
-    console.log('MYSTERY FINAL LABEL:', resultLabel)
     console.log('MYSTERY FINAL SIMILARITIES:', shared)
     console.log('MYSTERY FINAL DIFFERENCES:', differences)
     console.log('MYSTERY FINAL STARTERS:', starters)
     console.log('MYSTERY FINAL CHAT STATUS:', pairProgressLoading ? 'loading' : progressError ? 'error' : canChat ? 'unlocked' : `locked ${pairCount}/10`)
 
     const circumference = 2 * Math.PI * 52
-    const dashOffset = circumference - (finalScore / 100) * circumference
+    const dashOffset = circumference - (matchCount / 10) * circumference
 
     return (
       <div className="relative flex flex-col h-full items-center justify-center px-5 overflow-hidden" style={{ background: '#0a0a10' }}>
@@ -879,8 +879,11 @@ export default function MysteryChoiceGame() {
               maxHeight: '100%', padding: '24px 20px',
             }}>
 
-              {/* A — Main result */}
+              {/* A — Main result: real match count, emoji, and a varied title/description */}
               <div className="text-center mb-6">
+                <div className="text-[13px] font-bold uppercase tracking-[1.5px] mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  {lang === 'gr' ? `${matchCount} / 10 Ταιριάσματα` : `${matchCount} / 10 Matches`}
+                </div>
                 <div className="relative w-[128px] h-[128px] mx-auto mb-4">
                   <svg width="128" height="128" viewBox="0 0 120 120" className="-rotate-90">
                     <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
@@ -895,15 +898,15 @@ export default function MysteryChoiceGame() {
                       </linearGradient>
                     </defs>
                   </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-[30px] font-black text-white">{finalScore}%</span>
+                  <div className="absolute inset-0 flex items-center justify-center text-[40px]">
+                    {resultVariation.emoji}
                   </div>
                 </div>
                 <div className="text-[17px] font-extrabold mb-2" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8,#7c72ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                  {resultLabel}
+                  {lang === 'gr' ? resultVariation.titleGr : resultVariation.titleEn}
                 </div>
-                <div className="text-[12px] leading-relaxed px-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  {summary}
+                <div className="text-[12.5px] leading-relaxed px-2" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                  {lang === 'gr' ? resultVariation.descriptionGr : resultVariation.descriptionEn}
                 </div>
               </div>
 
