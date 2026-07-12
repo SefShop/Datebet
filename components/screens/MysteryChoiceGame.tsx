@@ -17,12 +17,14 @@ type Selection = string | string[] | null
 
 interface RoundHistoryEntry {
   round: number
-  category: string
+  category: string   // conversation theme this round belonged to
   weight: number
   outcome: 'match' | 'partial' | 'different'
   question: string
   playerOneChoice: Selection
   playerTwoChoice: Selection
+  playerOneTraits: string[]  // traits earned by player one's choice (for the reveal)
+  playerTwoTraits: string[]
 }
 
 interface MysteryChoiceState {
@@ -38,16 +40,18 @@ interface MysteryChoiceState {
   result?: 'completed' | null
   progressCounted?: boolean
   matches?: number
-  scoreTotal?: number   // sum of weighted round scores (for the compatibility %)
-  scoreMax?: number     // sum of round weights so far
+  scoreTotal?: number   // sum of weighted round scores (kept for pair-progress use, not shown as the headline anymore)
+  scoreMax?: number
   history?: RoundHistoryEntry[]  // per-round record, used only by the reveal screen
 }
 
 // Fallback in case a session's state is missing rounds (defensive only)
 const FALLBACK_ROUNDS: RoundData[] = [
-  { id: 'fallback_coffee_wine', category: 'food', type: 'binary', question: 'Coffee or Wine?', questionGr: 'Καφές ή Κρασί;',
-    emoji: ['☕','🍷'], en: ['Coffee', 'Wine'], gr: ['Καφές', 'Κρασί'],
-    options: ['Coffee', 'Wine'], optionsGr: ['Καφές', 'Κρασί'], maxSelect: 1, weight: 1, tags: [] },
+  { id: 'fallback_weekend', category: 'ice_breaker', type: 'binary', question: 'Coffee date or dinner date?', questionGr: 'Καφές ή δείπνο;',
+    conversationGoal: 'Learn their preferred first-date vibe',
+    emoji: ['☕','🍽️'], en: ['Coffee date', 'Dinner date'], gr: ['Καφές', 'Δείπνο'],
+    options: ['Coffee date', 'Dinner date'], optionsGr: ['Καφές', 'Δείπνο'],
+    optionTraits: [['casual'], ['romantic']], maxSelect: 1, weight: 1, tags: ['casual', 'romantic'] },
 ]
 
 // ── Validation helpers (module-level, no component state needed) ──
@@ -66,6 +70,15 @@ function isValidMysteryState(s: any): s is MysteryChoiceState {
     && typeof s.current_round === 'number' && s.current_round >= 0
     && Array.isArray(s.rounds) && s.rounds.length === 10
     && s.rounds.every(isValidRound)
+}
+
+// Resolve which traits a player's choice earned for a given round (single-select only)
+function resolveTraits(round: RoundData, choice: Selection): string[] {
+  if (!choice) return []
+  const label = Array.isArray(choice) ? choice[0] : choice
+  const idx = round.options.indexOf(label)
+  if (idx === -1 || !round.optionTraits) return []
+  return round.optionTraits[idx] || []
 }
 
 // Build a complete, valid Mystery Choice state from the question engine
@@ -92,102 +105,151 @@ function buildFreshMysteryState(): MysteryChoiceState {
 }
 
 // ── Reveal-screen helpers (pure, presentation-only — no game logic) ──
+// DateDuel is a dating app, not a trivia game — the reveal focuses on real
+// conversation insight (shared traits, one honest difference, and starters
+// to talk about after the game), not a raw percentage.
 
-const CATEGORY_LABEL: Record<string, { en: string; gr: string }> = {
-  relationships: { en: 'relationships', gr: 'σχέσεις' },
-  communication: { en: 'communication', gr: 'επικοινωνία' },
-  hobbies: { en: 'hobbies', gr: 'χόμπι' },
-  lifestyle: { en: 'lifestyle', gr: 'τρόπο ζωής' },
-  travel: { en: 'traveling', gr: 'ταξίδια' },
-  food: { en: 'food', gr: 'φαγητό' },
-  music: { en: 'music', gr: 'μουσική' },
-  movies_tv: { en: 'movies & shows', gr: 'ταινίες & σειρές' },
-  personality: { en: 'personality', gr: 'προσωπικότητα' },
-  fitness: { en: 'fitness', gr: 'γυμναστική' },
-  pets: { en: 'pets', gr: 'κατοικίδια' },
-  career: { en: 'career', gr: 'καριέρα' },
-  family: { en: 'family', gr: 'οικογένεια' },
+const THEME_LABEL: Record<string, { en: string; gr: string }> = {
+  ice_breaker: { en: 'spending free time', gr: 'τον ελεύθερο χρόνο' },
+  lifestyle: { en: 'everyday life', gr: 'την καθημερινότητα' },
+  personality: { en: 'who you are', gr: 'την προσωπικότητα' },
+  relationships: { en: 'relationships', gr: 'τις σχέσεις' },
   future: { en: 'the future', gr: 'το μέλλον' },
-  dating_preferences: { en: 'what you look for in dating', gr: 'ό,τι ψάχνεις σε ένα ραντεβού' },
 }
 
-function catLabel(category: string, lang: 'en' | 'gr'): string {
-  return CATEGORY_LABEL[category]?.[lang] || category
+// "You both ..." sentence for a shared trait, and a natural follow-up
+// conversation-starter question for that same trait.
+const TRAIT_INSIGHT: Record<string, { line: { en: string; gr: string }; starter: { en: string; gr: string } }> = {
+  likes_travel: { line: { en: 'You both love discovering new places.', gr: 'Και οι δύο λατρεύετε να ανακαλύπτετε νέα μέρη.' },
+    starter: { en: 'What destination is at the top of your bucket list?', gr: 'Ποιος προορισμός είναι στην κορυφή της λίστας σου;' } },
+  outdoor_person: { line: { en: 'You both feel most alive outdoors.', gr: 'Και οι δύο νιώθετε πιο ζωντανοί στη φύση.' },
+    starter: { en: "What's your favorite way to spend time outside?", gr: 'Ποιος είναι ο αγαπημένος σου τρόπος να περνάς χρόνο έξω;' } },
+  homebody: { line: { en: 'You both genuinely enjoy a quiet night in.', gr: 'Και οι δύο απολαμβάνετε μια ήσυχη βραδιά σπίτι.' },
+    starter: { en: "What does your perfect night in look like?", gr: 'Πώς είναι η τέλεια βραδιά σου σπίτι;' } },
+  social: { line: { en: 'You both light up around people.', gr: 'Και οι δύο ζωντανεύετε ανάμεσα σε κόσμο.' },
+    starter: { en: "Who's someone whose company always energizes you?", gr: 'Ποιος είναι κάποιος που η παρέα του πάντα σε φορτίζει;' } },
+  adventurous: { line: { en: "You both chase new experiences.", gr: 'Και οι δύο κυνηγάτε νέες εμπειρίες.' },
+    starter: { en: "What's the most adventurous thing you've ever done?", gr: 'Ποιο είναι το πιο τολμηρό πράγμα που έχεις κάνει;' } },
+  relaxed: { line: { en: 'You both know how to slow down and just be.', gr: 'Και οι δύο ξέρετε να χαλαρώνετε πραγματικά.' },
+    starter: { en: "What's your idea of a perfectly relaxing day?", gr: 'Ποια είναι η ιδανική σου χαλαρωτική μέρα;' } },
+  romantic: { line: { en: 'You both wear your heart on your sleeve.', gr: 'Και οι δύο δείχνετε ανοιχτά τα συναισθήματά σας.' },
+    starter: { en: 'What makes you feel most loved?', gr: 'Τι σε κάνει να νιώθεις πιο αγαπημένος/η;' } },
+  introvert: { line: { en: "You both recharge best with quiet time.", gr: 'Και οι δύο επαναφορτίζεστε καλύτερα με ησυχία.' },
+    starter: { en: 'How do you like to spend time completely alone?', gr: 'Πώς σου αρέσει να περνάς χρόνο εντελώς μόνος/η;' } },
+  extrovert: { line: { en: 'You both get your energy from being around others.', gr: 'Και οι δύο παίρνετε ενέργεια από τους άλλους.' },
+    starter: { en: "What's the best group hangout you've had recently?", gr: 'Ποια ήταν η καλύτερη παρέα πρόσφατα;' } },
+  deep_talker: { line: { en: 'You both love a real, honest conversation.', gr: 'Και οι δύο λατρεύετε μια αληθινή, ειλικρινή κουβέντα.' },
+    starter: { en: "What's a conversation that changed how you see something?", gr: 'Ποια συζήτηση άλλαξε τον τρόπο που βλέπεις κάτι;' } },
+  playful: { line: { en: 'You both don\'t take life too seriously.', gr: 'Και οι δύο δεν παίρνετε τη ζωή πολύ στα σοβαρά.' },
+    starter: { en: "What's something that always makes you laugh?", gr: 'Τι σε κάνει πάντα να γελάς;' } },
+  dependable: { line: { en: 'You both show up for the people you care about.', gr: 'Και οι δύο στηρίζετε τους ανθρώπους που νοιάζεστε.' },
+    starter: { en: 'How do you like to show someone you can be counted on?', gr: 'Πώς δείχνεις σε κάποιον ότι μπορεί να σε βασιστεί;' } },
+  planner: { line: { en: 'You both like knowing the plan.', gr: 'Και οι δύο σας αρέσει να ξέρετε το σχέδιο.' },
+    starter: { en: "What's a trip you'd love to plan together someday?", gr: 'Ποιο ταξίδι θα ήθελες να σχεδιάσετε μαζί κάποια μέρα;' } },
+  spontaneous: { line: { en: 'You both love keeping things unplanned.', gr: 'Και οι δύο λατρεύετε τον αυθορμητισμό.' },
+    starter: { en: "What's the most spontaneous thing you've ever done?", gr: 'Ποιο είναι το πιο αυθόρμητο πράγμα που έχεις κάνει;' } },
+  career_focused: { line: { en: 'You both take your goals seriously.', gr: 'Και οι δύο παίρνετε στα σοβαρά τους στόχους σας.' },
+    starter: { en: "What's a goal you're really proud of chasing?", gr: 'Ποιος στόχος σε κάνει περήφανο/η που τον κυνηγάς;' } },
+  likes_family: { line: { en: 'Family matters deeply to both of you.', gr: 'Η οικογένεια έχει μεγάλη σημασία και για τους δύο σας.' },
+    starter: { en: "What's your favorite family tradition?", gr: 'Ποια είναι η αγαπημένη σου οικογενειακή παράδοση;' } },
+  creative: { line: { en: 'You both express yourselves creatively.', gr: 'Και οι δύο εκφράζεστε δημιουργικά.' },
+    starter: { en: "What's a creative project you'd love to try?", gr: 'Ποιο δημιουργικό project θα ήθελες να δοκιμάσεις;' } },
+  pet_lover: { line: { en: 'You\'re both total softies for animals.', gr: 'Και οι δύο λιώνετε για τα ζώα.' },
+    starter: { en: "Tell me about a pet that means the world to you.", gr: 'Πες μου για ένα κατοικίδιο που σημαίνει πολλά για σένα.' } },
+  independent: { line: { en: 'You both value your own space and freedom.', gr: 'Και οι δύο εκτιμάτε τον δικό σας χώρο και ελευθερία.' },
+    starter: { en: 'What does having your own space mean to you?', gr: 'Τι σημαίνει για σένα να έχεις τον δικό σου χώρο;' } },
+  witty: { line: { en: 'You both appreciate clever humor.', gr: 'Και οι δύο εκτιμάτε το έξυπνο χιούμορ.' },
+    starter: { en: "What's the funniest thing someone's said to you recently?", gr: 'Ποιο ήταν το πιο αστείο πράγμα που σου είπε κάποιος πρόσφατα;' } },
+  active: { line: { en: 'Staying active matters to both of you.', gr: 'Η κίνηση έχει σημασία και για τους δύο σας.' },
+    starter: { en: "What's your favorite way to move your body?", gr: 'Ποιος είναι ο αγαπημένος σου τρόπος άσκησης;' } },
+  balanced: { line: { en: 'You both aim for a healthy middle ground.', gr: 'Και οι δύο ψάχνετε μια υγιή ισορροπία.' },
+    starter: { en: "How do you personally define balance in life?", gr: 'Πώς ορίζεις εσύ την ισορροπία στη ζωή;' } },
+  kind: { line: { en: 'How you both treat people really matters to you.', gr: 'Το πώς φέρεστε στους άλλους έχει σημασία και για τους δύο.' },
+    starter: { en: "Who's someone who taught you a lot about kindness?", gr: 'Ποιος σε δίδαξε πολλά για την καλοσύνη;' } },
+  growth_minded: { line: { en: "You're both always working on becoming better.", gr: 'Και οι δύο δουλεύετε συνεχώς να γίνεστε καλύτεροι.' },
+    starter: { en: 'What\'s something you\'ve grown a lot in recently?', gr: 'Σε τι έχεις εξελιχθεί πολύ τελευταία;' } },
+  confident: { line: { en: 'You both walk into a room with confidence.', gr: 'Και οι δύο μπαίνετε σε έναν χώρο με αυτοπεποίθηση.' },
+    starter: { en: "What's helped you build your confidence over time?", gr: 'Τι σε βοήθησε να χτίσεις την αυτοπεποίθησή σου;' } },
+  storyteller: { line: { en: 'You both love a good story.', gr: 'Και οι δύο λατρεύετε μια καλή ιστορία.' },
+    starter: { en: "What's a story you love telling people?", gr: 'Ποια ιστορία σου αρέσει να λες στον κόσμο;' } },
+  city_person: { line: { en: 'You both feel at home in the city.', gr: 'Και οι δύο νιώθετε σπίτι σας στην πόλη.' },
+    starter: { en: "What's your favorite thing about city life?", gr: 'Τι αγαπάς περισσότερο στη ζωή της πόλης;' } },
 }
 
-// Which of the 4 summary buckets a question's category rolls up into
-function categoryBucket(category: string): 'communication' | 'lifestyle' | 'values' | 'adventure' | null {
-  if (category === 'communication') return 'communication'
-  if (category === 'lifestyle' || category === 'food' || category === 'music' || category === 'movies_tv') return 'lifestyle'
-  if (['relationships', 'dating_preferences', 'family', 'future', 'personality'].includes(category)) return 'values'
-  if (['travel', 'hobbies', 'fitness', 'career', 'pets'].includes(category)) return 'adventure'
-  return null
+// Fallback for traits without a specific line (rare, keeps the reveal from ever being empty)
+function genericTraitLine(trait: string, lang: 'en' | 'gr'): string {
+  const readable = trait.replace(/_/g, ' ')
+  return lang === 'gr' ? `Και οι δύο μοιράζεστε: ${readable}.` : `You both share: ${readable}.`
 }
 
-function choiceLabel(choice: Selection, lang: 'en' | 'gr'): string {
-  if (!choice) return ''
-  return Array.isArray(choice) ? choice.join(', ') : choice
-}
-
-interface CategoryBreakdown { communication: number; lifestyle: number; values: number; adventure: number }
-
-function computeCategoryBreakdown(history: RoundHistoryEntry[], overallPct: number): CategoryBreakdown {
-  const buckets: Record<string, { score: number; max: number }> = {
-    communication: { score: 0, max: 0 }, lifestyle: { score: 0, max: 0 },
-    values: { score: 0, max: 0 }, adventure: { score: 0, max: 0 },
-  }
-  for (const h of history) {
-    const b = categoryBucket(h.category)
-    if (!b) continue
-    buckets[b].max += h.weight
-    buckets[b].score += h.outcome === 'match' ? h.weight : h.outcome === 'partial' ? h.weight * 0.5 : 0
-  }
-  const pct = (b: { score: number; max: number }) => b.max > 0 ? Math.round((b.score / b.max) * 100) : overallPct
-  return {
-    communication: pct(buckets.communication),
-    lifestyle: pct(buckets.lifestyle),
-    values: pct(buckets.values),
-    adventure: pct(buckets.adventure),
-  }
-}
-
-function topSimilarities(history: RoundHistoryEntry[], lang: 'en' | 'gr'): string[] {
-  const matched = history.filter(h => h.outcome === 'match').sort((a, b) => b.weight - a.weight).slice(0, 3)
-  return matched.map(h => {
-    const label = catLabel(h.category, lang)
-    return lang === 'gr' ? `Και οι δύο απολαμβάνετε ${label}.` : `You both enjoy ${label}.`
-  })
-}
-
-function biggestDifference(history: RoundHistoryEntry[], myId: string | null, session: any, lang: 'en' | 'gr'): { line: string; category: string } | null {
+function biggestDifferenceInsight(history: RoundHistoryEntry[], lang: 'en' | 'gr'): { line: string; starter: string; category: string } | null {
   const diffs = history.filter(h => h.outcome === 'different').sort((a, b) => b.weight - a.weight)
   if (diffs.length === 0) return null
   const d = diffs[0]
-  const isPlayerOne = myId === session?.player_one_id
-  const mine = isPlayerOne ? d.playerOneChoice : d.playerTwoChoice
-  const theirs = isPlayerOne ? d.playerTwoChoice : d.playerOneChoice
-  const mineLabel = choiceLabel(mine, lang)
-  const theirsLabel = choiceLabel(theirs, lang)
-  const line = lang === 'gr'
-    ? `Εσύ διάλεξες "${mineLabel}".\nΟ/Η σύντροφός σου διάλεξε "${theirsLabel}".`
-    : `You chose "${mineLabel}".\nYour partner chose "${theirsLabel}".`
-  return { line, category: d.category }
+  const themeLabel = THEME_LABEL[d.category]?.[lang] || d.category
+  const line = lang === 'gr' ? `Έχετε διαφορετικό τρόπο για ${themeLabel}.` : `You have different ways of approaching ${themeLabel}.`
+  const starter = lang === 'gr'
+    ? 'Απαντήσατε διαφορετικά εδώ — ποιος νομίζεις θα έπειθε τον άλλον πρώτος;'
+    : 'You answered differently here — who do you think would convince the other first?'
+  return { line, starter, category: d.category }
 }
 
-function generateSummary(pct: number, breakdown: CategoryBreakdown, diffCategory: string | null, lang: 'en' | 'gr'): string {
-  const tier = pct >= 85 ? (lang === 'gr' ? 'πολύ ισχυρή' : 'strong long-term')
-    : pct >= 65 ? (lang === 'gr' ? 'καλή' : 'good')
-    : (lang === 'gr' ? 'αναδυόμενη' : 'developing')
-  const entries = Object.entries(breakdown) as [keyof CategoryBreakdown, number][]
-  const top = entries.sort((a, b) => b[1] - a[1])[0][0]
-  const topLabel = { communication: lang === 'gr' ? 'επικοινωνίας' : 'communication', lifestyle: lang === 'gr' ? 'τρόπου ζωής' : 'lifestyle',
-    values: lang === 'gr' ? 'αξιών' : 'values', adventure: lang === 'gr' ? 'περιπέτειας' : 'adventure' }[top]
-  const diffLabel = diffCategory ? catLabel(diffCategory, lang) : (lang === 'gr' ? 'κάποιες προτιμήσεις' : 'a few preferences')
-
-  if (lang === 'gr') {
-    return `Έχετε ${tier} συμβατότητα. Τα στιλ ${topLabel} σας μοιάζουν πολύ. Η μεγαλύτερη πρόκλησή σας θα είναι να ισορροπήσετε γύρω από ${diffLabel}.`
+// "What We Learned About Each Other" — a natural mix of shared-trait insights
+// plus one honest difference, exactly like two people comparing notes after a date.
+function whatWeLearned(history: RoundHistoryEntry[], lang: 'en' | 'gr'): string[] {
+  const seen = new Set<string>()
+  const lines: string[] = []
+  const sorted = [...history].sort((a, b) => b.weight - a.weight)
+  for (const h of sorted) {
+    const shared = h.playerOneTraits.filter(t => h.playerTwoTraits.includes(t))
+    for (const trait of shared) {
+      if (seen.has(trait)) continue
+      seen.add(trait)
+      lines.push(TRAIT_INSIGHT[trait]?.line[lang] || genericTraitLine(trait, lang))
+      if (lines.length >= 3) break
+    }
+    if (lines.length >= 3) break
   }
-  return `You have ${tier} compatibility. Your ${topLabel} styles are very similar. Your biggest challenge will be balancing ${diffLabel}.`
+  const diff = biggestDifferenceInsight(history, lang)
+  if (diff) lines.push(diff.line)
+  if (lines.length === 0) {
+    lines.push(lang === 'gr' ? 'Μόλις αρχίσατε να γνωρίζεστε — υπάρχουν πολλά ακόμα να ανακαλύψετε.' : "You're just getting to know each other — there's plenty more to discover.")
+  }
+  return lines
+}
+
+// Three natural conversation starters to actually use in chat afterward.
+function conversationStarters(history: RoundHistoryEntry[], lang: 'en' | 'gr'): string[] {
+  const seen = new Set<string>()
+  const starters: string[] = []
+  const sorted = [...history].sort((a, b) => b.weight - a.weight)
+  for (const h of sorted) {
+    const shared = h.playerOneTraits.filter(t => h.playerTwoTraits.includes(t))
+    for (const trait of shared) {
+      if (seen.has(trait) || !TRAIT_INSIGHT[trait]) continue
+      seen.add(trait)
+      const t = TRAIT_INSIGHT[trait]
+      starters.push(`${t.line[lang]}\n${t.starter[lang]}`)
+      if (starters.length >= 2) break
+    }
+    if (starters.length >= 2) break
+  }
+  const diff = biggestDifferenceInsight(history, lang)
+  if (diff) starters.push(`${diff.line}\n${diff.starter}`)
+  while (starters.length < 3) {
+    starters.push(lang === 'gr'
+      ? 'Τι σε εξέπληξε περισσότερο σε αυτό το παιχνίδι;'
+      : "What surprised you most about this game?")
+  }
+  return starters.slice(0, 3)
+}
+
+function compatibilityLabel(score: number, lang: 'en' | 'gr'): string {
+  if (score >= 8) return lang === 'gr' ? 'Τέλειο Ταίριασμα' : 'Great Match!'
+  if (score >= 6) return lang === 'gr' ? 'Καταπληκτική Χημεία' : 'Amazing Chemistry'
+  if (score >= 4) return lang === 'gr' ? 'Υπέροχη Σύνδεση' : 'Great Connection'
+  if (score >= 2) return lang === 'gr' ? 'Καλές Προοπτικές' : 'Good Potential'
+  return lang === 'gr' ? 'Συνέχισε να Ανακαλύπτεις' : 'Keep Discovering'
 }
 
 export default function MysteryChoiceGame() {
@@ -416,6 +478,8 @@ export default function MysteryChoiceGame() {
         round: next.current_round, category: round.category,
         weight: round.weight, outcome: scoreResult.outcome, question: round.question,
         playerOneChoice: next.player_one_choice, playerTwoChoice: next.player_two_choice,
+        playerOneTraits: resolveTraits(round, next.player_one_choice),
+        playerTwoTraits: resolveTraits(round, next.player_two_choice),
       }
       const history = [...(next.history || []), historyEntry]
       await writeState({ ...next, round_result: scoreResult.outcome, matches, scoreTotal, scoreMax, history })
@@ -445,6 +509,8 @@ export default function MysteryChoiceGame() {
             round: latest.current_round, category: round.category,
             weight: round.weight, outcome: scoreResult.outcome, question: round.question,
             playerOneChoice: latest.player_one_choice, playerTwoChoice: latest.player_two_choice,
+            playerOneTraits: resolveTraits(round, latest.player_one_choice),
+            playerTwoTraits: resolveTraits(round, latest.player_two_choice),
           }
           const history = [...(latest.history || []), historyEntry]
           await writeState({ ...latest, round_result: scoreResult.outcome, matches, scoreTotal, scoreMax, history })
@@ -632,14 +698,6 @@ export default function MysteryChoiceGame() {
     navigate('waiting')
   }
 
-  function compatibilityLabel(score: number): string {
-    if (score >= 8) return lang === 'gr' ? 'Τέλειο Ταίριασμα' : 'Perfect Match'
-    if (score >= 6) return lang === 'gr' ? 'Καταπληκτική Χημεία' : 'Amazing Chemistry'
-    if (score >= 4) return lang === 'gr' ? 'Υπέροχη Σύνδεση' : 'Great Connection'
-    if (score >= 2) return lang === 'gr' ? 'Καλές Προοπτικές' : 'Good Potential'
-    return lang === 'gr' ? 'Συνέχισε να Ανακαλύπτεις' : 'Keep Discovering'
-  }
-
   if (loading || preparing || sessionRetrying) {
     return (
       <div className="flex items-center justify-center h-full" style={{ background: '#0a0a10' }}>
@@ -691,21 +749,11 @@ export default function MysteryChoiceGame() {
 
   // Game complete screen — premium celebration
   if (state.status === 'finished') {
-    const scoreOutOf = rounds.length
-    const matchCount = state.matches || 0
-    // Weighted compatibility % — uses each round's weight (and, for multi-select
-    // rounds, partial overlap credit) instead of only counting identical answers.
-    const pct = (state.scoreMax || 0) > 0 ? Math.round(((state.scoreTotal || 0) / (state.scoreMax || 1)) * 100) : 0
     const history = state.history || []
-    const breakdown = computeCategoryBreakdown(history, pct)
-    const similarities = topSimilarities(history, lang as 'en' | 'gr')
-    const difference = biggestDifference(history, myId, session, lang as 'en' | 'gr')
-    const summary = generateSummary(pct, breakdown, difference?.category || null, lang as 'en' | 'gr')
+    const learned = whatWeLearned(history, lang as 'en' | 'gr')
+    const starters = conversationStarters(history, lang as 'en' | 'gr')
+    const matchCount = state.matches || 0
     const canChat = pairCount >= 10
-
-    const shortExplanation = similarities.length > 0
-      ? (lang === 'gr' ? `Και οι δύο δίνετε αξία σε ${catLabel(history.find(h => h.outcome === 'match')?.category || 'relationships', 'gr')} και ειλικρινή επικοινωνία.` : `You both value ${catLabel(history.find(h => h.outcome === 'match')?.category || 'relationships', 'en')} and honest communication.`)
-      : (lang === 'gr' ? 'Ανακαλύψατε πολλά ο ένας για τον άλλον.' : 'You discovered a lot about each other.')
 
     return (
       <div className="relative flex flex-col h-full items-center justify-center px-6 overflow-hidden" style={{ background: '#0a0a10' }}>
@@ -726,19 +774,23 @@ export default function MysteryChoiceGame() {
           </div>
         )}
 
-        {/* Step 1 — Relationship Compatibility */}
+        {/* Step 1 — What We Learned About Each Other */}
         {revealStep === 1 && (
-          <div key="card1" className="relative z-10 flex flex-col items-center w-full max-w-[380px]" style={{ animation: 'mcCardIn 0.5s cubic-bezier(0.34,1.4,0.64,1) both' }}>
-            <div className="rounded-3xl p-8 w-full text-center" style={{ background: 'rgba(15,12,25,0.75)', backdropFilter: 'blur(28px) saturate(1.5)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 50px rgba(253,41,123,0.12)' }}>
-              <div className="text-[36px] mb-2">❤️</div>
-              <div className="text-[13px] font-bold uppercase tracking-[1.5px] mb-4" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                {lang === 'gr' ? 'Συμβατότητα Σχέσης' : 'Relationship Compatibility'}
+          <div key="learned" className="relative z-10 flex flex-col items-center w-full max-w-[380px]" style={{ animation: 'mcCardIn 0.5s cubic-bezier(0.34,1.4,0.64,1) both' }}>
+            <div className="rounded-3xl p-7 w-full" style={{ background: 'rgba(15,12,25,0.78)', backdropFilter: 'blur(28px) saturate(1.5)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 50px rgba(253,41,123,0.12)' }}>
+              <div className="text-center mb-5">
+                <div className="text-[36px] mb-2">❤️</div>
+                <div className="text-[16px] font-extrabold text-white">
+                  {lang === 'gr' ? 'Τι Μάθατε ο Ένας για τον Άλλον' : 'What We Learned About Each Other'}
+                </div>
               </div>
-              <div className="text-[52px] font-black mb-4" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8,#7c72ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                {pct}%
-              </div>
-              <div className="text-[13px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                {shortExplanation}
+              <div className="flex flex-col gap-2.5">
+                {learned.map((line, i) => (
+                  <div key={i} className="flex items-start gap-2.5 rounded-2xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
+                    <span style={{ color: '#4ade80' }}>•</span>
+                    <span className="text-[13px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.85)' }}>{line}</span>
+                  </div>
+                ))}
               </div>
             </div>
             <button onClick={() => setRevealStep(2)} className="rounded-2xl px-10 py-3.5 text-[14px] font-bold mt-6 active:scale-95 transition-transform cursor-pointer"
@@ -748,89 +800,26 @@ export default function MysteryChoiceGame() {
           </div>
         )}
 
-        {/* Step 2 — Biggest Similarities */}
+        {/* Step 2 — Conversation starters + final actions */}
         {revealStep === 2 && (
-          <div key="card2" className="relative z-10 flex flex-col items-center w-full max-w-[380px]" style={{ animation: 'mcCardIn 0.5s cubic-bezier(0.34,1.4,0.64,1) both' }}>
-            <div className="rounded-3xl p-8 w-full" style={{ background: 'rgba(15,12,25,0.75)', backdropFilter: 'blur(28px) saturate(1.5)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 50px rgba(124,114,255,0.1)' }}>
+          <div key="starters" className="relative z-10 flex flex-col items-center w-full max-w-[380px] overflow-y-auto" style={{ animation: 'mcCardIn 0.5s cubic-bezier(0.34,1.4,0.64,1) both', maxHeight: '100%' }}>
+            <div className="rounded-3xl p-7 w-full" style={{ background: 'rgba(15,12,25,0.78)', backdropFilter: 'blur(28px) saturate(1.5)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 60px rgba(124,114,255,0.14)' }}>
               <div className="text-center mb-5">
-                <div className="text-[36px] mb-2">✨</div>
-                <div className="text-[15px] font-extrabold text-white">
-                  {lang === 'gr' ? 'Οι Μεγαλύτερες Ομοιότητές σας' : 'Your Biggest Similarities'}
+                <div className="text-[36px] mb-1" style={{ animation: 'mcFloat 3s ease-in-out infinite' }}>🎉</div>
+                <div className="text-[16px] font-extrabold mb-1" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8,#7c72ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                  {compatibilityLabel(matchCount, lang as 'en' | 'gr')}
                 </div>
-              </div>
-              <div className="flex flex-col gap-2.5">
-                {(similarities.length > 0 ? similarities : [lang === 'gr' ? 'Μοιραστήκατε αρκετά κοινά σημεία.' : 'You shared quite a few common answers.']).map((line, i) => (
-                  <div key={i} className="flex items-start gap-2.5 rounded-2xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
-                    <span style={{ color: '#4ade80' }}>•</span>
-                    <span className="text-[13px]" style={{ color: 'rgba(255,255,255,0.85)' }}>{line}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <button onClick={() => setRevealStep(3)} className="rounded-2xl px-10 py-3.5 text-[14px] font-bold mt-6 active:scale-95 transition-transform cursor-pointer"
-              style={{ background: 'linear-gradient(135deg,#7c72ff,#d84dd8)', color: '#fff', boxShadow: '0 8px 28px rgba(108,99,255,0.4)' }}>
-              {lang === 'gr' ? 'Συνέχεια →' : 'Continue →'}
-            </button>
-          </div>
-        )}
-
-        {/* Step 3 — Biggest Difference */}
-        {revealStep === 3 && (
-          <div key="card3" className="relative z-10 flex flex-col items-center w-full max-w-[380px]" style={{ animation: 'mcCardIn 0.5s cubic-bezier(0.34,1.4,0.64,1) both' }}>
-            <div className="rounded-3xl p-8 w-full text-center" style={{ background: 'rgba(15,12,25,0.75)', backdropFilter: 'blur(28px) saturate(1.5)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 50px rgba(253,41,123,0.1)' }}>
-              <div className="text-[36px] mb-2">🔥</div>
-              <div className="text-[15px] font-extrabold text-white mb-4">
-                {lang === 'gr' ? 'Η Μεγαλύτερη Διαφορά' : 'Biggest Difference'}
-              </div>
-              <div className="text-[14px] leading-relaxed whitespace-pre-line mb-4" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                {difference?.line || (lang === 'gr' ? 'Ταιριάξατε σε όλες σχεδόν τις ερωτήσεις!' : 'You matched on almost everything!')}
-              </div>
-              <div className="text-[11px] italic" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                {lang === 'gr' ? 'Το διαφορετικό δεν σημαίνει ασύμβατο.' : "Different doesn't mean incompatible."}
-              </div>
-            </div>
-            <button onClick={() => setRevealStep(4)} className="rounded-2xl px-10 py-3.5 text-[14px] font-bold mt-6 active:scale-95 transition-transform cursor-pointer"
-              style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 28px rgba(253,41,123,0.4)' }}>
-              {lang === 'gr' ? 'Συνέχεια →' : 'Continue →'}
-            </button>
-          </div>
-        )}
-
-        {/* Step 4 — Final Card */}
-        {revealStep === 4 && (
-          <div key="card4" className="relative z-10 flex flex-col items-center w-full max-w-[380px] overflow-y-auto" style={{ animation: 'mcCardIn 0.5s cubic-bezier(0.34,1.4,0.64,1) both', maxHeight: '100%' }}>
-            <div className="rounded-3xl p-7 w-full" style={{ background: 'rgba(15,12,25,0.78)', backdropFilter: 'blur(28px) saturate(1.5)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 60px rgba(253,41,123,0.14)' }}>
-              <div className="text-center mb-5">
-                <div className="text-[40px] mb-1" style={{ animation: 'mcFloat 3s ease-in-out infinite' }}>🎉</div>
-                <div className="text-[18px] font-extrabold" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8,#7c72ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                  {compatibilityLabel(matchCount)}
+                <div className="text-[11px] font-bold uppercase tracking-[1.5px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  {lang === 'gr' ? 'Αφορμές για Κουβέντα' : 'Conversation Starters'}
                 </div>
               </div>
 
-              {/* Percentage bars */}
               <div className="flex flex-col gap-3 mb-5">
-                {[
-                  { label: lang === 'gr' ? 'Συμβατότητα' : 'Compatibility', value: pct, color: '#ff3384' },
-                  { label: lang === 'gr' ? 'Επικοινωνία' : 'Communication', value: breakdown.communication, color: '#d84dd8' },
-                  { label: lang === 'gr' ? 'Τρόπος Ζωής' : 'Lifestyle', value: breakdown.lifestyle, color: '#7c72ff' },
-                  { label: lang === 'gr' ? 'Αξίες Σχέσης' : 'Relationship Values', value: breakdown.values, color: '#4ade80' },
-                  { label: lang === 'gr' ? 'Περιπέτεια' : 'Adventure', value: breakdown.adventure, color: '#38bdf8' },
-                ].map((row, i) => (
-                  <div key={row.label}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-semibold" style={{ color: 'rgba(255,255,255,0.65)' }}>{row.label}</span>
-                      <span className="text-[11px] font-bold" style={{ color: row.color }}>{row.value}%</span>
-                    </div>
-                    <div className="w-full h-[6px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${row.value}%`, background: row.color, transition: `width 0.8s cubic-bezier(0.4,0,0.2,1) ${0.1 * i}s` }} />
-                    </div>
+                {starters.map((s, i) => (
+                  <div key={i} className="rounded-2xl px-4 py-3.5 text-[12px] leading-relaxed whitespace-pre-line" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', animation: `mcFadeIn 0.4s ease ${0.1 * i}s both` }}>
+                    {s}
                   </div>
                 ))}
-              </div>
-
-              {/* Summary */}
-              <div className="rounded-2xl px-4 py-3.5 mb-5 text-[12px] leading-relaxed" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.75)' }}>
-                {summary}
               </div>
 
               <div className="flex flex-col gap-3">
@@ -870,6 +859,7 @@ export default function MysteryChoiceGame() {
       </div>
     )
   }
+
 
 
   const waitingOnOpponent = !!myChoice && !state.round_result
