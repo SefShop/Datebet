@@ -164,10 +164,11 @@ export default function ProfileScreenNew() {
   }
 
   return (
-    <div className="flex flex-col overflow-hidden" style={{ background:'#0a0a10', height: '100dvh', maxHeight: '100dvh' }}>
+    <div className="mc-profile-shell flex flex-col overflow-hidden" style={{ background:'#0a0a10', height: '100dvh', maxHeight: '100dvh', position: 'relative' }}>
 
-      {/* Top spacer — compact */}
-      <div className="pt-8 pb-1 flex-shrink-0" />
+      {/* Top spacer — compact, fixed height; the account menu/language switch live
+          outside this component (rendered by the app shell) and are unaffected */}
+      <div className="mc-profile-top pt-8 pb-1 flex-shrink-0" />
 
       {/* Game picker modal */}
       {showPicker && (
@@ -258,8 +259,8 @@ export default function ProfileScreenNew() {
       {/* ── READY — show profile card (v2 design) ── */}
       {state === 'ready' && p && (
         <>
-          <div className="discover-card-area-v2 flex-1 min-h-0 flex items-center justify-center overflow-hidden" style={{ padding: '4px 10px' }}>
-            <div key={p.id + idx} className="discover-card-v2 rounded-[28px] overflow-hidden relative flex flex-col"
+          <div className="discover-card-area-v2 mc-profile-card-area flex-1 min-h-0 flex items-center justify-center overflow-hidden" style={{ padding: '4px 10px' }}>
+            <div key={p.id + idx} className="discover-card-v2 mc-profile-card rounded-[28px] overflow-hidden relative flex flex-col"
               style={{
                 width: 'calc(100% - 16px)', maxWidth: 460, height: '100%', margin: '0 auto',
                 transform: `translateX(${tx}) rotate(${rot})`, opacity: op,
@@ -273,7 +274,7 @@ export default function ProfileScreenNew() {
 
               {/* Photo — takes ~47% of the card's actual available height (never vh-based,
                   so it always fits alongside the info section and action bar below) */}
-              <div className="relative overflow-hidden flex items-center justify-center flex-shrink-0"
+              <div className="mc-photo-zone relative overflow-hidden flex items-center justify-center flex-shrink-0"
                 style={{ flex: '0 0 47%', minHeight: 0, background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.295) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.236) 0%, transparent 55%), linear-gradient(160deg, #1c1628 0%, #100a1a 100%)' }}>
 
                 {canShowPhoto ? (
@@ -348,19 +349,19 @@ export default function ProfileScreenNew() {
               </div>
 
               {/* Info — compact sections filling the remaining ~53% of the card, no scroll */}
-              <div className="px-5 py-3 flex flex-col" style={{ background:'#08080c', flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
+              <div className="mc-info-zone px-5 py-3 flex flex-col" style={{ background:'#08080c', flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
 
-                {/* Interests — single compact row */}
-                <div className="mb-2.5 flex-shrink-0">
+                {/* Interests — single row, max 3, never wraps */}
+                <div className="mc-interests-zone mb-2.5 flex-shrink-0">
                   <div className="text-[10px] font-bold uppercase tracking-[1.5px] mb-1.5 flex items-center gap-1.5"
                     style={{ color: 'rgba(255,255,255,0.4)' }}>
                     🏷 {lang === 'gr' ? 'Ενδιαφέροντα' : 'Interests'}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 overflow-hidden" style={{ maxHeight: 30 }}>
+                  <div className="flex gap-1.5 overflow-hidden" style={{ height: 26, flexWrap: 'nowrap' }}>
                     {p.interests.length > 0 ? (
-                      p.interests.map(tag => (
-                        <span key={tag} className="text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap"
-                          style={{ background:'rgba(108,99,255,0.12)', color:'rgba(255,255,255,0.85)', border:'1px solid rgba(108,99,255,0.24)' }}>
+                      p.interests.slice(0, 3).map(tag => (
+                        <span key={tag} className="text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap overflow-hidden"
+                          style={{ background:'rgba(108,99,255,0.12)', color:'rgba(255,255,255,0.85)', border:'1px solid rgba(108,99,255,0.24)', textOverflow: 'ellipsis', maxWidth: 140 }}>
                           {tag}
                         </span>
                       ))
@@ -374,7 +375,7 @@ export default function ProfileScreenNew() {
 
                 {/* Bio — max 2-line preview; "More" opens a detail sheet, card itself never grows */}
                 {p.bio[lang] && (
-                  <div className="mb-2.5 flex-shrink-0">
+                  <div className="mc-bio-zone mb-2.5 flex-shrink-0">
                     <div className="text-[10px] font-bold uppercase tracking-[1.5px] mb-1 flex items-center gap-1.5"
                       style={{ color: 'rgba(255,255,255,0.4)' }}>
                       📝 Bio
@@ -399,8 +400,9 @@ export default function ProfileScreenNew() {
                   </div>
                 )}
 
-                {/* Reveal progress + unlock status — fixed compact block, always at the bottom of the info area */}
-                <div className="rounded-2xl p-3 mt-auto flex-shrink-0"
+                {/* Reveal progress + unlock status — anchored to the bottom of the card;
+                    never moves regardless of bio/interests content */}
+                <div className="mc-reveal-zone rounded-2xl p-3 mt-auto flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg, rgba(253,41,123,0.1), rgba(108,99,255,0.075))', border: '1px solid rgba(253,41,123,0.18)' }}>
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-1.5">
@@ -449,7 +451,7 @@ export default function ProfileScreenNew() {
             </>
           )}
           {/* Action buttons — same DateDuel actions, unchanged handlers */}
-          <div className="discover-actions-v2 flex-shrink-0 flex items-center justify-center gap-5 px-6 pt-2"
+          <div className="discover-actions-v2 mc-profile-actions flex-shrink-0 flex items-center justify-center gap-5 px-6 pt-2"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', background: 'linear-gradient(to top, #0a0a10 60%, transparent)' }}>
             <button onClick={pass} disabled={locked}
               className="w-16 h-16 rounded-full flex items-center justify-center text-[22px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"
@@ -483,6 +485,93 @@ export default function ProfileScreenNew() {
         @keyframes mysteryFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
         @keyframes cardReveal { from{opacity:0;transform:translateY(24px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
+
+        /* ── Mobile fixed shell (below 768px only) ──────────────────────
+           Replaces flex-distributed sizing with explicit fixed zones so the
+           card and action bar never move between profiles, photos, or
+           content lengths. Desktop/tablet keep their existing flex layout
+           entirely untouched — none of these rules apply above 767px. */
+        @media (max-width: 767.98px) {
+          .mc-profile-shell {
+            height: 100dvh !important;
+            min-height: 100dvh !important;
+            max-height: 100dvh !important;
+            overflow: hidden !important;
+            position: relative !important;
+          }
+          .mc-profile-top {
+            flex: 0 0 40px !important;
+            height: 40px !important;
+            padding: 0 !important;
+          }
+          /* Card area + action bar heights are derived from the SAME calc()
+             expression for the bottom bar, so they always stay in sync. */
+          .mc-profile-card-area {
+            position: absolute !important;
+            top: 40px !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: calc(64px + 8px + env(safe-area-inset-bottom, 0px) + 16px) !important;
+            padding: 4px 10px !important;
+            display: flex !important;
+            align-items: stretch !important;
+            justify-content: center !important;
+            overflow: hidden !important;
+          }
+          .mc-profile-card {
+            width: calc(100% - 16px) !important;
+            max-width: 460px !important;
+            height: 100% !important;
+            position: relative !important;
+          }
+          .mc-photo-zone {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: 47% !important;
+          }
+          /* The info wrapper becomes a pure grouping node — its children
+             position directly against the card (the nearest positioned
+             ancestor), independent of each other's content height. */
+          .mc-info-zone {
+            display: contents !important;
+          }
+          .mc-interests-zone {
+            position: absolute !important;
+            top: calc(47% + 12px) !important;
+            left: 20px !important;
+            right: 20px !important;
+            height: 46px !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+          }
+          .mc-bio-zone {
+            position: absolute !important;
+            top: calc(47% + 68px) !important;
+            left: 20px !important;
+            right: 20px !important;
+            height: 58px !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+          }
+          .mc-reveal-zone {
+            position: absolute !important;
+            left: 16px !important;
+            right: 16px !important;
+            bottom: 12px !important;
+            margin: 0 !important;
+          }
+          .mc-profile-actions {
+            position: absolute !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            height: calc(64px + 8px + env(safe-area-inset-bottom, 0px) + 16px) !important;
+            padding-top: 8px !important;
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px) !important;
+          }
+        }
 
         /* Tablet: centered card, balanced width */
         @media (min-width: 640px) and (max-width: 1023px) {
