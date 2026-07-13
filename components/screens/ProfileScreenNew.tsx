@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
@@ -11,6 +11,11 @@ import { supabase } from '@/lib/supabase'
 
 
 type State = 'loading' | 'ready' | 'empty' | 'error'
+
+// Dev-only: outline the mobile layout zones and log their computed heights,
+// to verify the deployed CSS is actually the one taking effect. Always
+// false in production; flip locally to debug.
+const DEBUG_MOBILE_PROFILE_LAYOUT = false
 
 export default function ProfileScreenNew() {
   const { navigate, lang } = useApp()
@@ -32,6 +37,14 @@ export default function ProfileScreenNew() {
   const [translatedBio, setTranslatedBio] = useState<string | null>(null)
   const [translating, setTranslating] = useState(false)
   const [translateError, setTranslateError] = useState(false)
+
+  // Dev diagnostics only — measuring these refs has no effect on layout itself.
+  const shellRef = useRef<HTMLDivElement>(null)
+  const cardAreaRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const photoRef = useRef<HTMLDivElement>(null)
+  const detailsRef = useRef<HTMLDivElement>(null)
+  const actionsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadProfiles()
@@ -131,6 +144,24 @@ export default function ProfileScreenNew() {
     setTranslateError(false)
   }, [lang])
 
+  // Dev diagnostic: log actual computed heights so it's obvious whether the
+  // deployed CSS is the one taking effect. Read-only — never mutates layout.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const measure = () => {
+      console.log('MOBILE PROFILE VIEWPORT:', window.innerWidth, 'x', window.innerHeight)
+      console.log('MOBILE PROFILE SHELL HEIGHT:', shellRef.current?.getBoundingClientRect().height)
+      console.log('MOBILE PROFILE CARD AREA HEIGHT:', cardAreaRef.current?.getBoundingClientRect().height)
+      console.log('MOBILE PROFILE CARD HEIGHT:', cardRef.current?.getBoundingClientRect().height)
+      console.log('MOBILE PROFILE PHOTO HEIGHT:', photoRef.current?.getBoundingClientRect().height)
+      console.log('MOBILE PROFILE DETAILS HEIGHT:', detailsRef.current?.getBoundingClientRect().height)
+      console.log('MOBILE PROFILE ACTIONS HEIGHT:', actionsRef.current?.getBoundingClientRect().height)
+    }
+    const t = setTimeout(measure, 50)  // after paint
+    window.addEventListener('resize', measure)
+    return () => { clearTimeout(t); window.removeEventListener('resize', measure) }
+  }, [p?.id])
+
   function transition(dir: 'left'|'right', then: () => void) {
     if (locked) return
     setLocked(true)
@@ -215,11 +246,7 @@ export default function ProfileScreenNew() {
   }
 
   return (
-    <div className="mc-profile-shell flex flex-col overflow-hidden" style={{ background:'#0a0a10', height: '100dvh', maxHeight: '100dvh', position: 'relative' }}>
-
-      {/* Top spacer — compact, fixed height; the account menu/language switch live
-          outside this component (rendered by the app shell) and are unaffected */}
-      <div className="mc-profile-top pt-8 pb-1 flex-shrink-0" />
+    <div ref={shellRef} className="mc-profile-shell mobile-profile-shell flex flex-col overflow-hidden" style={{ background:'#0a0a10', height: '100dvh', maxHeight: '100dvh', position: 'relative', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid red' : 'none' }}>
 
       {/* Game picker modal */}
       {showPicker && (
@@ -310,23 +337,22 @@ export default function ProfileScreenNew() {
       {/* ── READY — show profile card (v2 design) ── */}
       {state === 'ready' && p && (
         <>
-          <div className="discover-card-area-v2 mc-profile-card-area flex-1 min-h-0 flex items-center justify-center overflow-hidden" style={{ padding: '4px 10px' }}>
-            <div key={p.id + idx} className="discover-card-v2 mc-profile-card rounded-[28px] overflow-hidden relative flex flex-col"
+          <div ref={cardAreaRef} className="discover-card-area-v2 mc-profile-card-area mobile-profile-card-area flex-1 min-h-0 flex items-center justify-center overflow-hidden" style={{ outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid orange' : 'none' }}>
+            <div ref={cardRef} key={p.id + idx} className="discover-card-v2 mc-profile-card mobile-profile-card rounded-[28px] overflow-hidden relative flex flex-col"
               style={{
-                width: 'calc(100% - 16px)', maxWidth: 460, height: '100%', margin: '0 auto',
                 transform: `translateX(${tx}) rotate(${rot})`, opacity: op,
                 transition: anim === 'in' ? 'none' : 'all 0.28s ease',
                 animation: anim === 'in' ? 'cardReveal 0.35s cubic-bezier(0.34,1.3,0.64,1) both' : 'none',
                 boxShadow: '0 20px 70px rgba(0,0,0,0.65)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                border: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid yellow' : '1px solid rgba(255,255,255,0.1)',
                 background: 'rgba(15,12,25,0.6)',
                 backdropFilter: 'blur(12px)',
               }}>
 
               {/* Photo — takes ~47% of the card's actual available height (never vh-based,
                   so it always fits alongside the info section and action bar below) */}
-              <div className="mc-photo-zone relative overflow-hidden flex items-center justify-center flex-shrink-0"
-                style={{ flex: '0 0 47%', minHeight: 0, background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.295) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.236) 0%, transparent 55%), linear-gradient(160deg, #1c1628 0%, #100a1a 100%)' }}>
+              <div ref={photoRef} className="mc-photo-zone mobile-profile-photo relative overflow-hidden flex items-center justify-center flex-shrink-0"
+                style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.295) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.236) 0%, transparent 55%), linear-gradient(160deg, #1c1628 0%, #100a1a 100%)', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid lime' : 'none' }}>
 
                 {canShowPhoto ? (
                   <img src={p.photo} alt={p.name} className="absolute inset-0 w-full h-full object-cover" />
@@ -400,7 +426,7 @@ export default function ProfileScreenNew() {
               </div>
 
               {/* Info — compact sections filling the remaining ~53% of the card, no scroll */}
-              <div className="mc-info-zone px-5 py-3 flex flex-col" style={{ background:'#08080c', flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
+              <div ref={detailsRef} className="mc-info-zone mobile-profile-details px-5 py-3 flex flex-col" style={{ background:'#08080c', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid cyan' : 'none' }}>
 
                 {/* Interests — single row, max 3, never wraps */}
                 <div className="mc-interests-zone mb-2.5 flex-shrink-0">
@@ -532,8 +558,8 @@ export default function ProfileScreenNew() {
             </>
           )}
           {/* Action buttons — same DateDuel actions, unchanged handlers */}
-          <div className="discover-actions-v2 mc-profile-actions flex-shrink-0 flex items-center justify-center gap-5 px-6 pt-2"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', background: 'linear-gradient(to top, #0a0a10 60%, transparent)' }}>
+          <div ref={actionsRef} className="discover-actions-v2 mc-profile-actions mobile-profile-actions flex-shrink-0 flex items-center justify-center gap-5 px-6 pt-2"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', background: 'linear-gradient(to top, #0a0a10 60%, transparent)', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid magenta' : 'none' }}>
             <button onClick={pass} disabled={locked}
               className="w-16 h-16 rounded-full flex items-center justify-center text-[22px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"
               style={{ background:'rgba(255,255,255,0.07)', border:'2px solid rgba(255,255,255,0.14)' }}>
@@ -567,78 +593,98 @@ export default function ProfileScreenNew() {
         @keyframes cardReveal { from{opacity:0;transform:translateY(24px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
 
-        /* ── Mobile fixed shell (below 768px only) ──────────────────────
-           Replaces flex-distributed sizing with explicit fixed zones so the
-           card and action bar never move between profiles, photos, or
-           content lengths. Desktop/tablet keep their existing flex layout
-           entirely untouched — none of these rules apply above 767px. */
+        /* ── Base (desktop/tablet) values — moved out of inline styles so
+           there is no inline-vs-stylesheet specificity ambiguity anywhere.
+           These are the EXACT values that were previously set inline;
+           desktop/tablet appearance is unchanged. The mobile system below
+           overrides these on its own separate class names, never these. */
+        .mc-photo-zone { flex: 0 0 47%; min-height: 0; }
+        .mc-info-zone { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+        .discover-card-area-v2 { padding: 4px 10px; }
+        .discover-card-v2 { width: calc(100% - 16px); max-width: 460px; height: 100%; margin: 0 auto; }
+
+        /* ══════════════════════════════════════════════════════════════
+           SINGLE MOBILE LAYOUT SYSTEM (below 768px only) — the only
+           source of truth for mobile. Uses its own class names
+           (.mobile-profile-*) so it can never collide with the
+           desktop/tablet rules above or with any inline style. CSS Grid
+           replaces the old absolute-position + duplicated calc() offsets:
+           the shell computes "everything above the actions" and "the
+           actions themselves" as two grid rows natively, so there is
+           nothing left to keep in sync by hand.
+           ══════════════════════════════════════════════════════════════ */
         @media (max-width: 767.98px) {
-          .mc-profile-shell {
+          .mobile-profile-shell {
+            display: grid !important;
+            grid-template-rows: minmax(0, 1fr) auto !important;
             height: 100dvh !important;
             min-height: 100dvh !important;
             max-height: 100dvh !important;
             width: 100% !important;
             overflow: hidden !important;
             position: relative !important;
+            padding:
+              calc(env(safe-area-inset-top, 0px) + 8px)
+              12px
+              calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
           }
-          .mc-profile-top {
-            flex: 0 0 0px !important;
-            height: 0px !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          /* Card area + action bar heights are derived from the SAME calc()
-             expression for the bottom bar, so they always stay in sync.
-             Top offset is now safe-area-only — the account icon overlays
-             the card via z-index rather than the card leaving room for it. */
-          .mc-profile-card-area {
-            position: absolute !important;
-            top: calc(env(safe-area-inset-top, 0px) + 4px) !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: calc(64px + 8px + env(safe-area-inset-bottom, 0px) + 16px) !important;
-            padding: 4px 10px !important;
+
+          .mobile-profile-card-area {
+            min-height: 0 !important;
+            overflow: hidden !important;
             display: flex !important;
             align-items: stretch !important;
             justify-content: center !important;
-            overflow: hidden !important;
+            position: static !important;
+            padding: 0 !important;
           }
-          .mc-profile-card {
-            width: calc(100% - 16px) !important;
-            max-width: 460px !important;
+
+          .mobile-profile-card {
             height: 100% !important;
+            min-height: 0 !important;
+            width: 100% !important;
+            max-width: 430px !important;
+            overflow: hidden !important;
+            display: grid !important;
+            grid-template-rows: minmax(0, 58%) minmax(0, 1fr) !important;
             position: relative !important;
           }
-          /* Photo dominates the card — 65% of its fixed height, Tinder-style.
-             Everything below flows naturally in the remaining ~33%; nothing
-             here is absolutely offset from the photo, so an empty bio or
-             empty interests row simply doesn't reserve any space — the
-             sections that DO have content sit flush against each other,
-             and Reveal Progress (mt-auto in the base layout) absorbs
-             whatever room is left, staying pinned just above the actions. */
-          .mc-photo-zone {
-            flex: 0 0 65% !important;
+
+          /* Photo dominates the card. It's a grid row now (not flex), so the
+             old flex-basis is neutralized and the row height comes purely
+             from the card's grid-template-rows above. */
+          .mobile-profile-photo {
+            flex: none !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+            position: relative !important;
           }
-          .mc-info-zone {
-            padding: 8px 16px !important;
+
+          /* Details zone: natural flow (order = interests, bio, reveal
+             progress as already written in the JSX). Empty bio/interests
+             render nothing (existing conditional JSX), so they reserve no
+             space — no fixed offsets here, nothing to keep in sync. */
+          .mobile-profile-details {
+            flex: none !important;
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+            padding: 14px 16px 12px !important;
           }
-          .mc-interests-zone {
-            margin-bottom: 6px !important;
-          }
-          .mc-bio-zone {
-            margin-bottom: 6px !important;
-          }
-          .mc-reveal-zone {
-            padding: 8px 10px !important;
-          }
-          .mc-profile-actions {
-            position: absolute !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            height: calc(64px + 8px + env(safe-area-inset-bottom, 0px) + 16px) !important;
-            padding-top: 8px !important;
-            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px) !important;
+
+          .mobile-profile-actions {
+            position: static !important;
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            align-items: center !important;
+            justify-items: center !important;
+            gap: clamp(8px, 3vw, 16px) !important;
+            height: clamp(76px, 11dvh, 96px) !important;
+            min-height: 76px !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            background: none !important;
           }
         }
 
