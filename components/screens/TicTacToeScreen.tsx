@@ -4,6 +4,8 @@ import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentSession, setCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
+import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
+import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
@@ -43,6 +45,7 @@ export default function TicTacToeScreen() {
   const activeSessionRef = useRef<string | null>(null)
   const [progressError, setProgressError] = useState<string | null>(null)
   const [pairCount, setPairCount] = useState<number>(0)
+  const [photoAccess, setPhotoAccess] = useState<{ photoUnlocked: boolean; myPhoto: string | null; opponentPhoto: string | null }>({ photoUnlocked: false, myPhoto: null, opponentPhoto: null })
   const [iAmReady, setIAmReady] = useState(false)
 
   // My symbol: player_one = X, player_two = O
@@ -92,6 +95,10 @@ export default function TicTacToeScreen() {
       const prog = await getPairProgress(otherId)
       setPairCount(prog.games_completed)
       console.log('CHAT LOCK CHECK:', prog.games_completed, '/10, unlocked:', prog.chat_unlocked)
+
+      // Shared avatar photo access — same source of truth and same shared
+      // component already used by Mystery Choice. Presentation-only.
+      fetchGamePlayerPhotoAccess(user.id, otherId).then(setPhotoAccess)
 
       // Always fetch FRESH state from Supabase by session_id
       const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
@@ -334,6 +341,18 @@ export default function TicTacToeScreen() {
       {/* Players */}
       <div className="flex items-center justify-center gap-6 py-5">
         <div className="text-center">
+          <div className="flex justify-center mb-1.5">
+            <GamePlayerAvatar
+              userId={myId || ''}
+              displayName={myName}
+              photoUrl={photoAccess.myPhoto}
+              photoUnlocked={photoAccess.photoUnlocked}
+              size={32}
+              accentColor={mySymbol === 'X' ? '#ff3384' : '#7c72ff'}
+              isCurrentUser
+              glow={false}
+            />
+          </div>
           <div className="text-[13px] font-bold" style={{ color: mySymbol === 'X' ? '#ff3384' : '#7c72ff' }}>
             {myName} ({mySymbol})
           </div>
@@ -341,6 +360,17 @@ export default function TicTacToeScreen() {
         </div>
         <div className="text-[18px] font-black text-white/30">VS</div>
         <div className="text-center">
+          <div className="flex justify-center mb-1.5">
+            <GamePlayerAvatar
+              userId={(myId === session.player_one_id ? session.player_two_id : session.player_one_id) || ''}
+              displayName={oppName}
+              photoUrl={photoAccess.opponentPhoto}
+              photoUnlocked={photoAccess.photoUnlocked}
+              size={32}
+              accentColor={mySymbol === 'X' ? '#7c72ff' : '#ff3384'}
+              glow={false}
+            />
+          </div>
           <div className="text-[13px] font-bold" style={{ color: mySymbol === 'X' ? '#7c72ff' : '#ff3384' }}>
             {oppName} ({mySymbol === 'X' ? 'O' : 'X'})
           </div>
