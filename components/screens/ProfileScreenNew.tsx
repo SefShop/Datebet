@@ -67,6 +67,28 @@ export default function ProfileScreenNew() {
     return () => { document.body.style.overflow = previousOverflow }
   }, [])
 
+  // Track the REAL visible mobile viewport height (accounts for the browser
+  // address bar expanding/collapsing, on-screen keyboard, and orientation
+  // changes) and publish it as a CSS variable. 100dvh already handles most
+  // of this natively in modern browsers; this adds the extra precision
+  // visualViewport provides, without replacing 100dvh as the base/fallback.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const updateViewportHeight = () => {
+      const h = window.visualViewport?.height || window.innerHeight
+      document.documentElement.style.setProperty('--mobile-viewport-height', String(h))
+    }
+    updateViewportHeight()
+    window.visualViewport?.addEventListener('resize', updateViewportHeight)
+    window.addEventListener('resize', updateViewportHeight)
+    window.addEventListener('orientationchange', updateViewportHeight)
+    return () => {
+      window.visualViewport?.removeEventListener('resize', updateViewportHeight)
+      window.removeEventListener('resize', updateViewportHeight)
+      window.removeEventListener('orientationchange', updateViewportHeight)
+    }
+  }, [])
+
   useEffect(() => {
     loadProfiles()
   }, [])
@@ -389,7 +411,7 @@ export default function ProfileScreenNew() {
                 style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.295) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.236) 0%, transparent 55%), linear-gradient(160deg, #1c1628 0%, #100a1a 100%)', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid lime' : 'none' }}>
 
                 {canShowPhoto ? (
-                  <img src={p.photo} alt={p.name} className="absolute inset-0 w-full h-full object-cover" />
+                  <img src={p.photo} alt={p.name} className="absolute inset-0 w-full h-full object-cover object-center" />
                 ) : (
                   <>
                     {/* Mystery glow orbs */}
@@ -405,7 +427,7 @@ export default function ProfileScreenNew() {
                 {/* Photo progress segments — supports the profile's existing photo(s).
                     There is currently one photo per profile, so this shows one full
                     segment; the structure is ready for more without any data change. */}
-                <div className="absolute top-3 left-3 right-3 z-20 flex gap-1.5">
+                <div className="photo-nav-line absolute top-3 left-3 right-3 z-20 flex gap-1.5">
                   {[p.photo].map((_, segIdx) => (
                     <div key={segIdx} className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.25)' }}>
                       <div className="h-full rounded-full" style={{ width: '100%', background: 'rgba(255,255,255,0.95)' }} />
@@ -654,6 +676,12 @@ export default function ProfileScreenNew() {
             height: 100dvh !important;
             min-height: 100dvh !important;
             max-height: 100dvh !important;
+            /* Refine on top of the 100dvh base once JS has measured the
+               real visual viewport (address bar, keyboard, orientation) —
+               falls back to a sane static value if the variable isn't set
+               yet (e.g. the very first paint, before the effect runs). */
+            height: calc(var(--mobile-viewport-height, 800) * 1px) !important;
+            max-height: calc(var(--mobile-viewport-height, 800) * 1px) !important;
             width: 100% !important;
             overflow: hidden !important;
             position: relative !important;
@@ -680,7 +708,7 @@ export default function ProfileScreenNew() {
             max-width: 430px !important;
             overflow: hidden !important;
             display: grid !important;
-            grid-template-rows: minmax(0, 64%) minmax(0, 36%) !important;
+            grid-template-rows: clamp(54%, 62dvh, 66%) minmax(0, 1fr) !important;
             position: relative !important;
           }
 
@@ -737,9 +765,10 @@ export default function ProfileScreenNew() {
           }
 
           /* FIX 2 — Mystery badge moves lower/left on mobile so it never
-             overlaps the account icon (which now sits higher, right:10px). */
+             overlaps the account icon (which now sits higher, right:10px),
+             and clears the nav line's new lower range too. */
           .mystery-badge {
-            top: 42px !important;
+            top: 54px !important;
             right: 18px !important;
             left: auto !important;
             max-width: calc(100% - 120px) !important;
@@ -752,6 +781,15 @@ export default function ProfileScreenNew() {
             display: inline-block !important;
           }
 
+          /* Photo nav line — moved lower with a responsive clamp() so its
+             minimum (34px) always clears the account icon's fixed position
+             (icon bottom ≈ safe-area-inset-top + 31px, shell padding adds
+             6px, leaving an 8px+ gap at every viewport height) plus room
+             to grow on taller phones instead of hugging the very top. */
+          .photo-nav-line {
+            top: clamp(34px, 4.6dvh, 48px) !important;
+          }
+
           .mobile-profile-actions {
             position: static !important;
             display: grid !important;
@@ -759,10 +797,13 @@ export default function ProfileScreenNew() {
             align-items: center !important;
             justify-items: center !important;
             gap: clamp(8px, 3vw, 14px) !important;
-            height: clamp(72px, 10dvh, 92px) !important;
-            min-height: 72px !important;
+            height: clamp(74px, 10.5dvh, 96px) !important;
+            min-height: 74px !important;
             overflow: visible !important;
-            padding: 0 !important;
+            padding-top: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            padding-bottom: calc(max(env(safe-area-inset-bottom, 0px), 18px) + 4px) !important;
             background: none !important;
             transform: translateY(-10px) !important;
           }
