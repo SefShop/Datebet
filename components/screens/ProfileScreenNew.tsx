@@ -447,11 +447,10 @@ export default function ProfileScreenNew() {
                 }} />
 
                 {/* Online status */}
-                <div className="online-badge-v2 absolute flex items-center gap-1.5 px-2.5 py-1 rounded-full z-20"
+                <div className="online-badge-v2 absolute flex items-center justify-center p-1.5 rounded-full z-20"
                   style={{ top: 16, left: 16, background:'rgba(0,0,0,0.55)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.1)' }}>
                   <div className="w-2 h-2 rounded-full" style={{ background: p.online ? '#4ade80' : '#777',
                     boxShadow: p.online ? '0 0 6px #4ade80' : 'none' }} />
-                  <span className="text-[10px] font-bold" style={{ color: p.online ? '#4ade80' : 'rgba(255,255,255,0.6)' }}>{p.online ? 'online' : 'offline'}</span>
                 </div>
 
                 {/* Mystery Player badge — now lives on the photo overlay, next to the name */}
