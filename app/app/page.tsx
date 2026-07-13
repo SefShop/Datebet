@@ -182,8 +182,11 @@ function AppShell() {
            boundary rather than a fixed 16px that ignores device safe areas. */
         @media (max-width: 767.98px) {
           .mc-account-icon-wrap {
-            top: calc(env(safe-area-inset-top, 0px) + 12px) !important;
-            right: 16px !important;
+            position: absolute !important;
+            top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
+            right: 14px !important;
+            z-index: 50 !important;
+            height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
           }

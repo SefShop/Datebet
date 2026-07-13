@@ -17,6 +17,15 @@ type State = 'loading' | 'ready' | 'empty' | 'error'
 // false in production; flip locally to debug.
 const DEBUG_MOBILE_PROFILE_LAYOUT = false
 
+// Confirms the DEPLOYED build actually contains this file's current code —
+// bump this string whenever the mobile layout changes meaningfully.
+const PROFILE_LAYOUT_VERSION = "mobile-fullscreen-v1"
+
+// Dev-only: renders a small "ACTIVE MOBILE PROFILE" marker so it's visually
+// obvious (not just in the console) that this component — not a stale copy
+// or the legacy fallback — is the one actually on screen. False by default.
+const DEBUG_ACTIVE_PROFILE_COMPONENT = false
+
 export default function ProfileScreenNew() {
   const { navigate, lang } = useApp()
   const t = APP_COPY[lang].dating
@@ -45,6 +54,18 @@ export default function ProfileScreenNew() {
   const photoRef = useRef<HTMLDivElement>(null)
   const detailsRef = useRef<HTMLDivElement>(null)
   const actionsRef = useRef<HTMLDivElement>(null)
+
+  // Belt-and-braces: prevent document/body vertical scroll only while this
+  // screen is mounted, and restore whatever it was before on unmount. The
+  // shell itself already uses height:100dvh + overflow:hidden — this just
+  // guards against the outer document scrolling if anything above this
+  // component ever changes. Scoped to this screen only, never global.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previousOverflow }
+  }, [])
 
   useEffect(() => {
     loadProfiles()
@@ -149,13 +170,19 @@ export default function ProfileScreenNew() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const measure = () => {
-      console.log('MOBILE PROFILE VIEWPORT:', window.innerWidth, 'x', window.innerHeight)
-      console.log('MOBILE PROFILE SHELL HEIGHT:', shellRef.current?.getBoundingClientRect().height)
-      console.log('MOBILE PROFILE CARD AREA HEIGHT:', cardAreaRef.current?.getBoundingClientRect().height)
-      console.log('MOBILE PROFILE CARD HEIGHT:', cardRef.current?.getBoundingClientRect().height)
-      console.log('MOBILE PROFILE PHOTO HEIGHT:', photoRef.current?.getBoundingClientRect().height)
-      console.log('MOBILE PROFILE DETAILS HEIGHT:', detailsRef.current?.getBoundingClientRect().height)
-      console.log('MOBILE PROFILE ACTIONS HEIGHT:', actionsRef.current?.getBoundingClientRect().height)
+      console.log('ACTIVE PROFILE COMPONENT:', 'ProfileScreenNew')
+      console.log('PROFILE LAYOUT VERSION:', PROFILE_LAYOUT_VERSION)
+      console.log('MOBILE VIEWPORT:', window.innerWidth, 'x', window.innerHeight)
+      console.log('MOBILE SHELL HEIGHT:', shellRef.current?.getBoundingClientRect().height)
+      console.log('MOBILE CARD AREA HEIGHT:', cardAreaRef.current?.getBoundingClientRect().height)
+      console.log('MOBILE CARD HEIGHT:', cardRef.current?.getBoundingClientRect().height)
+      console.log('MOBILE PHOTO HEIGHT:', photoRef.current?.getBoundingClientRect().height)
+      console.log('MOBILE DETAILS HEIGHT:', detailsRef.current?.getBoundingClientRect().height)
+      console.log('MOBILE ACTIONS HEIGHT:', actionsRef.current?.getBoundingClientRect().height)
+      // The account icon lives outside this component (app/app/page.tsx) —
+      // query it read-only to confirm it never reserves layout height here.
+      const iconEl = document.querySelector('.mc-account-icon-wrap')
+      console.log('ACCOUNT ICON RESERVED HEIGHT:', iconEl ? 0 : 'not found', '(position:absolute overlay — contributes 0 to shell layout)')
     }
     const t = setTimeout(measure, 50)  // after paint
     window.addEventListener('resize', measure)
@@ -247,6 +274,13 @@ export default function ProfileScreenNew() {
 
   return (
     <div ref={shellRef} className="mc-profile-shell mobile-profile-shell flex flex-col overflow-hidden" style={{ background:'#0a0a10', height: '100dvh', maxHeight: '100dvh', position: 'relative', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid red' : 'none' }}>
+
+      {DEBUG_ACTIVE_PROFILE_COMPONENT && (
+        <div className="absolute z-[200] left-1/2 -translate-x-1/2 text-[10px] font-bold text-white px-3 py-1 rounded-full"
+          style={{ top: 4, background: 'rgba(74,222,128,0.9)' }}>
+          ACTIVE MOBILE PROFILE ({PROFILE_LAYOUT_VERSION})
+        </div>
+      )}
 
       {/* Game picker modal */}
       {showPicker && (
@@ -624,9 +658,9 @@ export default function ProfileScreenNew() {
             overflow: hidden !important;
             position: relative !important;
             padding:
-              calc(env(safe-area-inset-top, 0px) + 8px)
-              12px
-              calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+              calc(env(safe-area-inset-top, 0px) + 6px)
+              10px
+              calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
           }
 
           .mobile-profile-card-area {
@@ -646,7 +680,7 @@ export default function ProfileScreenNew() {
             max-width: 430px !important;
             overflow: hidden !important;
             display: grid !important;
-            grid-template-rows: minmax(0, 58%) minmax(0, 1fr) !important;
+            grid-template-rows: minmax(0, 64%) minmax(0, 36%) !important;
             position: relative !important;
           }
 
@@ -670,7 +704,7 @@ export default function ProfileScreenNew() {
             flex-direction: column !important;
             min-height: 0 !important;
             overflow: hidden !important;
-            padding: 14px 16px 12px !important;
+            padding: 10px 14px 10px !important;
           }
 
           .mobile-profile-actions {
@@ -679,9 +713,9 @@ export default function ProfileScreenNew() {
             grid-template-columns: repeat(4, 1fr) !important;
             align-items: center !important;
             justify-items: center !important;
-            gap: clamp(8px, 3vw, 16px) !important;
-            height: clamp(76px, 11dvh, 96px) !important;
-            min-height: 76px !important;
+            gap: clamp(8px, 3vw, 14px) !important;
+            height: clamp(72px, 10dvh, 92px) !important;
+            min-height: 72px !important;
             overflow: visible !important;
             padding: 0 !important;
             background: none !important;

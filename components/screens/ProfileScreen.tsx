@@ -12,5 +12,8 @@ import ProfileScreenLegacy from './ProfileScreenLegacy'
 const USE_NEW_PROFILE_DESIGN = true
 
 export default function ProfileScreen() {
+  console.log('PROFILE FEATURE FLAG:', USE_NEW_PROFILE_DESIGN)
+  console.log('ACTIVE PROFILE COMPONENT:', USE_NEW_PROFILE_DESIGN ? 'ProfileScreenNew' : 'ProfileScreenLegacy')
+  console.log('PROFILE COMPONENT FILE:', USE_NEW_PROFILE_DESIGN ? 'components/screens/ProfileScreenNew.tsx' : 'components/screens/ProfileScreenLegacy.tsx')
   return USE_NEW_PROFILE_DESIGN ? <ProfileScreenNew /> : <ProfileScreenLegacy />
 }
