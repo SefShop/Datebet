@@ -673,6 +673,7 @@ export default function ProfileScreenNew() {
           .mobile-profile-shell {
             display: grid !important;
             grid-template-rows: minmax(0, 1fr) auto !important;
+            row-gap: 10px !important;
             height: 100dvh !important;
             min-height: 100dvh !important;
             max-height: 100dvh !important;
@@ -685,10 +686,13 @@ export default function ProfileScreenNew() {
             width: 100% !important;
             overflow: hidden !important;
             position: relative !important;
+            /* Bottom padding raised (was +6px) so the action row sits
+               genuinely higher via real grid space, not a transform that
+               visually crept into the card above it. */
             padding:
               calc(env(safe-area-inset-top, 0px) + 6px)
               10px
-              calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
+              calc(env(safe-area-inset-bottom, 0px) + 18px) !important;
           }
 
           .mobile-profile-card-area {
@@ -787,7 +791,7 @@ export default function ProfileScreenNew() {
              6px, leaving an 8px+ gap at every viewport height) plus room
              to grow on taller phones instead of hugging the very top. */
           .photo-nav-line {
-            top: clamp(34px, 4.6dvh, 48px) !important;
+            top: clamp(39px, 4.7dvh, 50px) !important;
           }
 
           .mobile-profile-actions {
@@ -800,12 +804,8 @@ export default function ProfileScreenNew() {
             height: clamp(74px, 10.5dvh, 96px) !important;
             min-height: 74px !important;
             overflow: visible !important;
-            padding-top: 0 !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-            padding-bottom: calc(max(env(safe-area-inset-bottom, 0px), 18px) + 4px) !important;
+            padding: 0 !important;
             background: none !important;
-            transform: translateY(-10px) !important;
           }
         }
 
