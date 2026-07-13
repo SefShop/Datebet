@@ -127,7 +127,7 @@ function AppShell() {
   return (
     <main className="min-h-screen bg-[#111] flex items-center justify-center">
       <div
-        className="w-[390px] h-[844px] overflow-hidden relative
+        className="desktop-scroll-shell w-[390px] h-[844px] overflow-hidden relative
           shadow-[0_50px_150px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.06)]
           rounded-[52px] max-sm:w-full max-sm:h-dvh max-sm:rounded-none max-sm:shadow-none"
         style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", background:'#08080f' }}
@@ -189,6 +189,22 @@ function AppShell() {
             height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
+          }
+        }
+
+        /* Desktop only: the "phone frame" shell is normally a fixed-height,
+           clipped box (h-[844px] overflow-hidden) — this is what was
+           blocking access to Next Round / Play Again / anything below the
+           fold whenever a screen's content exceeded 844px. Below this
+           breakpoint (mobile, tablet) the shell is completely untouched. */
+        @media (min-width: 1024px) {
+          .desktop-scroll-shell {
+            height: auto !important;
+            min-height: 844px !important;
+            max-height: none !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            padding-bottom: 48px !important;
           }
         }
       `}</style>

@@ -10,7 +10,7 @@ export default function PostGameScreen() {
   if (!match) return <div className="flex items-center justify-center h-full" style={{background:"#0a0a10"}}><div className="text-center"><div className="text-[14px] text-white/40">No player selected</div></div></div>
 
   return (
-    <div className="flex flex-col h-full items-center justify-center px-8 relative overflow-hidden"
+    <div className="desktop-scroll-inner flex flex-col h-full items-center justify-center px-8 relative overflow-hidden"
       style={{ background:'radial-gradient(ellipse at 50% 60%, rgba(253,41,123,0.177) 0%, transparent 60%), linear-gradient(170deg, #0a0a10 0%, #0d0614 100%)' }}>
 
       {/* Avatars small */}
@@ -48,7 +48,18 @@ export default function PostGameScreen() {
         </button>
       </div>
 
-      <style>{`@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }`}</style>
+      <style>{`
+        @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @media (min-width: 1024px) {
+          .desktop-scroll-inner {
+            height: auto !important;
+            min-height: 100% !important;
+            overflow-y: visible !important;
+            overflow-x: hidden !important;
+            padding-bottom: 48px !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }

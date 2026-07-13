@@ -56,15 +56,24 @@ export default function ProfileScreenNew() {
   const actionsRef = useRef<HTMLDivElement>(null)
 
   // Belt-and-braces: prevent document/body vertical scroll only while this
-  // screen is mounted, and restore whatever it was before on unmount. The
-  // shell itself already uses height:100dvh + overflow:hidden — this just
-  // guards against the outer document scrolling if anything above this
-  // component ever changes. Scoped to this screen only, never global.
+  // screen is mounted AND only on mobile (below 768px) — the shell itself
+  // already uses height:100dvh + overflow:hidden there. Desktop must keep
+  // normal page scrolling available (Next Round / Play Again / anything
+  // below the fold on other screens depends on it), so this never locks
+  // body scroll at 768px and above, and restores whatever it was before on
+  // unmount either way.
   useEffect(() => {
-    if (typeof document === 'undefined') return
+    if (typeof document === 'undefined' || typeof window === 'undefined') return
     const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = previousOverflow }
+    const applyLock = () => {
+      document.body.style.overflow = window.innerWidth < 768 ? 'hidden' : previousOverflow
+    }
+    applyLock()
+    window.addEventListener('resize', applyLock)
+    return () => {
+      window.removeEventListener('resize', applyLock)
+      document.body.style.overflow = previousOverflow
+    }
   }, [])
 
   // Track the REAL visible mobile viewport height (accounts for the browser

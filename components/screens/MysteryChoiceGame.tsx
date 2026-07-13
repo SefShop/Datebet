@@ -864,7 +864,7 @@ export default function MysteryChoiceGame() {
     const dashOffset = circumference - (matchCount / 10) * circumference
 
     return (
-      <div className="relative flex flex-col h-full items-center justify-center px-5 overflow-hidden" style={{ background: '#0a0a10' }}>
+      <div className="desktop-scroll-inner relative flex flex-col h-full items-center justify-center px-5 overflow-hidden" style={{ background: '#0a0a10' }}>
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.16) 0%, transparent 60%), radial-gradient(ellipse at 50% 75%, rgba(108,99,255,0.14) 0%, transparent 60%)', animation: 'mcBgPulse 6s ease-in-out infinite' }} />
         <McParticles />
 
@@ -978,6 +978,19 @@ export default function MysteryChoiceGame() {
           @keyframes mcProgressFill { from{width:0%} to{width:100%} }
           @keyframes mcSpin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
           @keyframes mcFadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+          /* Desktop only: let this screen's own content grow and scroll
+             naturally instead of being clipped by h-full + overflow-hidden.
+             Mobile/tablet (below 1024px) are completely untouched. */
+          @media (min-width: 1024px) {
+            .desktop-scroll-inner {
+              height: auto !important;
+              min-height: 100% !important;
+              overflow-y: visible !important;
+              overflow-x: hidden !important;
+              padding-bottom: 48px !important;
+            }
+          }
         `}</style>
       </div>
     )
@@ -990,7 +1003,7 @@ export default function MysteryChoiceGame() {
   const revealed = !!state.round_result
 
   return (
-    <div className="relative flex flex-col h-full overflow-hidden" style={{ background: '#0a0a10' }}>
+    <div className="desktop-scroll-inner relative flex flex-col h-full overflow-hidden" style={{ background: '#0a0a10' }}>
       {/* Animated gradient background */}
       <div className="absolute inset-0" style={{
         background: 'radial-gradient(ellipse at 20% 15%, rgba(253,41,123,0.14) 0%, transparent 50%), radial-gradient(ellipse at 80% 85%, rgba(108,99,255,0.14) 0%, transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(216,77,216,0.06) 0%, transparent 60%)',
@@ -1203,6 +1216,19 @@ export default function MysteryChoiceGame() {
         .mc-answer-btn:active { transform: scale(0.97); }
         .mc-dots::after { content:'...'; display:inline-block; width:1.2em; text-align:left; animation: mcDotsCycle 1.2s steps(4) infinite; }
         @keyframes mcDotsCycle { 0%{content:''} }
+
+        /* Desktop only: let this screen's own content grow and scroll
+           naturally instead of being clipped by h-full + overflow-hidden.
+           Mobile/tablet (below 1024px) are completely untouched. */
+        @media (min-width: 1024px) {
+          .desktop-scroll-inner {
+            height: auto !important;
+            min-height: 100% !important;
+            overflow-y: visible !important;
+            overflow-x: hidden !important;
+            padding-bottom: 48px !important;
+          }
+        }
 
         /* ── Mobile-only layout (max-width: 768px) ─────────────────────
            Desktop is untouched — every rule below is scoped to this query,
