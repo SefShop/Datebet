@@ -143,11 +143,6 @@ export default function Landing() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <LangToggle lang={lang} setLang={setLang} />
-          <a href="#cta" style={{ fontSize: 13, fontWeight: 700, color: '#fd297b', textDecoration: 'none', padding: '8px 16px', border: '1px solid rgba(253,41,123,0.35)', borderRadius: 100, transition: 'background 0.2s', whiteSpace: 'nowrap' as const }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(253,41,123,0.1)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-            {c.nav.cta}
-          </a>
         </div>
       </nav>
 
