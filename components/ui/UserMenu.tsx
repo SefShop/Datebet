@@ -63,7 +63,7 @@ export default function UserMenu({ onLogout }: Props) {
     { icon: '💬', label: lang==='gr'?'Μηνύματα':'Messages', action: () => go('inbox'), badge: unread },
     { icon: '🏆', label: lang==='gr'?'Προκλήσεις':'Challenges', action: () => go('activity'), badge: invites },
     { icon: '⭐', label: 'Premium', action: () => setOpen(false) },
-    { icon: '⚙️', label: lang==='gr'?'Ρυθμίσεις':'Settings', action: () => setOpen(false) },
+    { icon: '⚙️', label: lang==='gr'?'Ρυθμίσεις':'Settings', action: () => go('settings') },
     { icon: '❓', label: lang==='gr'?'Βοήθεια':'Help', action: () => setOpen(false) },
     { icon: '🚪', label: lang==='gr'?'Αποσύνδεση':'Logout', action: logout, danger: true },
   ]

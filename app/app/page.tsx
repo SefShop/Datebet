@@ -16,12 +16,12 @@ import PostGameScreen   from '@/components/screens/PostGameScreen'
 import ChatScreen       from '@/components/screens/ChatScreen'
 import LockDateScreen   from '@/components/screens/LockDateScreen'
 import EditProfileScreen from '@/components/screens/EditProfileScreen'
+import SettingsScreen from '@/components/screens/SettingsScreen'
 import InboxScreen       from '@/components/screens/InboxScreen'
 import ActivityScreen    from '@/components/screens/ActivityScreen'
 import GameRoomScreen    from '@/components/screens/GameRoomScreen'
 import WaitingScreen     from '@/components/screens/WaitingScreen'
 // ReturnScreen removed
-import LangToggle      from '@/components/ui/LangToggle'
 import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -41,6 +41,7 @@ const SCREENS = {
   chat:       <ChatScreen />,
   lock_date:  <LockDateScreen />,
   edit_profile: <EditProfileScreen />,
+  settings:     <SettingsScreen />,
   inbox:        <InboxScreen />,
   activity:     <ActivityScreen />,
   game_room:    <GameRoomScreen />,
@@ -131,9 +132,8 @@ function AppShell() {
           rounded-[52px] max-sm:w-full max-sm:h-dvh max-sm:rounded-none max-sm:shadow-none"
         style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", background:'#08080f' }}
       >
-        {/* Persistent language toggle — top right, above all screens */}
+        {/* Account menu — language switch now lives only inside Settings */}
         <div className="absolute z-[60]" style={{ top: 16, right: 16 }}>
-          <LangToggle />
           {authed && <UserMenu onLogout={() => setAuthed(false)} />}
         </div>
 
