@@ -1,12 +1,27 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { getCurrentMatch } from '@/lib/profiles'
+import { supabase } from '@/lib/supabase'
+import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
+import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 
 export default function PostGameScreen() {
   const { navigate, lang } = useApp()
   const t = APP_COPY[lang].dating
   const match = getCurrentMatch()
+  const [photoAccess, setPhotoAccess] = useState<{ photoUnlocked: boolean; myPhoto: string | null; opponentPhoto: string | null }>({ photoUnlocked: false, myPhoto: null, opponentPhoto: null })
+
+  useEffect(() => {
+    if (!match?.id) return
+    // Shared avatar photo access — reuses the same pair-unlock source of
+    // truth as Discover/Profile. Presentation-only.
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.id) fetchGamePlayerPhotoAccess(user.id, match.id).then(setPhotoAccess)
+    })
+  }, [match?.id])
+
   if (!match) return <div className="flex items-center justify-center h-full" style={{background:"#0a0a10"}}><div className="text-center"><div className="text-[14px] text-white/40">No player selected</div></div></div>
 
   return (
@@ -18,8 +33,18 @@ export default function PostGameScreen() {
         <div className="w-16 h-16 rounded-full flex items-center justify-center text-[32px]"
           style={{ background:'linear-gradient(135deg,#ff3384,#ff7a6e)' }}>😎</div>
         <div className="text-white/20 text-[12px] font-bold">+</div>
-        <div className="w-16 h-16 rounded-full overflow-hidden" style={{ border:'2px solid rgba(253,41,123,0.354)' }}>
-          <img src={match.photo} alt={match.name} className="w-full h-full object-cover" /></div>
+        <div style={{ border:'2px solid rgba(253,41,123,0.354)', borderRadius: '9999px' }}>
+          <GamePlayerAvatar
+            userId={match.id}
+            displayName={match.name}
+            photoUrl={photoAccess.opponentPhoto}
+            photoUnlocked={photoAccess.photoUnlocked}
+            size={64}
+            accentColor="#ff3384"
+            accentColor2="#ff7a6e"
+            glow={false}
+          />
+        </div>
       </div>
 
       <h1 className="text-[26px] font-extrabold text-white tracking-tight text-center mb-2"

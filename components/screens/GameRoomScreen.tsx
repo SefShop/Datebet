@@ -3,11 +3,15 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentSession, setOpponentName } from '@/lib/gameInvites'
+import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
+import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 
 export default function GameRoomScreen() {
   const { navigate, lang } = useApp()
   const session = getCurrentSession()
   const [bothNames, setBothNames] = useState<{ one: string; two: string }>({ one: 'Player 1', two: 'Player 2' })
+  const [photoAccess, setPhotoAccess] = useState<{ photoUnlocked: boolean; myPhoto: string | null; opponentPhoto: string | null }>({ photoUnlocked: false, myPhoto: null, opponentPhoto: null })
+  const [myId, setMyId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!session) { console.log('GAME ROOM MOUNT: no session'); return }
@@ -18,6 +22,7 @@ export default function GameRoomScreen() {
     console.log('GAME ROOM GAME TYPE:', s0.game_type)
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
+      setMyId(user?.id ?? null)
       const { data } = await supabase.from('profiles').select('id, name').in('id', [s0.player_one_id, s0.player_two_id])
       const map = new Map(data?.map(p => [p.id, p.name]) || [])
       const oneName = map.get(s0.player_one_id) || 'Player 1'
@@ -25,6 +30,13 @@ export default function GameRoomScreen() {
       setBothNames({ one: oneName, two: twoName })
       const oppName = user?.id === s0.player_one_id ? twoName : oneName
       setOpponentName(oppName)
+
+      // Shared avatar photo access — reuses the same pair-unlock source of
+      // truth as Discover/Profile. Presentation-only.
+      if (user?.id) {
+        const oppId = user.id === s0.player_one_id ? s0.player_two_id : s0.player_one_id
+        fetchGamePlayerPhotoAccess(user.id, oppId).then(setPhotoAccess)
+      }
     }
     init()
   }, [session])
@@ -63,14 +75,32 @@ export default function GameRoomScreen() {
       {/* Players */}
       <div className="flex items-center justify-center gap-4 py-8 px-6">
         <div className="text-center">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center text-[28px] mb-2" style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)', boxShadow: '0 0 20px rgba(253,41,123,0.354)' }}>🎭</div>
-          <div className="text-[13px] font-bold text-white">{bothNames.one}</div>
+          <GamePlayerAvatar
+            userId={session?.player_one_id || ''}
+            displayName={bothNames.one}
+            photoUrl={myId === session?.player_one_id ? photoAccess.myPhoto : photoAccess.opponentPhoto}
+            photoUnlocked={photoAccess.photoUnlocked}
+            size={64}
+            accentColor="#ff3384"
+            accentColor2="#ff7a6e"
+            isCurrentUser={myId === session?.player_one_id}
+          />
+          <div className="text-[13px] font-bold text-white mt-2">{bothNames.one}</div>
           <div className="text-[10px]" style={{ color: '#ff3384' }}>X</div>
         </div>
         <div className="text-[24px] font-black" style={{ color: 'rgba(253,41,123,0.708)' }}>VS</div>
         <div className="text-center">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center text-[28px] mb-2" style={{ background: 'linear-gradient(135deg,#7c72ff,#a855f7)', boxShadow: '0 0 20px rgba(108,99,255,0.354)' }}>🎭</div>
-          <div className="text-[13px] font-bold text-white">{bothNames.two}</div>
+          <GamePlayerAvatar
+            userId={session?.player_two_id || ''}
+            displayName={bothNames.two}
+            photoUrl={myId === session?.player_two_id ? photoAccess.myPhoto : photoAccess.opponentPhoto}
+            photoUnlocked={photoAccess.photoUnlocked}
+            size={64}
+            accentColor="#7c72ff"
+            accentColor2="#a855f7"
+            isCurrentUser={myId === session?.player_two_id}
+          />
+          <div className="text-[13px] font-bold text-white mt-2">{bothNames.two}</div>
           <div className="text-[10px]" style={{ color: '#7c72ff' }}>O</div>
         </div>
       </div>

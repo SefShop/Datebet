@@ -6,6 +6,8 @@ import { getCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameI
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import { getPresence, isOnlineNow } from '@/lib/presence'
 import { setCurrentMatch } from '@/lib/profiles'
+import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
+import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import { getAnswerEmoji } from '@/lib/answerEmoji'
 import { getResultPool, selectRandomResult, getResultById } from '@/lib/mysteryResultLibrary'
 import {
@@ -167,6 +169,7 @@ export default function MysteryChoiceGame() {
   const [state, setState] = useState<MysteryChoiceState | null>(null)
   const [myId, setMyId] = useState<string | null>(null)
   const [names, setNames] = useState<{ one: string; two: string }>({ one: 'Player 1', two: 'Player 2' })
+  const [photoAccess, setPhotoAccess] = useState<{ photoUnlocked: boolean; myPhoto: string | null; opponentPhoto: string | null }>({ photoUnlocked: false, myPhoto: null, opponentPhoto: null })
   const [loading, setLoading] = useState(true)
   const [preparing, setPreparing] = useState(false)
   const [sessionRetrying, setSessionRetrying] = useState(false)
@@ -253,6 +256,14 @@ export default function MysteryChoiceGame() {
         const { data: profs } = await supabase.from('profiles').select('id, name').in('id', [sess0.player_one_id, sess0.player_two_id])
         profs?.forEach(p => nm.set(p.id, p.name))
         setNames({ one: nm.get(sess0.player_one_id) || 'Player 1', two: nm.get(sess0.player_two_id) || 'Player 2' })
+
+        // Shared avatar photo access — reuses the same pair-unlock source of
+        // truth as Discover/Profile (getPairProgress). Presentation-only;
+        // does not affect gameplay, matching, or unlock thresholds.
+        if (user?.id) {
+          const oppId = user.id === sess0.player_one_id ? sess0.player_two_id : sess0.player_one_id
+          fetchGamePlayerPhotoAccess(user.id, oppId).then(setPhotoAccess)
+        }
 
         // Both users load the SAME game_session by session_id — retry a few times
         // before concluding the session truly doesn't exist.
@@ -1037,11 +1048,13 @@ export default function MysteryChoiceGame() {
 
       {/* Premium player header */}
       <div className="mc-player-header relative z-10 flex items-center justify-center gap-3 px-6 pb-4">
-        <PlayerCard name={names.one} colorA="#ff3384" colorB="#ff7a6e" online={onlineOne} active={waitingOnOpponent && isPlayerOne === false && !oppChoice} isMe={isPlayerOne} />
+        <PlayerCard userId={session.player_one_id} name={names.one} colorA="#ff3384" colorB="#ff7a6e" online={onlineOne} active={waitingOnOpponent && isPlayerOne === false && !oppChoice} isMe={isPlayerOne}
+          photoUrl={isPlayerOne ? photoAccess.myPhoto : photoAccess.opponentPhoto} photoUnlocked={photoAccess.photoUnlocked} />
         <div className="flex flex-col items-center px-1">
           <div className="text-[15px] font-black" style={{ color: 'rgba(255,255,255,0.7)', animation: 'mcVsPulse 1.8s ease-in-out infinite' }}>VS</div>
         </div>
-        <PlayerCard name={names.two} colorA="#7c72ff" colorB="#a855f7" online={onlineTwo} active={waitingOnOpponent && isPlayerOne === true && !oppChoice} isMe={!isPlayerOne} />
+        <PlayerCard userId={session.player_two_id} name={names.two} colorA="#7c72ff" colorB="#a855f7" online={onlineTwo} active={waitingOnOpponent && isPlayerOne === true && !oppChoice} isMe={!isPlayerOne}
+          photoUrl={!isPlayerOne ? photoAccess.myPhoto : photoAccess.opponentPhoto} photoUnlocked={photoAccess.photoUnlocked} />
       </div>
 
       {/* Question card */}
@@ -1240,7 +1253,8 @@ export default function MysteryChoiceGame() {
           .mc-round-indicator { padding-bottom: 8px !important; }
           .mc-player-header { padding-bottom: 8px !important; gap: 8px !important; }
           .mc-player-card { padding: 10px 11px !important; gap: 4px !important; }
-          .mc-player-avatar { width: 38px !important; height: 38px !important; font-size: 15px !important; }
+          .mc-player-avatar > div { width: 38px !important; height: 38px !important; }
+          .mc-player-avatar > div > span { font-size: 15px !important; }
           .mc-player-name { font-size: 10px !important; max-width: 58px !important; }
           .mc-question-wrap { padding-top: 4px !important; padding-bottom: 16px !important; }
           .mc-question-card { padding: 18px 20px !important; margin-bottom: 12px !important; }
@@ -1285,7 +1299,7 @@ function McParticles() {
 }
 
 // Premium player card — avatar, name, online dot, subtle glow when it's this player we're waiting on
-function PlayerCard({ name, colorA, colorB, online, active, isMe }: { name: string; colorA: string; colorB: string; online: boolean; active: boolean; isMe: boolean }) {
+function PlayerCard({ userId, name, colorA, colorB, online, active, isMe, photoUrl, photoUnlocked }: { userId: string; name: string; colorA: string; colorB: string; online: boolean; active: boolean; isMe: boolean; photoUrl?: string | null; photoUnlocked: boolean }) {
   return (
     <div className="mc-player-card flex flex-col items-center gap-1.5 rounded-2xl px-3.5 py-3" style={{
       background: 'rgba(255,255,255,0.04)',
@@ -1294,10 +1308,19 @@ function PlayerCard({ name, colorA, colorB, online, active, isMe }: { name: stri
       transition: 'box-shadow 0.4s ease, border-color 0.4s ease',
     }}>
       <div className="relative">
-        <div className="mc-player-avatar w-11 h-11 rounded-full flex items-center justify-center text-[18px]" style={{
-          background: `linear-gradient(135deg,${colorA},${colorB})`,
-          boxShadow: active ? `0 0 18px ${colorA}80` : `0 0 10px ${colorA}30`,
-        }}>🎭</div>
+        <div className="mc-player-avatar">
+          <GamePlayerAvatar
+            userId={userId}
+            displayName={name}
+            photoUrl={photoUrl}
+            photoUnlocked={photoUnlocked}
+            size={44}
+            accentColor={colorA}
+            accentColor2={colorB}
+            isCurrentUser={isMe}
+            glow={active}
+          />
+        </div>
         <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full" style={{
           background: online ? '#4ade80' : '#666',
           border: '2px solid #0a0a10',
