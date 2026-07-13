@@ -434,8 +434,8 @@ export default function ProfileScreenNew() {
 
                 {/* Mystery Player badge — now lives on the photo overlay, next to the name */}
                 {!canShowPhoto && (
-                  <div className="absolute z-20" style={{ top: 16, right: 16 }}>
-                    <span className="inline-flex items-center text-[9.5px] font-bold uppercase tracking-[1.5px] px-2.5 py-1 rounded-full"
+                  <div className="mystery-badge absolute z-20" style={{ top: 16, right: 16 }}>
+                    <span className="mystery-badge-pill inline-flex items-center text-[9.5px] font-bold uppercase tracking-[1.5px] px-2.5 py-1 rounded-full"
                       style={{ background: 'rgba(253,41,123,0.22)', color: '#ff8fbb', border: '1px solid rgba(253,41,123,0.4)', backdropFilter: 'blur(8px)' }}>
                       🎭 {lang === 'gr' ? 'Μυστήριο' : 'Mystery Player'}
                     </span>
@@ -705,6 +705,51 @@ export default function ProfileScreenNew() {
             min-height: 0 !important;
             overflow: hidden !important;
             padding: 10px 14px 10px !important;
+          }
+
+          /* FIX 1 — compact spacing only, no structural/height changes.
+             Reveal Progress text sizes are intentionally left untouched
+             (readability floor) — only outer padding/margins are reduced. */
+          .mobile-profile-details .mc-interests-zone {
+            margin-bottom: 6px !important;
+          }
+          .mobile-profile-details .mc-interests-zone > div:first-child {
+            margin-bottom: 4px !important;
+          }
+          .mobile-profile-details .mc-interests-zone span {
+            padding-top: 3px !important;
+            padding-bottom: 3px !important;
+          }
+          .mobile-profile-details .mc-bio-zone {
+            margin-bottom: 6px !important;
+          }
+          .mobile-profile-details .mc-bio-zone > div:first-child {
+            margin-bottom: 2px !important;
+          }
+          .mobile-profile-details .mc-reveal-zone {
+            padding: 8px 10px !important;
+          }
+          .mobile-profile-details .mc-reveal-zone > div:first-child {
+            margin-bottom: 4px !important;
+          }
+          .mobile-profile-details .mc-reveal-zone > div:nth-child(2) {
+            margin-bottom: 6px !important;
+          }
+
+          /* FIX 2 — Mystery badge moves lower/left on mobile so it never
+             overlaps the account icon (which now sits higher, right:10px). */
+          .mystery-badge {
+            top: 42px !important;
+            right: 18px !important;
+            left: auto !important;
+            max-width: calc(100% - 120px) !important;
+          }
+          .mystery-badge-pill {
+            max-width: 100% !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            display: inline-block !important;
           }
 
           .mobile-profile-actions {

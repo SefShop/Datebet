@@ -183,9 +183,9 @@ function AppShell() {
         @media (max-width: 767.98px) {
           .mc-account-icon-wrap {
             position: absolute !important;
-            top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
-            right: 14px !important;
-            z-index: 50 !important;
+            top: calc(env(safe-area-inset-top, 0px) + 2px) !important;
+            right: 10px !important;
+            z-index: 60 !important;
             height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
