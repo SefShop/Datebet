@@ -582,15 +582,15 @@ export default function ProfileScreenNew() {
             position: relative !important;
           }
           .mc-profile-top {
-            flex: 0 0 40px !important;
-            height: 40px !important;
+            flex: 0 0 36px !important;
+            height: 36px !important;
             padding: 0 !important;
           }
           /* Card area + action bar heights are derived from the SAME calc()
              expression for the bottom bar, so they always stay in sync. */
           .mc-profile-card-area {
             position: absolute !important;
-            top: 40px !important;
+            top: 36px !important;
             left: 0 !important;
             right: 0 !important;
             bottom: calc(64px + 8px + env(safe-area-inset-bottom, 0px) + 16px) !important;
@@ -606,45 +606,27 @@ export default function ProfileScreenNew() {
             height: 100% !important;
             position: relative !important;
           }
+          /* Photo dominates the card — 65% of its fixed height, Tinder-style.
+             Everything below flows naturally in the remaining ~33%; nothing
+             here is absolutely offset from the photo, so an empty bio or
+             empty interests row simply doesn't reserve any space — the
+             sections that DO have content sit flush against each other,
+             and Reveal Progress (mt-auto in the base layout) absorbs
+             whatever room is left, staying pinned just above the actions. */
           .mc-photo-zone {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            height: 47% !important;
+            flex: 0 0 65% !important;
           }
-          /* The info wrapper becomes a pure grouping node — its children
-             position directly against the card (the nearest positioned
-             ancestor), independent of each other's content height. */
           .mc-info-zone {
-            display: contents !important;
+            padding: 8px 16px !important;
           }
           .mc-interests-zone {
-            position: absolute !important;
-            top: calc(47% + 12px) !important;
-            left: 20px !important;
-            right: 20px !important;
-            height: 46px !important;
-            margin: 0 !important;
-            overflow: hidden !important;
+            margin-bottom: 6px !important;
           }
           .mc-bio-zone {
-            position: absolute !important;
-            top: calc(47% + 68px) !important;
-            left: 20px !important;
-            right: 20px !important;
-            height: 68px !important;
-            margin: 0 !important;
-            overflow: hidden !important;
+            margin-bottom: 6px !important;
           }
           .mc-reveal-zone {
-            position: absolute !important;
-            left: 16px !important;
-            right: 16px !important;
-            bottom: 12px !important;
-            height: 82px !important;
-            margin: 0 !important;
-            overflow: hidden !important;
+            padding: 8px 10px !important;
           }
           .mc-profile-actions {
             position: absolute !important;
