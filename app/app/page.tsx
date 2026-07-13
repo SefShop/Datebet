@@ -132,8 +132,10 @@ function AppShell() {
           rounded-[52px] max-sm:w-full max-sm:h-dvh max-sm:rounded-none max-sm:shadow-none"
         style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", background:'#08080f' }}
       >
-        {/* Account menu — language switch now lives only inside Settings */}
-        <div className="absolute z-[60]" style={{ top: 16, right: 16 }}>
+        {/* Account menu — language switch now lives only inside Settings.
+            Positioned as a pure overlay (position:absolute, no reserved
+            flow height) — mobile gets safe-area-aware placement below. */}
+        <div className="mc-account-icon-wrap absolute z-[60]" style={{ top: 16, right: 16, margin: 0, padding: 0 }}>
           {authed && <UserMenu onLogout={() => setAuthed(false)} />}
         </div>
 
@@ -173,6 +175,18 @@ function AppShell() {
         @keyframes slideUp {
           from { transform: translateY(100%); opacity: 0; }
           to   { transform: translateY(0);    opacity: 1; }
+        }
+        /* Mobile only: account icon becomes a true safe-area-aware overlay.
+           It never reserved layout space (it was already position:absolute),
+           but on mobile it now sits closer to the real notch/status-bar
+           boundary rather than a fixed 16px that ignores device safe areas. */
+        @media (max-width: 767.98px) {
+          .mc-account-icon-wrap {
+            top: calc(env(safe-area-inset-top, 0px) + 12px) !important;
+            right: 16px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
         }
       `}</style>
     </main>

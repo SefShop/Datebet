@@ -582,15 +582,18 @@ export default function ProfileScreenNew() {
             position: relative !important;
           }
           .mc-profile-top {
-            flex: 0 0 36px !important;
-            height: 36px !important;
+            flex: 0 0 0px !important;
+            height: 0px !important;
             padding: 0 !important;
+            margin: 0 !important;
           }
           /* Card area + action bar heights are derived from the SAME calc()
-             expression for the bottom bar, so they always stay in sync. */
+             expression for the bottom bar, so they always stay in sync.
+             Top offset is now safe-area-only — the account icon overlays
+             the card via z-index rather than the card leaving room for it. */
           .mc-profile-card-area {
             position: absolute !important;
-            top: 36px !important;
+            top: calc(env(safe-area-inset-top, 0px) + 4px) !important;
             left: 0 !important;
             right: 0 !important;
             bottom: calc(64px + 8px + env(safe-area-inset-bottom, 0px) + 16px) !important;
