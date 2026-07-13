@@ -577,6 +577,7 @@ export default function ProfileScreenNew() {
             height: 100dvh !important;
             min-height: 100dvh !important;
             max-height: 100dvh !important;
+            width: 100% !important;
             overflow: hidden !important;
             position: relative !important;
           }
@@ -641,7 +642,9 @@ export default function ProfileScreenNew() {
             left: 16px !important;
             right: 16px !important;
             bottom: 12px !important;
+            height: 82px !important;
             margin: 0 !important;
+            overflow: hidden !important;
           }
           .mc-profile-actions {
             position: absolute !important;
