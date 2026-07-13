@@ -1191,7 +1191,7 @@ export default function MysteryChoiceGame() {
         {/* Next round — both users see it after a result; tapping sets ready flag */}
         {revealed && !revealing && (
           <button onClick={markReady} disabled={myReady || submittingReady}
-            className="rounded-2xl px-8 py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer disabled:cursor-default"
+            className="mc-next-round-btn rounded-2xl px-8 py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer disabled:cursor-default"
             style={{
               background: (myReady || submittingReady) ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg,#7c72ff,#d84dd8)',
               color: (myReady || submittingReady) ? 'rgba(255,255,255,0.5)' : '#fff',
@@ -1254,6 +1254,7 @@ export default function MysteryChoiceGame() {
           .mc-question-text.mc-q-short { font-size: 29px !important; line-height: 1.25 !important; }
           .mc-question-text.mc-q-medium { font-size: 25px !important; line-height: 1.28 !important; }
           .mc-question-text.mc-q-long { font-size: 21px !important; line-height: 1.3 !important; }
+          .mc-next-round-btn { margin-bottom: 16px !important; }
         }
       `}</style>
     </div>

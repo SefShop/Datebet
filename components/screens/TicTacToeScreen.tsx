@@ -400,7 +400,7 @@ export default function TicTacToeScreen() {
 
       {/* Finished actions */}
       {state.status === 'finished' && (
-        <div className="px-6 mt-6 flex flex-col gap-2.5">
+        <div className="ttt-finished-actions px-6 mt-6 flex flex-col gap-2.5">
           {iAmReady ? (
             <div className="w-full rounded-2xl py-3.5 text-[14px] font-bold text-center"
               style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.59)', border: '1px solid rgba(255,255,255,0.094)' }}>
@@ -428,7 +428,12 @@ export default function TicTacToeScreen() {
         </div>
       )}
 
-      <style>{`@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }`}</style>
+      <style>{`
+        @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+        @media (max-width: 767.98px) {
+          .ttt-finished-actions { margin-top: 8px !important; }
+        }
+      `}</style>
     </div>
   )
 }
