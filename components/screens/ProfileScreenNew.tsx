@@ -764,6 +764,7 @@ export default function ProfileScreenNew() {
             overflow: visible !important;
             padding: 0 !important;
             background: none !important;
+            transform: translateY(-10px) !important;
           }
         }
 
