@@ -304,7 +304,7 @@ export default function ProfileScreenNew() {
   }
 
   return (
-    <div ref={shellRef} className="mc-profile-shell mobile-profile-shell flex flex-col overflow-hidden" style={{ background:'#0a0a10', height: '100dvh', maxHeight: '100dvh', position: 'relative', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid red' : 'none' }}>
+    <div ref={shellRef} className="mc-profile-shell mobile-profile-shell desktop-profile-shell flex flex-col overflow-hidden" style={{ background:'#0a0a10', height: '100dvh', maxHeight: '100dvh', position: 'relative', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid red' : 'none' }}>
 
       {DEBUG_ACTIVE_PROFILE_COMPONENT && (
         <div className="absolute z-[200] left-1/2 -translate-x-1/2 text-[10px] font-bold text-white px-3 py-1 rounded-full"
@@ -823,10 +823,65 @@ export default function ProfileScreenNew() {
           .discover-card-v2 { width: 440px !important; max-width: 440px !important; margin: 0 auto !important; }
           .discover-actions-v2 { padding-top: 20px !important; padding-bottom: 24px !important; max-width: 440px; margin: 0 auto; width: 100%; }
         }
-        /* Desktop: centered card, ~430-480px wide — never stretched */
+
+        /* ══════════════════════════════════════════════════════════════
+           DESKTOP — matches the mobile profile's visual structure and
+           hierarchy (photo-dominant Tinder-style card) instead of the old,
+           separate flex-split desktop design. Reuses the exact same class
+           names/values already tuned for mobile (.mc-photo-zone,
+           .photo-nav-line, .mystery-badge, .mc-interests-zone, .mc-bio-zone,
+           .mc-reveal-zone) — same visual identity, different container:
+           a natural, centered, scrollable page instead of a fixed-height
+           absolute-positioned shell. No phone-frame, no clipping — the
+           shell app wrapper's own desktop scroll fix (app/app/page.tsx)
+           is untouched and still owns page-level scrolling.
+           ══════════════════════════════════════════════════════════════ */
         @media (min-width: 1024px) {
-          .discover-card-area-v2 { padding: 24px 16px 8px !important; }
-          .discover-card-v2 { width: 460px !important; max-width: 460px !important; margin: 0 auto !important; }
+          .desktop-profile-shell {
+            height: auto !important;
+            max-height: none !important;
+            min-height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            overflow-x: hidden !important;
+            overflow-y: visible !important;
+            padding: 24px 20px 48px !important;
+          }
+          .discover-card-area-v2 {
+            padding: 0 !important;
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: center !important;
+            width: 100% !important;
+            flex: none !important;
+            overflow: visible !important;
+          }
+          .discover-card-v2 {
+            width: min(460px, calc(100vw - 40px)) !important;
+            max-width: 460px !important;
+            min-height: 760px !important;
+            height: auto !important;
+            margin: 0 auto !important;
+          }
+          /* Photo-dominant, same proportion as mobile (was a fixed 47% split). */
+          .mc-photo-zone {
+            flex: 0 0 65% !important;
+          }
+          /* Same overlay clearance values already tuned for mobile, reused
+             as-is so the account icon (fixed top:16,right:16 on desktop)
+             never overlaps the nav line or Mystery badge. */
+          .photo-nav-line { top: 40px !important; }
+          .mystery-badge { top: 54px !important; right: 18px !important; }
+          /* Same compact details spacing already tuned for mobile. */
+          .mc-interests-zone { margin-bottom: 6px !important; }
+          .mc-interests-zone > div:first-child { margin-bottom: 4px !important; }
+          .mc-bio-zone { margin-bottom: 6px !important; }
+          .mc-bio-zone > div:first-child { margin-bottom: 2px !important; }
+          .mc-reveal-zone { padding: 8px 10px !important; }
+          .mc-reveal-zone > div:first-child { margin-bottom: 4px !important; }
+          .mc-reveal-zone > div:nth-child(2) { margin-bottom: 6px !important; }
+
           .discover-actions-v2 { padding-top: 20px !important; padding-bottom: 28px !important; max-width: 460px; margin: 0 auto; width: 100%; }
         }
       `}</style>
