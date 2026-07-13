@@ -692,7 +692,7 @@ export default function ProfileScreenNew() {
             padding:
               calc(env(safe-area-inset-top, 0px) + 6px)
               10px
-              calc(env(safe-area-inset-bottom, 0px) + 18px) !important;
+              calc(env(safe-area-inset-bottom, 0px) + 34px) !important;
           }
 
           .mobile-profile-card-area {
