@@ -400,15 +400,6 @@ export default function EditProfileScreen() {
                 })}
               </div>
             </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-white/30 uppercase tracking-[1px] mb-1.5 block">{t.photoUrl}</label>
-              <input value={photo} onChange={e => setPhoto(e.target.value)}
-                placeholder="https://..."
-                onFocus={() => setFocus('p')} onBlur={() => setFocus(null)}
-                className="w-full rounded-2xl px-4 py-3.5 text-[14px] outline-none transition-all duration-300"
-                style={inputStyle('p')} />
-            </div>
           </div>
 
           {error && (
