@@ -3,12 +3,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { detectBioLanguage } from '@/lib/langDetect'
+import { compressImage } from '@/lib/photoCompress'
 
 type State = 'loading' | 'ready' | 'saving' | 'error'
 type PhotoState = 'idle' | 'uploading' | 'done' | 'error'
 
 const MAX_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_PHOTOS = 9
 
 export default function EditProfileScreen() {
   const { navigate, lang } = useApp()
@@ -18,6 +20,7 @@ export default function EditProfileScreen() {
   const [location, setLoc]      = useState('')
   const [bio, setBio]           = useState('')
   const [photo, setPhoto]       = useState('')
+  const [photos, setPhotos]     = useState<string[]>([])  // up to 9, ordered — photos[0] is primary
   const [interests, setInterests] = useState<string[]>([])
   const [state, setState]       = useState<State>('loading')
   const [error, setError]       = useState('')
@@ -27,6 +30,7 @@ export default function EditProfileScreen() {
   const [photoError, setPhotoError] = useState('')
   const [preview, setPreview]   = useState<string|null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [uploadSlot, setUploadSlot] = useState<number | null>(null)  // which slot the file picker targets
   const [userId, setUserId]     = useState<string|null>(null)
 
   useEffect(() => { loadProfile() }, [])
@@ -65,6 +69,7 @@ export default function EditProfileScreen() {
 
         setName(data.name || ''); setAge(data.age ? String(data.age) : '')
         setLoc(data.location || ''); setBio(data.bio || ''); setPhoto(data.photo || '')
+        setPhotos(Array.isArray(data.photos) && data.photos.length > 0 ? data.photos : (data.photo ? [data.photo] : []))
         setInterests(Array.isArray(data.interests) ? data.interests : [])
         console.log('INTERESTS LOADED', Array.isArray(data.interests) ? data.interests.length : 0)
       } else {
@@ -77,7 +82,7 @@ export default function EditProfileScreen() {
     }
   }
 
-  // ── Photo upload ──
+  // ── Photo upload (multi-photo aware) ──
   function onFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -90,25 +95,29 @@ export default function EditProfileScreen() {
       setPhotoError(lang==='gr' ? 'Μέγιστο 5MB' : 'Max 5MB'); return
     }
 
-    // Preview
-    const reader = new FileReader()
-    reader.onload = () => setPreview(reader.result as string)
-    reader.readAsDataURL(file)
+    // Preview only shown for the primary slot (slot 0), matching the
+    // existing single-photo preview behavior.
+    if (uploadSlot === 0 || uploadSlot === null) {
+      const reader = new FileReader()
+      reader.onload = () => setPreview(reader.result as string)
+      reader.readAsDataURL(file)
+    }
 
-    uploadFile(file)
+    uploadFile(file, uploadSlot ?? photos.length)
   }
 
-  async function uploadFile(file: File) {
+  async function uploadFile(file: File, slotIndex: number) {
     if (!userId) return
     setPhotoState('uploading')
 
-    const ext = file.name.split('.').pop()
-    const path = `${userId}/${Date.now()}.${ext}`
-
     try {
+      const compressed = await compressImage(file)
+      const ext = compressed.name.split('.').pop()
+      const path = `${userId}/${slotIndex}_${Date.now()}.${ext}`
+
       const { error: upErr } = await supabase.storage
         .from('profile-photos')
-        .upload(path, file, { upsert: true })
+        .upload(path, compressed, { upsert: true })
 
       if (upErr) {
         console.error('PHOTO UPLOAD error:', upErr)
@@ -121,14 +130,46 @@ export default function EditProfileScreen() {
         .from('profile-photos')
         .getPublicUrl(path)
 
-      console.log('PHOTO UPLOAD: public URL', urlData.publicUrl)
-      setPhoto(urlData.publicUrl)
+      console.log('PHOTO UPLOAD: public URL', urlData.publicUrl, 'slot', slotIndex)
+      setPhotos(prev => {
+        const next = [...prev]
+        next[slotIndex] = urlData.publicUrl
+        return next.filter(Boolean).slice(0, MAX_PHOTOS)
+      })
+      if (slotIndex === 0) setPhoto(urlData.publicUrl)
       setPhotoState('done')
     } catch (err: any) {
       console.error('PHOTO UPLOAD catch:', err)
       setPhotoError(err.message)
       setPhotoState('error')
     }
+  }
+
+  function openPickerForSlot(slot: number) {
+    setUploadSlot(slot)
+    fileRef.current?.click()
+  }
+
+  function removePhotoAt(index: number) {
+    console.log('PHOTO DELETE:', index)
+    setPhotos(prev => {
+      const next = prev.filter((_, i) => i !== index)
+      if (index === 0) setPhoto(next[0] || '')
+      return next
+    })
+    if (index === 0) { setPreview(null); setPhotoState('idle') }
+  }
+
+  function movePhoto(index: number, direction: -1 | 1) {
+    const target = index + direction
+    if (target < 0 || target >= photos.length) return
+    console.log('PHOTO REORDER:', index, '->', target)
+    setPhotos(prev => {
+      const next = [...prev]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      if (index === 0 || target === 0) setPhoto(next[0] || '')
+      return next
+    })
   }
 
   function removePhoto() {
@@ -161,8 +202,9 @@ export default function EditProfileScreen() {
       // render, never asked of the user.
       const bioLanguage = bio.trim() ? detectBioLanguage(bio) : 'und'
 
-      const payload = { id: user.id, name, age: parseInt(age) || 0, location, bio, bio_language: bioLanguage, photo, interests }
-      console.log('EDIT PROFILE: saving for user', user.id, payload)
+      const primaryPhoto = photos[0] || ''
+      const payload = { id: user.id, name, age: parseInt(age) || 0, location, bio, bio_language: bioLanguage, photo: primaryPhoto, photos, interests }
+      console.log('EDIT PROFILE: saving for user', user.id, 'photos:', photos.length)
 
       const { error: e } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' })
 
@@ -196,8 +238,6 @@ export default function EditProfileScreen() {
     back:     lang==='gr' ? '← Πίσω' : '← Back',
   }
 
-  const photoSrc = preview || photo || ''
-
   function inputStyle(key: string) {
     return {
       background: 'rgba(255,255,255,0.059)', color: '#fff', caretColor: '#ff3384',
@@ -223,12 +263,12 @@ export default function EditProfileScreen() {
       ) : (
         <div className="px-5 pb-10">
 
-          {/* Photo section */}
+          {/* Photo section — up to 9 photos, slot 0 is always primary */}
           <div className="flex flex-col items-center mb-6">
             <div className="w-28 h-28 rounded-full overflow-hidden mb-3"
               style={{ border:'3px solid rgba(253,41,123,0.354)', boxShadow:'0 0 24px rgba(253,41,123,0.177)' }}>
-              {photoSrc ? (
-                <img src={photoSrc} alt="Profile" className="w-full h-full object-cover"
+              {(preview || photos[0]) ? (
+                <img src={preview || photos[0]} alt="Profile" className="w-full h-full object-cover"
                   onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[48px]"
@@ -236,25 +276,58 @@ export default function EditProfileScreen() {
               )}
             </div>
 
-            {/* Upload button */}
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
               onChange={onFileSelect} className="hidden" />
 
-            <div className="flex items-center gap-2">
-              <button onClick={() => fileRef.current?.click()}
-                disabled={photoState==='uploading'}
-                className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 transition-transform cursor-pointer disabled:opacity-40"
-                style={{ background:'rgba(253,41,123,0.177)', color:'#ff3384', border:'1px solid rgba(253,41,123,0.295)' }}>
-                {photoState==='uploading' ? t.uploading : photoState==='done' ? t.uploaded : t.upload}
-              </button>
+            <div className="text-[11px] font-bold mb-3" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              {photos.length} / {MAX_PHOTOS} {lang==='gr' ? 'φωτογραφίες' : 'photos'}
+            </div>
 
-              {photoSrc && (
-                <button onClick={removePhoto}
-                  className="rounded-full px-3 py-2 text-[11px] font-medium active:scale-95 transition-transform cursor-pointer"
-                  style={{ background:'rgba(255,255,255,0.059)', color:'rgba(255,255,255,0.472)', border:'1px solid rgba(255,255,255,0.094)' }}>
-                  {t.remove}
-                </button>
-              )}
+            {/* 3x3 photo grid */}
+            <div className="grid grid-cols-3 gap-2 w-full max-w-[280px]">
+              {Array.from({ length: MAX_PHOTOS }).map((_, i) => {
+                const url = photos[i]
+                return (
+                  <div key={i} className="relative rounded-xl overflow-hidden" style={{
+                    aspectRatio: '1', background: 'rgba(255,255,255,0.05)',
+                    border: i === 0 ? '2px solid rgba(253,41,123,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                  }}>
+                    {url ? (
+                      <>
+                        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover cursor-pointer"
+                          onClick={() => openPickerForSlot(i)}
+                          onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
+                        {i === 0 && (
+                          <div className="absolute top-1 left-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ background: 'rgba(253,41,123,0.85)', color: '#fff' }}>
+                            {lang==='gr' ? 'Κύρια' : 'Primary'}
+                          </div>
+                        )}
+                        <button onClick={() => removePhotoAt(i)}
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] cursor-pointer"
+                          style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>✕</button>
+                        <div className="absolute bottom-1 left-1 right-1 flex justify-between">
+                          <button onClick={() => movePhoto(i, -1)} disabled={i === 0}
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] cursor-pointer disabled:opacity-20"
+                            style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>‹</button>
+                          <button onClick={() => movePhoto(i, 1)} disabled={i === photos.length - 1}
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] cursor-pointer disabled:opacity-20"
+                            style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>›</button>
+                        </div>
+                      </>
+                    ) : (
+                      i === photos.length && photos.length < MAX_PHOTOS ? (
+                        <button onClick={() => openPickerForSlot(i)}
+                          disabled={photoState==='uploading'}
+                          className="w-full h-full flex items-center justify-center text-[22px] cursor-pointer disabled:opacity-40"
+                          style={{ color: 'rgba(255,255,255,0.3)' }}>
+                          {photoState==='uploading' && uploadSlot===i ? '⏳' : '+'}
+                        </button>
+                      ) : null
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             {photoError && (

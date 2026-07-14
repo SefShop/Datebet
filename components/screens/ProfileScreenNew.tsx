@@ -179,6 +179,22 @@ export default function ProfileScreenNew() {
   // Fully independent from the privacy/unlock effect above.
   useEffect(() => { setShowFullBio(false) }, [p?.id])
 
+  // Multi-photo gallery — which photo (0-based) is currently shown for the
+  // profile in view. Resets whenever the card changes so a new profile
+  // always starts on its primary photo.
+  const [photoIndex, setPhotoIndex] = useState(0)
+  useEffect(() => { setPhotoIndex(0) }, [p?.id])
+
+  // Preload only the current, next, and previous photo — never the whole
+  // gallery at once. Uses a plain Image() so the browser caches it; the
+  // actual <img> tag in the render always shows only the current photo.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !p) return
+    const photos = p.photos && p.photos.length > 0 ? p.photos : (p.photo ? [p.photo] : [])
+    const toPreload = [photos[photoIndex], photos[photoIndex + 1], photos[photoIndex - 1]].filter(Boolean) as string[]
+    toPreload.forEach(src => { const img = new Image(); img.src = src })
+  }, [p?.id, photoIndex])
+
   // Reset any shown translation when the card changes — never carry a
   // translation of one person's bio onto another profile.
   useEffect(() => {
@@ -419,36 +435,62 @@ export default function ProfileScreenNew() {
               <div ref={photoRef} className="mc-photo-zone mobile-profile-photo relative overflow-hidden flex items-center justify-center flex-shrink-0"
                 style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(108,99,255,0.295) 0%, transparent 55%), radial-gradient(ellipse at 50% 70%, rgba(253,41,123,0.236) 0%, transparent 55%), linear-gradient(160deg, #1c1628 0%, #100a1a 100%)', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid lime' : 'none' }}>
 
-                {canShowPhoto ? (
-                  <img src={p.photo} alt={p.name} className="absolute inset-0 w-full h-full object-cover object-center" />
-                ) : (
-                  <>
-                    {/* Mystery glow orbs */}
-                    <div className="absolute" style={{ width: 220, height: 220, top: '22%', left: '50%', transform: 'translateX(-50%)', borderRadius: '50%', background: 'radial-gradient(circle, rgba(253,41,123,0.236) 0%, transparent 70%)', filter: 'blur(34px)', animation: 'mysteryPulse 4s ease-in-out infinite' }} />
+                {(() => {
+                  const photos = p.photos && p.photos.length > 0 ? p.photos : (p.photo ? [p.photo] : [])
+                  const safeIndex = Math.min(photoIndex, Math.max(0, photos.length - 1))
+                  const currentPhoto = photos[safeIndex]
+                  const canGoPrev = safeIndex > 0
+                  const canGoNext = safeIndex < photos.length - 1
 
-                    {/* Mask icon */}
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className="text-[96px]" style={{ filter: 'drop-shadow(0 6px 24px rgba(253,41,123,0.472))', animation: 'mysteryFloat 5s ease-in-out infinite' }}>🎭</div>
-                    </div>
-                  </>
-                )}
+                  return canShowPhoto && currentPhoto ? (
+                    <>
+                      <img src={currentPhoto} alt={p.name} className="absolute inset-0 w-full h-full object-cover object-center" />
 
-                {/* Photo progress segments — supports the profile's existing photo(s).
-                    There is currently one photo per profile, so this shows one full
-                    segment; the structure is ready for more without any data change. */}
-                <div className="photo-nav-line absolute top-3 left-3 right-3 z-20 flex gap-1.5">
-                  {[p.photo].map((_, segIdx) => (
-                    <div key={segIdx} className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.25)' }}>
-                      <div className="h-full rounded-full" style={{ width: '100%', background: 'rgba(255,255,255,0.95)' }} />
-                    </div>
-                  ))}
-                </div>
+                      {/* One indicator segment per photo — same visual language as
+                          before, now driven by the profile's real photo count. */}
+                      <div className="photo-nav-line absolute top-3 left-3 right-3 z-20 flex gap-1.5">
+                        {photos.map((_, segIdx) => (
+                          <div key={segIdx} className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.25)' }}>
+                            <div className="h-full rounded-full" style={{ width: segIdx <= safeIndex ? '100%' : '0%', background: 'rgba(255,255,255,0.95)', transition: 'width 0.2s ease' }} />
+                          </div>
+                        ))}
+                      </div>
 
-                {/* Tap left/right zones for photo navigation — inert with a single
-                    photo (no-op), ready to page through more without layout change.
-                    Never enables anything beyond the existing unlock state. */}
-                <div className="absolute inset-y-0 left-0 w-1/3 z-10 cursor-default" />
-                <div className="absolute inset-y-0 right-0 w-1/3 z-10 cursor-default" />
+                      {/* Tap left/right zones — bounded, never loop. No-op past the
+                          first/last photo. Disabled entirely with only 1 photo. */}
+                      <button
+                        aria-label={lang === 'gr' ? 'Προηγούμενη φωτογραφία' : 'Previous photo'}
+                        onClick={() => canGoPrev && setPhotoIndex(safeIndex - 1)}
+                        className="absolute inset-y-0 left-0 w-1/2 z-10"
+                        style={{ background: 'transparent', cursor: canGoPrev ? 'pointer' : 'default' }}
+                      />
+                      <button
+                        aria-label={lang === 'gr' ? 'Επόμενη φωτογραφία' : 'Next photo'}
+                        onClick={() => canGoNext && setPhotoIndex(safeIndex + 1)}
+                        className="absolute inset-y-0 right-0 w-1/2 z-10"
+                        style={{ background: 'transparent', cursor: canGoNext ? 'pointer' : 'default' }}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      {/* Mystery glow orbs */}
+                      <div className="absolute" style={{ width: 220, height: 220, top: '22%', left: '50%', transform: 'translateX(-50%)', borderRadius: '50%', background: 'radial-gradient(circle, rgba(253,41,123,0.236) 0%, transparent 70%)', filter: 'blur(34px)', animation: 'mysteryPulse 4s ease-in-out infinite' }} />
+
+                      {/* Mask icon */}
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className="text-[96px]" style={{ filter: 'drop-shadow(0 6px 24px rgba(253,41,123,0.472))', animation: 'mysteryFloat 5s ease-in-out infinite' }}>🎭</div>
+                      </div>
+
+                      {/* Locked profiles still show a single indicator segment —
+                          never reveals how many real photos exist behind the lock. */}
+                      <div className="photo-nav-line absolute top-3 left-3 right-3 z-20 flex gap-1.5">
+                        <div className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.25)' }}>
+                          <div className="h-full rounded-full" style={{ width: '100%', background: 'rgba(255,255,255,0.95)' }} />
+                        </div>
+                      </div>
+                    </>
+                  )
+                })()}
 
                 {/* Gradient bottom — dark overlay so text stays readable over any photo */}
                 <div className="absolute inset-0" style={{
