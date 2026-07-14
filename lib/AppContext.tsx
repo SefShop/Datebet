@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useRef, useEffect, ReactNode } from 'react'
 import { Screen, GameState, GameQuestion, BiQuestion, BetState, SessionProfile, AnswerBoldness, ReturnState } from '@/types'
 import { COPY, Lang } from '@/lib/copy'
+import { supabase } from '@/lib/supabase'
 import { QUESTION_POOL, localizeQuestion } from '@/lib/data'
 import { pickRandom } from '@/lib/voice'
 import { buildPersonalization } from '@/lib/personalization'
@@ -26,6 +27,13 @@ interface AppContextType {
 }
 
 const Ctx = createContext<AppContextType | null>(null)
+
+// Standalone screens safe to restore after a refresh — each fetches its own
+// data fresh on mount and doesn't depend on an in-memory session/match
+// object. Deliberately excludes game/session screens (game_room, tictactoe,
+// connect4, ludo, mystery_choice, waiting, chat, match, post_game, result,
+// bet_locked, lock_date) so a refresh never reopens a broken game screen.
+const RESTORABLE_SCREENS: Screen[] = ['profile', 'activity', 'inbox', 'settings', 'edit_profile', 'game_select']
 const OPT = ['a','b','c','d']
 
 function calcCompat(u: string, o: string) {
@@ -51,6 +59,37 @@ function pickFreshQuestion(usedIds: string[], lastId?: string): BiQuestion {
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [screen,    setScreen]   = useState<Screen>('splash')
+
+  // ── Active top-level screen: persist across refresh ──────────────
+  // Previously `screen` always started at 'splash' with no persistence at
+  // all, so any refresh (e.g. while on Profiles/Discover) dropped the user
+  // back to the "Play a game together" splash screen — that was the entire
+  // cause of the bug, not anything related to auth or routing.
+  //
+  // Only a safe allowlist of standalone screens are restorable — screens
+  // that depend on ephemeral in-memory session/match state (game rooms,
+  // active games, chat, results, waiting) are intentionally excluded so a
+  // refresh never reopens a broken, session-less game screen.
+  useEffect(() => {
+    let cancelled = false
+    async function restoreActiveScreen() {
+      try {
+        const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('dateduel_active_screen') : null
+        if (!saved || !RESTORABLE_SCREENS.includes(saved as Screen)) return
+        // Auth safety: only restore a protected screen once a session is
+        // actually confirmed to exist — this is a read-only check and does
+        // not alter the existing authentication flow at all.
+        const { data } = await supabase.auth.getSession()
+        if (cancelled) return
+        if (data.session) {
+          console.log('RESTORE ACTIVE SCREEN:', saved)
+          setScreen(saved as Screen)
+        }
+      } catch {}
+    }
+    restoreActiveScreen()
+    return () => { cancelled = true }
+  }, [])
 
   // ── Language: auto-detect on first visit, then persist ──
   const [lang, setLangState] = useState<Lang>('en')
@@ -90,6 +129,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const navigate = (s: Screen) => {
     // removed
     setScreen(s)
+    try { localStorage.setItem('dateduel_active_screen', s) } catch {}
   }
 
   const dismissReturn = () => {}  // no-op
