@@ -66,13 +66,39 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
       if (mode === 'signup') {
         if (!name || !age) { setError(lang==='gr'?'Συμπλήρωσε όνομα και ηλικία':'Fill in name and age'); setLoading(false); return }
         console.log('AUTH SIGNUP START')
-        const { data: authData, error: authError } = await supabase.auth.signUp({ email, password: pass })
+        // Pass the entered name into auth metadata too — this closes a race
+        // condition where the app-shell's own onAuthStateChange listener
+        // (app/app/page.tsx) can independently create the profiles row
+        // (e.g. for Google OAuth) before this screen's own save runs.
+        // With the name already in user_metadata from the moment signUp()
+        // resolves, whichever code path creates the row first uses the
+        // correct name — there is no longer a window where it falls back
+        // to a generic default.
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email, password: pass,
+          options: { data: { full_name: name, age: parseInt(age) || 0 } },
+        })
         if (authError) { setError(authError.message); setLoading(false); return }
-        console.log('AUTH SIGNUP SUCCESS')
+        console.log('SIGNUP AUTH USER CREATED:', authData.user?.id)
 
         const userId = authData.user?.id
         if (userId) {
-          await ensureProfile(userId, { name, age: parseInt(age) || 0 })
+          try {
+            await ensureProfile(userId, { name, age: parseInt(age) || 0 })
+            const { data: verify } = await supabase.from('profiles').select('id, name, age').eq('id', userId).maybeSingle()
+            console.log('ONBOARDING PROFILE VERIFY:', verify)
+            if (!verify || !verify.name || verify.name !== name) {
+              throw new Error('Profile verification failed after save')
+            }
+            console.log('ONBOARDING PROFILE HYDRATED:', verify.name)
+          } catch (saveErr: any) {
+            console.error('ONBOARDING PROFILE SAVE ERROR:', saveErr?.message)
+            setError(lang==='gr'
+              ? 'Κάτι πήγε στραβά κατά την αποθήκευση του προφίλ σου. Δοκίμασε ξανά.'
+              : 'Something went wrong saving your profile. Please try again.')
+            setLoading(false)
+            return  // do not navigate into the app with incomplete/unsaved data
+          }
         }
 
         // If no session yet, email confirmation is required
@@ -98,12 +124,38 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
     } catch (e: any) { setError(e.message); setLoading(false) }
   }
 
-  // Create profile row if missing (no duplicates). Uses provided fields, else Google/empty defaults.
+  // Create or correctly update the profiles row for the authenticated user.
+  // Never creates a duplicate row (keyed by id, one row per user). If a row
+  // already exists (e.g. auto-created by a DB trigger, or by the app-shell's
+  // own ensureProfileExists on the same sign-in event) with a generic/empty
+  // name, this UPDATES it with the real onboarding values instead of
+  // silently leaving the generic name in place — that silent bail-out was
+  // the root cause of profiles permanently showing "Player" after signup.
+  // A genuinely different existing name (set later via Edit Profile) is
+  // never overwritten.
   async function ensureProfile(userId: string, fields: { name?: string; age?: number }) {
     console.log('PROFILE ENSURE START')
+    console.log('ONBOARDING PROFILE SAVE START:')
     try {
-      const { data: existing } = await supabase.from('profiles').select('id, name').eq('id', userId).maybeSingle()
-      if (existing) { console.log('PROFILE ENSURE SUCCESS (exists)'); return }
+      const { data: existing } = await supabase.from('profiles').select('id, name, age').eq('id', userId).maybeSingle()
+
+      const hasRealName = !!fields.name && fields.name.trim().length > 0
+
+      if (existing) {
+        const existingIsGeneric = !existing.name || existing.name.trim() === '' || existing.name === 'Player'
+        if (hasRealName && existingIsGeneric) {
+          console.log('ONBOARDING PROFILE UPSERT:', userId)
+          const { error } = await supabase.from('profiles').update({
+            name: fields.name,
+            age: fields.age || existing.age || 0,
+          }).eq('id', userId)
+          if (error) throw error
+          console.log('ONBOARDING PROFILE SAVE SUCCESS:')
+        } else {
+          console.log('PROFILE ENSURE SUCCESS (exists)')
+        }
+        return
+      }
 
       // Pull Google metadata only to fill empty profile
       const { data: { user } } = await supabase.auth.getUser()
@@ -111,14 +163,20 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
       const gName = fields.name || meta.full_name || meta.name || 'Player'
       const gPhoto = meta.avatar_url || meta.picture || ''
 
-      await supabase.from('profiles').insert({
+      console.log('ONBOARDING PROFILE UPSERT:', userId)
+      const { error } = await supabase.from('profiles').insert({
         id: userId,
         name: gName,
         age: fields.age || 0,
         bio: '', photo: gPhoto, location: '',
       })
+      if (error) throw error
+      console.log('ONBOARDING PROFILE SAVE SUCCESS:')
       console.log('PROFILE ENSURE SUCCESS')
-    } catch (e: any) { console.error('ensureProfile:', e.message) }
+    } catch (e: any) {
+      console.error('ONBOARDING PROFILE SAVE ERROR:', e.message)
+      throw e
+    }
   }
 
   async function googleLogin() {

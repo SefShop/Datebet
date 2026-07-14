@@ -52,13 +52,32 @@ const SCREENS = {
 async function ensureProfileExists(user: any) {
   console.log('PROFILE ENSURE START')
   try {
-    const { data: existing } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle()
-    if (existing) { console.log('PROFILE ENSURE SUCCESS (exists)'); return }
+    const { data: existing } = await supabase.from('profiles').select('id, name, age').eq('id', user.id).maybeSingle()
     const meta = user.user_metadata || {}
+    const metaName = meta.full_name || meta.name || ''
+
+    if (existing) {
+      // Legacy/incomplete accounts only: if the saved name is empty/generic
+      // but the auth account has a real name in its metadata (e.g. from an
+      // earlier Google sign-in, or from signup metadata set at account
+      // creation), safely fill in just the missing field — never touches a
+      // genuinely different name the user already has.
+      const existingIsGeneric = !existing.name || existing.name.trim() === '' || existing.name === 'Player'
+      if (existingIsGeneric && metaName) {
+        console.log('LEGACY PROFILE BACKFILL:', user.id, metaName)
+        const { error } = await supabase.from('profiles').update({ name: metaName }).eq('id', user.id)
+        if (error) throw error
+        console.log('ONBOARDING PROFILE SAVE SUCCESS:')
+      } else {
+        console.log('PROFILE ENSURE SUCCESS (exists)')
+      }
+      return
+    }
+
     await supabase.from('profiles').insert({
       id: user.id,
-      name: meta.full_name || meta.name || 'Player',
-      age: 0, bio: '', photo: meta.avatar_url || meta.picture || '', location: '',
+      name: metaName || 'Player',
+      age: meta.age || 0, bio: '', photo: meta.avatar_url || meta.picture || '', location: '',
     })
     console.log('PROFILE ENSURE SUCCESS')
   } catch (e: any) { console.error('ensureProfileExists:', e.message) }
