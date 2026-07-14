@@ -66,7 +66,8 @@ export default function GameRoomScreen() {
   const game = gameMap[session.game_type]
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.094) 0%, transparent 60%), #0a0a10' }}>
+    <div className="flex flex-col h-full desktop-game-room-shell" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.094) 0%, transparent 60%), #0a0a10' }}>
+      <div className="desktop-game-room-card flex flex-col h-full">
       <div className="flex items-center gap-3 px-5 pt-14 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
         <button onClick={() => navigate('profile')} className="text-white/40 text-[14px] cursor-pointer">←</button>
         <h1 className="text-[16px] font-extrabold text-white flex-1">🎮 {lang === 'gr' ? 'Δωμάτιο Παιχνιδιού' : 'Game Room'}</h1>
@@ -135,6 +136,34 @@ export default function GameRoomScreen() {
           💬 {lang === 'gr' ? 'Κουβέντα πρώτα' : 'Chat first'}
         </button>
       </div>
+      </div>
+
+      <style>{`
+        /* Desktop only: this screen's "Start [game]" section uses flex-1 to
+           vertically center itself, which made its size (and the button's
+           position) shift with browser height. Below 1024px this is
+           entirely untouched — same flex-1 behavior as before. */
+        @media (min-width: 1024px) {
+          .desktop-game-room-shell {
+            height: auto !important;
+            min-height: 100vh !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 40px 20px !important;
+          }
+          .desktop-game-room-card {
+            width: 390px !important;
+            height: 700px !important;
+            flex: none !important;
+            position: relative !important;
+            overflow: hidden !important;
+            border-radius: 32px !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            box-shadow: 0 30px 90px rgba(0,0,0,0.5) !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
