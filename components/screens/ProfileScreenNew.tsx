@@ -979,7 +979,7 @@ export default function ProfileScreenNew() {
           }
           .desktop-profile-details-toggle {
             display: flex !important;
-            bottom: 16px;
+            bottom: 42px;
             right: 16px;
           }
           .desktop-profile-details-toggle:focus-visible {
