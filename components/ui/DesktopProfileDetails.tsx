@@ -1,9 +1,10 @@
 'use client'
 // Desktop-only details view for the Discover/Profile card's front/details
 // flip interaction. Renders ONLY real, existing data (bio, interests,
-// Reveal Progress) — never invents fields. Scoped entirely under
-// .desktop-profile-details, hidden below 1024px, so it has zero effect on
-// mobile/tablet regardless of when it mounts.
+// profile details) — never invents fields. Reveal Progress lives only on
+// the front card, not here. Scoped entirely under .desktop-profile-details,
+// hidden below 1024px, so it has zero effect on mobile/tablet regardless of
+// when it mounts.
 import { UserProfile } from '@/lib/profiles'
 import { appLangToIso } from '@/lib/langDetect'
 
@@ -116,31 +117,6 @@ export default function DesktopProfileDetails({
             </div>
           </div>
         )}
-
-        {/* Reveal Progress — same values/colors as the front view, unchanged logic */}
-        <div style={{ borderRadius: 16, padding: 16, background: 'linear-gradient(135deg, rgba(253,41,123,0.1), rgba(108,99,255,0.075))', border: '1px solid rgba(253,41,123,0.18)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
-            🔓 {lang === 'gr' ? 'Πρόοδος Reveal' : 'Reveal Progress'}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>{progress.games_completed} / 10</span>
-          </div>
-          <div style={{ width: '100%', height: 5, borderRadius: '9999px', overflow: 'hidden', background: 'rgba(255,255,255,0.07)', marginBottom: 12 }}>
-            <div style={{ height: '100%', borderRadius: '9999px', width: `${Math.min(100, progress.games_completed * 10)}%`, background: 'linear-gradient(90deg, #ff3384, #d84dd8)' }} />
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{ flex: 1, textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '8px 0', borderRadius: 8,
-              background: progress.photo_unlocked ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.05)',
-              color: progress.photo_unlocked ? '#4ade80' : 'rgba(255,255,255,0.4)' }}>
-              {progress.photo_unlocked ? '📸 ' + (lang === 'gr' ? 'Ξεκλείδωτη' : 'Unlocked') : '🔒 ' + (lang === 'gr' ? 'Φωτό (5)' : 'Photo (5)')}
-            </div>
-            <div style={{ flex: 1, textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '8px 0', borderRadius: 8,
-              background: progress.chat_unlocked ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.05)',
-              color: progress.chat_unlocked ? '#4ade80' : 'rgba(255,255,255,0.4)' }}>
-              {progress.chat_unlocked ? '💬 ' + (lang === 'gr' ? 'Ξεκλείδωτο' : 'Unlocked') : '🔒 ' + (lang === 'gr' ? 'Chat (10)' : 'Chat (10)')}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
