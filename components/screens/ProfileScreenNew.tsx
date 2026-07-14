@@ -972,8 +972,20 @@ export default function ProfileScreenNew() {
           .mc-bio-zone {
             display: none !important;
           }
+          /* Interests removed from the desktop front view only — still
+             fully present in the details view (separate markup, own
+             component) and untouched on mobile/tablet. Reserves no space. */
+          .mc-interests-zone {
+            display: none !important;
+          }
+          /* With interests/bio hidden, Reveal Progress used mt-auto (base
+             Tailwind class) to stay pinned to the bottom — override that so
+             it sits right after the photo instead, using normal flow. */
+          .mc-reveal-zone {
+            margin-top: 0 !important;
+          }
 
-          .discover-actions-v2 { padding-top: 20px !important; padding-bottom: 28px !important; max-width: 500px; margin: 0 auto; width: 100%; }
+          .discover-actions-v2 { padding-top: 6px !important; padding-bottom: 28px !important; max-width: 500px; margin: 0 auto; width: 100%; }
         }
 
         @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
