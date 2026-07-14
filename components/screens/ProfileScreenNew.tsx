@@ -943,6 +943,7 @@ export default function ProfileScreenNew() {
             display: flex !important;
             align-items: flex-start !important;
             justify-content: center !important;
+            flex: 0 0 auto !important;
           }
           .desktop-profile-card {
             width: clamp(420px, 34vw, 500px) !important;
