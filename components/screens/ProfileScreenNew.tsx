@@ -320,7 +320,7 @@ export default function ProfileScreenNew() {
   }
 
   return (
-    <div ref={shellRef} className="mc-profile-shell mobile-profile-shell flex flex-col overflow-hidden" style={{ background:'#0a0a10', height: '100dvh', maxHeight: '100dvh', position: 'relative', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid red' : 'none' }}>
+    <div ref={shellRef} className="mc-profile-shell mobile-profile-shell desktop-profile-shell flex flex-col overflow-hidden" style={{ background:'#0a0a10', height: '100dvh', maxHeight: '100dvh', position: 'relative', outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid red' : 'none' }}>
 
       {DEBUG_ACTIVE_PROFILE_COMPONENT && (
         <div className="absolute z-[200] left-1/2 -translate-x-1/2 text-[10px] font-bold text-white px-3 py-1 rounded-full"
@@ -866,11 +866,75 @@ export default function ProfileScreenNew() {
           .discover-actions-v2 { padding-top: 20px !important; padding-bottom: 24px !important; max-width: 440px; margin: 0 auto; width: 100%; }
         }
 
-        /* Desktop: centered card, ~430-480px wide — never stretched */
+        /* ══════════════════════════════════════════════════════════════
+           DESKTOP — one authoritative block. Reuses the exact same
+           markup/state as mobile (photoIndex, photos[], canShowPhoto) —
+           only sizing/positioning differ. Root cause of the previous
+           overlap/clipping: the shell's own height:100dvh + overflow:hidden
+           (inline style, unconditional) was still active on desktop with
+           no override, and .mc-photo-zone's flex:0 0 47% base rule had no
+           stable height to resolve against once content grew — together
+           these caused unpredictable clipping and the name/age/location
+           overlay landing in the wrong place. Both are fixed below.
+           ══════════════════════════════════════════════════════════════ */
         @media (min-width: 1024px) {
-          .discover-card-area-v2 { padding: 24px 16px 8px !important; }
-          .discover-card-v2 { width: 460px !important; max-width: 460px !important; margin: 0 auto !important; }
-          .discover-actions-v2 { padding-top: 20px !important; padding-bottom: 28px !important; max-width: 460px; margin: 0 auto; width: 100%; }
+          .desktop-profile-shell {
+            height: auto !important;
+            max-height: none !important;
+            min-height: 100vh !important;
+            overflow: visible !important;
+            overflow-x: hidden !important;
+          }
+          .discover-card-area-v2 {
+            padding: 24px 20px 8px !important;
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: center !important;
+            overflow: visible !important;
+          }
+          .discover-card-v2 {
+            width: clamp(420px, 34vw, 500px) !important;
+            max-width: 500px !important;
+            min-height: 720px !important;
+            height: auto !important;
+            margin: 0 auto !important;
+          }
+          /* Explicit height, not a flex-basis percentage — this is what was
+             causing images to crop badly/dominate the card. */
+          .mc-photo-zone {
+            flex: none !important;
+            width: 100% !important;
+            height: clamp(390px, 52vh, 500px) !important;
+            min-height: 390px !important;
+            max-height: 500px !important;
+            position: relative !important;
+            overflow: hidden !important;
+          }
+          /* Pushed down enough to clear the account icon, which is fixed at
+             top:16/right:16 relative to the outer app frame — with the
+             card-area's 24px top padding, anything above ~36px inside the
+             photo zone sits under the icon. */
+          .photo-nav-line { top: 36px !important; }
+          .mystery-badge { top: 40px !important; right: 16px !important; }
+
+          .mc-info-zone {
+            flex: none !important;
+            padding: 20px !important;
+          }
+          .mc-interests-zone {
+            margin-bottom: 10px !important;
+          }
+          .mc-bio-zone {
+            margin-bottom: 10px !important;
+          }
+          .mc-bio-zone p {
+            -webkit-line-clamp: 4 !important;
+          }
+          .mc-reveal-zone {
+            margin-top: 24px !important;
+          }
+
+          .discover-actions-v2 { padding-top: 20px !important; padding-bottom: 28px !important; max-width: 500px; margin: 0 auto; width: 100%; }
         }
       `}</style>
     </div>
