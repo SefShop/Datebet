@@ -440,7 +440,7 @@ export default function ProfileScreenNew() {
       {state === 'ready' && p && (
         <>
           <div ref={cardAreaRef} className="discover-card-area-v2 mc-profile-card-area mobile-profile-card-area flex-1 min-h-0 flex items-center justify-center overflow-hidden" style={{ outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid orange' : 'none' }}>
-            <div ref={cardRef} key={p.id + idx} className="discover-card-v2 mc-profile-card mobile-profile-card desktop-profile-card rounded-[28px] overflow-hidden relative flex flex-col"
+            <div ref={cardRef} key={p.id + idx} className={`discover-card-v2 mc-profile-card mobile-profile-card desktop-profile-card rounded-[28px] overflow-hidden relative flex flex-col${(!isDesktop || !desktopDetailsOpen) ? ' desktop-card-front-active' : ''}`}
               style={{
                 transform: `translateX(${tx}) rotate(${rot})`, opacity: op,
                 transition: anim === 'in' ? 'none' : 'all 0.28s ease',
@@ -955,8 +955,27 @@ export default function ProfileScreenNew() {
             overflow: hidden !important;
             position: relative !important;
           }
+          /* Front view only: the card shrinks to fit its actual content
+             (photo + Reveal Progress, now that interests/bio are hidden)
+             instead of staying a fixed clamp(650px,80vh,780px) box with
+             empty reserved space below Reveal Progress. The details view
+             (.desktop-profile-card without this modifier) keeps the exact
+             original fixed height above, unchanged — it still needs a
+             stable height for its fixed-header/scrollable-body design. */
+          .desktop-profile-card.desktop-card-front-active {
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: clamp(650px, 80vh, 780px) !important;
+          }
+          /* Was flex:0 0 70% of the card's own height — with the card now
+             content-sized (auto) in front-view mode, that had no stable
+             basis to resolve against, so the photo gets the exact same
+             visual height as an explicit value instead: 70% of the same
+             clamp() the card used to have. Photo size/crop is unchanged —
+             only decoupled from a fixed card height. */
           .mc-photo-zone {
-            flex: 0 0 70% !important;
+            flex: 0 0 auto !important;
+            height: clamp(455px, 56vh, 546px) !important;
           }
           .desktop-profile-details-toggle {
             display: flex !important;
