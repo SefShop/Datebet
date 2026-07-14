@@ -4,6 +4,7 @@ import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
 import { appLangToIso } from '@/lib/langDetect'
+import DesktopProfileDetails from '@/components/ui/DesktopProfileDetails'
 import { sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { getPairProgress, PairProgress } from '@/lib/pairProgress'
 import { supabase } from '@/lib/supabase'
@@ -184,6 +185,12 @@ export default function ProfileScreenNew() {
   // always starts on its primary photo.
   const [photoIndex, setPhotoIndex] = useState(0)
   useEffect(() => { setPhotoIndex(0) }, [p?.id])
+
+  // Desktop-only front/details flip — inert on mobile/tablet since the
+  // toggle button that sets this is display:none below 1024px, so this can
+  // never become true there. No route change, no photo/profile state reset.
+  const [desktopDetailsOpen, setDesktopDetailsOpen] = useState(false)
+  useEffect(() => { setDesktopDetailsOpen(false) }, [p?.id])
 
   // Preload only the current, next, and previous photo — never the whole
   // gallery at once. Uses a plain Image() so the browser caches it; the
@@ -419,7 +426,7 @@ export default function ProfileScreenNew() {
       {state === 'ready' && p && (
         <>
           <div ref={cardAreaRef} className="discover-card-area-v2 mc-profile-card-area mobile-profile-card-area flex-1 min-h-0 flex items-center justify-center overflow-hidden" style={{ outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid orange' : 'none' }}>
-            <div ref={cardRef} key={p.id + idx} className="discover-card-v2 mc-profile-card mobile-profile-card rounded-[28px] overflow-hidden relative flex flex-col"
+            <div ref={cardRef} key={p.id + idx} className="discover-card-v2 mc-profile-card mobile-profile-card desktop-profile-card rounded-[28px] overflow-hidden relative flex flex-col"
               style={{
                 transform: `translateX(${tx}) rotate(${rot})`, opacity: op,
                 transition: anim === 'in' ? 'none' : 'all 0.28s ease',
@@ -430,6 +437,8 @@ export default function ProfileScreenNew() {
                 backdropFilter: 'blur(12px)',
               }}>
 
+              {!desktopDetailsOpen && (
+              <div className="desktop-profile-front" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               {/* Photo — takes ~47% of the card's actual available height (never vh-based,
                   so it always fits alongside the info section and action bar below) */}
               <div ref={photoRef} className="mc-photo-zone mobile-profile-photo relative overflow-hidden flex items-center justify-center flex-shrink-0"
@@ -496,6 +505,24 @@ export default function ProfileScreenNew() {
                 <div className="absolute inset-0" style={{
                   background: 'linear-gradient(180deg, transparent 32%, rgba(6,6,10,0.55) 68%, rgba(6,6,10,0.92) 92%, rgba(6,6,10,1) 100%)'
                 }} />
+
+                {/* Desktop-only: opens the details view inside this same fixed card.
+                    Hidden entirely below 1024px (display:none), so it can never be
+                    reached or triggered on mobile/tablet. */}
+                <button
+                  onClick={() => setDesktopDetailsOpen(true)}
+                  aria-label={lang === 'gr' ? 'Άνοιγμα λεπτομερειών προφίλ' : 'Open profile details'}
+                  className="desktop-profile-details-toggle"
+                  style={{
+                    display: 'none', position: 'absolute', zIndex: 25,
+                    width: 40, height: 40, borderRadius: '9999px',
+                    alignItems: 'center', justifyContent: 'center',
+                    background: 'linear-gradient(135deg,#ff3384,#7c72ff)',
+                    color: '#fff', border: '1px solid rgba(255,255,255,0.25)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)', cursor: 'pointer',
+                  }}>
+                  <span style={{ fontSize: 16, lineHeight: 1 }} aria-hidden="true">↗</span>
+                </button>
 
                 {/* Online status */}
                 <div className="online-badge-v2 absolute flex items-center justify-center p-1.5 rounded-full z-20"
@@ -645,6 +672,17 @@ export default function ProfileScreenNew() {
                   </div>
                 </div>
               </div>
+              </div>
+              )}
+
+              {desktopDetailsOpen && (
+                <DesktopProfileDetails
+                  p={p} lang={lang} progress={progress}
+                  translatedBio={translatedBio} translating={translating} translateError={translateError}
+                  onTranslate={translateBio} onShowOriginal={showOriginalBio}
+                  onClose={() => setDesktopDetailsOpen(false)}
+                />
+              )}
             </div>
           </div>
 
@@ -866,12 +904,68 @@ export default function ProfileScreenNew() {
           .discover-actions-v2 { padding-top: 20px !important; padding-bottom: 24px !important; max-width: 440px; margin: 0 auto; width: 100%; }
         }
 
-        /* Desktop: centered card, ~430-480px wide — never stretched */
+        /* ══════════════════════════════════════════════════════════════
+           DESKTOP — fixed-height premium card with a front/details flip,
+           all scoped under specifically-named classes
+           (.desktop-profile-card / -front / -details / -details-toggle)
+           so nothing here can ever affect games or other screens. Reuses
+           the exact same markup/state as mobile (photoIndex, photos[],
+           canShowPhoto, translatedBio, etc.) — only sizing/visibility
+           differ. The card's height is now a FIXED, bounded box
+           (overflow:hidden) rather than auto-growing, so total page height
+           stays stable and predictable while switching profiles/views.
+           ══════════════════════════════════════════════════════════════ */
         @media (min-width: 1024px) {
-          .discover-card-area-v2 { padding: 24px 16px 8px !important; }
-          .discover-card-v2 { width: 460px !important; max-width: 460px !important; margin: 0 auto !important; }
-          .discover-actions-v2 { padding-top: 20px !important; padding-bottom: 28px !important; max-width: 460px; margin: 0 auto; width: 100%; }
+          .mc-profile-shell {
+            height: auto !important;
+            min-height: 100% !important;
+            overflow-y: visible !important;
+            overflow-x: hidden !important;
+          }
+          .discover-card-area-v2 {
+            padding: 24px 16px 8px !important;
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: center !important;
+          }
+          .desktop-profile-card {
+            width: clamp(420px, 34vw, 500px) !important;
+            max-width: 500px !important;
+            height: clamp(650px, 80vh, 780px) !important;
+            min-height: 650px !important;
+            max-height: 780px !important;
+            margin: 0 auto !important;
+            overflow: hidden !important;
+            position: relative !important;
+          }
+          .mc-photo-zone {
+            flex: 0 0 70% !important;
+          }
+          .desktop-profile-details-toggle {
+            display: flex !important;
+            bottom: 16px;
+            right: 16px;
+          }
+          .desktop-profile-details-toggle:focus-visible {
+            outline: 2px solid #fff;
+            outline-offset: 2px;
+          }
+          /* Front view hides the full bio preview on desktop — bio lives
+             only in the details view there (interests stay, already
+             capped at 3 by existing logic). */
+          .mc-bio-zone {
+            display: none !important;
+          }
+
+          .discover-actions-v2 { padding-top: 20px !important; padding-bottom: 28px !important; max-width: 500px; margin: 0 auto; width: 100%; }
         }
+
+        @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+          .desktop-profile-details {
+            animation: desktopDetailsIn 200ms ease both;
+          }
+        }
+        @keyframes desktopDetailsIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
       `}</style>
     </div>
   )
