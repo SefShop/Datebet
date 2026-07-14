@@ -192,6 +192,20 @@ export default function ProfileScreenNew() {
   const [desktopDetailsOpen, setDesktopDetailsOpen] = useState(false)
   useEffect(() => { setDesktopDetailsOpen(false) }, [p?.id])
 
+  // Real render condition for the desktop front/details feature — not just
+  // CSS display:none. Defaults to false (mobile-safe) so server-rendered
+  // HTML and first paint never include the desktop-only wrapper/arrow/
+  // details markup at all; only flips true once measured on the client.
+  const [isDesktop, setIsDesktop] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const update = () => setIsDesktop(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
   // Preload only the current, next, and previous photo — never the whole
   // gallery at once. Uses a plain Image() so the browser caches it; the
   // actual <img> tag in the render always shows only the current photo.
@@ -437,8 +451,8 @@ export default function ProfileScreenNew() {
                 backdropFilter: 'blur(12px)',
               }}>
 
-              {!desktopDetailsOpen && (
-              <div className="desktop-profile-front" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              {(!isDesktop || !desktopDetailsOpen) && (
+              <>
               {/* Photo — takes ~47% of the card's actual available height (never vh-based,
                   so it always fits alongside the info section and action bar below) */}
               <div ref={photoRef} className="mc-photo-zone mobile-profile-photo relative overflow-hidden flex items-center justify-center flex-shrink-0"
@@ -507,22 +521,24 @@ export default function ProfileScreenNew() {
                 }} />
 
                 {/* Desktop-only: opens the details view inside this same fixed card.
-                    Hidden entirely below 1024px (display:none), so it can never be
-                    reached or triggered on mobile/tablet. */}
-                <button
-                  onClick={() => setDesktopDetailsOpen(true)}
-                  aria-label={lang === 'gr' ? 'Άνοιγμα λεπτομερειών προφίλ' : 'Open profile details'}
-                  className="desktop-profile-details-toggle"
-                  style={{
-                    display: 'none', position: 'absolute', zIndex: 25,
-                    width: 40, height: 40, borderRadius: '9999px',
-                    alignItems: 'center', justifyContent: 'center',
-                    background: 'linear-gradient(135deg,#ff3384,#7c72ff)',
-                    color: '#fff', border: '1px solid rgba(255,255,255,0.25)',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)', cursor: 'pointer',
-                  }}>
-                  <span style={{ fontSize: 16, lineHeight: 1 }} aria-hidden="true">↗</span>
-                </button>
+                    Gated by a real client-measured isDesktop check — never rendered
+                    in the DOM at all below 1024px, not just visually hidden. */}
+                {isDesktop && (
+                  <button
+                    onClick={() => setDesktopDetailsOpen(true)}
+                    aria-label={lang === 'gr' ? 'Άνοιγμα λεπτομερειών προφίλ' : 'Open profile details'}
+                    className="desktop-profile-details-toggle"
+                    style={{
+                      position: 'absolute', zIndex: 25,
+                      width: 40, height: 40, borderRadius: '9999px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'linear-gradient(135deg,#ff3384,#7c72ff)',
+                      color: '#fff', border: '1px solid rgba(255,255,255,0.25)',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.4)', cursor: 'pointer',
+                    }}>
+                    <span style={{ fontSize: 16, lineHeight: 1 }} aria-hidden="true">↗</span>
+                  </button>
+                )}
 
                 {/* Online status */}
                 <div className="online-badge-v2 absolute flex items-center justify-center p-1.5 rounded-full z-20"
@@ -672,10 +688,10 @@ export default function ProfileScreenNew() {
                   </div>
                 </div>
               </div>
-              </div>
+              </>
               )}
 
-              {desktopDetailsOpen && (
+              {isDesktop && desktopDetailsOpen && (
                 <DesktopProfileDetails
                   p={p} lang={lang} progress={progress}
                   translatedBio={translatedBio} translating={translating} translateError={translateError}
