@@ -133,6 +133,7 @@ function AppShell() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { return }
       const gameResult = await enterAcceptedGame(invite, user.id)
+      if (gameResult.skipped) return  // already being handled elsewhere — not a failure
       if (!gameResult.ok || !gameResult.screen) {
         return
       }

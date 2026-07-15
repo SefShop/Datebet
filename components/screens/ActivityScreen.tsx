@@ -86,6 +86,12 @@ export default function ActivityScreen() {
       if (c.game_type === 'mystery_choice') console.log('MYSTERY CHOICE INVITE ACCEPTED:', c.id)
 
       const result = await enterAcceptedGame(c, user.id)
+      if (result.skipped) {
+        // Another concurrent call is already handling entry for this
+        // invite — not a failure, do nothing here.
+        console.log('ACCEPT FLOW: entry already in progress elsewhere, skipping')
+        return
+      }
       if (!result.ok || !result.screen) {
         alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start the game.')
         load()
@@ -105,6 +111,7 @@ export default function ActivityScreen() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const result = await enterAcceptedGame(c, user.id)
+    if (result.skipped) { console.log('ACCEPT FLOW: entry already in progress elsewhere, skipping'); return }
     if (!result.ok || !result.screen) {
       alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start the game.')
       return

@@ -17,6 +17,8 @@ export default function WaitingScreen() {
     if (!pending) { console.log('WAITING SCREEN ERROR: no pending invite'); return }
     console.log('WAITING FOR INVITE ACCEPT:', pending.id)
 
+    let poll: ReturnType<typeof setInterval> | null = null
+
     channelRef.current = supabase
       .channel(`waiting-${pending.id}`)
       .on('postgres_changes', {
@@ -26,42 +28,54 @@ export default function WaitingScreen() {
         console.log('A INVITE STATUS UPDATE:', inv.status)
         if (inv.status === 'accepted') {
           console.log('INVITE ACCEPTED:', inv.id)
+          if (poll) { clearInterval(poll); poll = null }
           await enterRoom(inv)
         } else if (inv.status === 'declined') {
           console.log('DECLINED:', inv.id)
+          if (poll) { clearInterval(poll); poll = null }
           setStatus('declined')
         }
       })
       .subscribe()
 
     // Poll fallback — check THIS invite's status every 2s (realtime may miss)
-    const poll = setInterval(async () => {
+    poll = setInterval(async () => {
       const { data } = await supabase.from('game_invites').select('*').eq('id', pending.id).maybeSingle()
       if (!data) return
       if (data.status === 'accepted') {
         console.log('INVITE ACCEPTED (poll):', data.id)
-        clearInterval(poll)
+        if (poll) { clearInterval(poll); poll = null }
         await enterRoom(data as GameInvite)
       } else if (data.status === 'declined') {
-        clearInterval(poll)
+        if (poll) { clearInterval(poll); poll = null }
         setStatus('declined')
       }
     }, 2000)
 
     return () => {
       if (channelRef.current) supabase.removeChannel(channelRef.current)
-      clearInterval(poll)
+      if (poll) clearInterval(poll)
     }
   }, [pending])
 
   async function enterRoom(inv: GameInvite) {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setStatus('declined'); return }
+    if (!user) { console.error('WAITING: no authenticated user, cannot enter'); return }
 
     markInviteReconciled(inv.id)
     const result = await enterAcceptedGame(inv, user.id)
+    if (result.skipped) {
+      // Another concurrent call (realtime + poll both firing) is already
+      // handling entry into this same game — do nothing, this is not a
+      // failure and must never show the rejected screen.
+      console.log('WAITING: enter skipped, already being handled elsewhere')
+      return
+    }
     if (!result.ok || !result.screen) {
-      setStatus('declined')
+      console.error('WAITING: could not enter game:', result.error)
+      // Genuine failure to start the game — not the same as the receiver
+      // declining. Log it, but do not show the "invite rejected" UI for a
+      // technical failure; leave the user on the waiting state instead.
       return
     }
     navigate(result.screen as any)

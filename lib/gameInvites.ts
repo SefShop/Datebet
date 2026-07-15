@@ -339,6 +339,11 @@ export interface EnterAcceptedGameResult {
   screen?: string
   opponentId?: string
   error?: string
+  // True only when this call was skipped because another concurrent call
+  // for the same invite is already handling entry (e.g. realtime and the
+  // poll fallback both firing). This is NOT a failure — the other call is
+  // already navigating. Callers must never treat this as rejection/error.
+  skipped?: boolean
 }
 
 const _navigatingInviteIds = new Set<string>()
@@ -350,7 +355,7 @@ export async function enterAcceptedGame(
 
   const guardKey = `${invite.id}`
   if (_navigatingInviteIds.has(guardKey)) {
-    return { ok: false, error: 'already navigating' }
+    return { ok: false, error: 'already navigating', skipped: true }
   }
   _navigatingInviteIds.add(guardKey)
 
