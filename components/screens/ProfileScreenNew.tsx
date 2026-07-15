@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
-import { setCurrentMatch, fetchProfiles, UserProfile } from '@/lib/profiles'
+import { setCurrentMatch, fetchProfiles, subscribeToNewProfiles, UserProfile } from '@/lib/profiles'
 import { appLangToIso } from '@/lib/langDetect'
 import DesktopProfileDetails from '@/components/ui/DesktopProfileDetails'
 import { sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
@@ -101,6 +101,30 @@ export default function ProfileScreenNew() {
 
   useEffect(() => {
     loadProfiles()
+  }, [])
+
+  // Realtime: new profiles appear for everyone on Discover without a
+  // refresh. Reuses the same normalization as the initial fetch, dedupes
+  // by id, and never inserts the current authenticated user's own profile.
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null
+    let cancelled = false
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled || !user?.id) return
+      unsubscribe = subscribeToNewProfiles(user.id, (newProfile) => {
+        setProfiles(prev => {
+          if (prev.some(p => p.id === newProfile.id)) {
+            // Already present (e.g. arrived via the initial fetch, or a
+            // second UPDATE event for the same staged-creation row) —
+            // refresh its data in place rather than duplicating it.
+            return prev.map(p => p.id === newProfile.id ? newProfile : p)
+          }
+          console.log('DISCOVER PROFILE LIST APPENDED:', newProfile.id)
+          return [...prev, newProfile]
+        })
+      })
+    })
+    return () => { cancelled = true; if (unsubscribe) unsubscribe() }
   }, [])
 
   async function loadProfiles() {

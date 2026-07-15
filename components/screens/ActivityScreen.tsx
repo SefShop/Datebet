@@ -75,13 +75,12 @@ export default function ActivityScreen() {
 
   async function respond(c: GameInvite, accept: boolean) {
     if (accept) console.log('B ACCEPT CLICKED:', c.id)
-    console.log('ACCEPT FLOW: respondInvite start', c.id, 'game_type:', c.game_type)
-    const { ok } = await respondInvite(c.id, accept)
-    console.log('ACCEPT FLOW: respondInvite result', ok)
-    if (!ok) return
     if (accept) {
-      console.log('INVITE ACCEPTED', c.id, 'game_type:', c.game_type)
-      if (c.game_type === 'mystery_choice') console.log('MYSTERY CHOICE INVITE ACCEPTED:', c.id)
+      // Create (or find the deterministic existing) session BEFORE marking
+      // the invite accepted. Previously this order was reversed, so the
+      // sender's realtime listener could see status='accepted' before any
+      // session row existed yet — the exact race behind the "only one user
+      // enters the game" bug on a pair's first invite.
       console.log('ACCEPT FLOW: createGameSession start', c.id, 'game_type:', c.game_type)
       console.log('CREATING SESSION', c.id)
       const { session, error } = await createGameSession(c)
@@ -89,8 +88,19 @@ export default function ActivityScreen() {
       if (error || !session) { alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το Tic Tac Toe.' : 'Could not start Tic Tac Toe.'); load(); return }
       console.log('TICTACTOE SESSION CREATED:', session.id)
       console.log('SESSION CREATED', session.id)
+
+      console.log('ACCEPT FLOW: respondInvite start', c.id, 'game_type:', c.game_type)
+      const { ok } = await respondInvite(c.id, accept)
+      console.log('ACCEPT FLOW: respondInvite result', ok)
+      if (!ok) return
+      console.log('INVITE ACCEPTED', c.id, 'game_type:', c.game_type)
+      if (c.game_type === 'mystery_choice') console.log('MYSTERY CHOICE INVITE ACCEPTED:', c.id)
       await enterGame(c)
     } else {
+      console.log('ACCEPT FLOW: respondInvite start', c.id, 'game_type:', c.game_type)
+      const { ok } = await respondInvite(c.id, accept)
+      console.log('ACCEPT FLOW: respondInvite result', ok)
+      if (!ok) return
       load()
     }
   }

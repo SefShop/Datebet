@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getPendingInvite, loadSessionByInvite, createGameSession,
-         setCurrentSession, setOpponentName, gameScreenFor, GameInvite } from '@/lib/gameInvites'
+         setCurrentSession, setOpponentName, gameScreenFor, markInviteReconciled, GameInvite } from '@/lib/gameInvites'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
 const GAME_NAMES: Record<string, string> = { tic_tac_toe: '⭕ Tic Tac Toe', connect_4: '🔴 Connect 4', mystery: '🎮 Game' }
@@ -74,6 +74,7 @@ export default function WaitingScreen() {
       session = created.session || null
     }
     if (!session) { console.error('Could not start Tic Tac Toe.'); setStatus('declined'); return }
+    markInviteReconciled(inv.id)
     console.log('ROUTING: session loaded (sender)', { id: session.id, game_type: session.game_type })
     console.log('NEW SESSION PLAYER_ONE:', session.player_one_id)
     console.log('NEW SESSION PLAYER_TWO:', session.player_two_id)

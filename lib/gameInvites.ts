@@ -253,6 +253,56 @@ let _session: GameSession | null = null
 export function setCurrentSession(s: GameSession) { _session = s; console.log('SESSION ID:', s.id) }
 export function getCurrentSession(): GameSession | null { return _session }
 
+// ── Reconciliation: recover a missed realtime accept event ──────────
+// Called once on auth completion (app/app/page.tsx). Covers the case where
+// the sender wasn't actively on WaitingScreen when their invite was
+// accepted (so its realtime listener/poll never ran) — e.g. they navigated
+// away, or the very first accept for a brand-new pair happened before the
+// listener finished subscribing. Only considers invites from the last few
+// minutes so it can never resurrect an old, already-finished game.
+const _reconciledInviteIds = new Set<string>()
+export function markInviteReconciled(inviteId: string) { _reconciledInviteIds.add(inviteId) }
+
+export async function reconcilePendingAcceptedInvite(): Promise<{ invite: GameInvite; session: GameSession } | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const recentCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    const { data: invites, error } = await supabase
+      .from('game_invites')
+      .select('*')
+      .eq('sender_id', user.id)
+      .eq('status', 'accepted')
+      .gte('created_at', recentCutoff)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (error || !invites || invites.length === 0) return null
+    const invite = invites[0] as GameInvite
+    if (_reconciledInviteIds.has(invite.id)) return null
+    if (_session && _session.invite_id === invite.id) { _reconciledInviteIds.add(invite.id); return null }
+
+    // Bounded retry — mirrors WaitingScreen's own retry window, in case the
+    // session write is still a moment behind the status flip.
+    let session = await loadSessionByInvite(invite.id)
+    let tries = 0
+    while (!session && tries < 6) {
+      await new Promise(r => setTimeout(r, 400))
+      session = await loadSessionByInvite(invite.id)
+      tries++
+    }
+    if (!session || session.status !== 'active') return null
+
+    _reconciledInviteIds.add(invite.id)
+    console.log('RECONCILIATION: recovered missed accept for invite', invite.id, 'session', session.id)
+    return { invite, session }
+  } catch (e: any) {
+    console.error('reconcilePendingAcceptedInvite:', e.message)
+    return null
+  }
+}
+
 // ── Opponent name holder (for game screens) ─────────────────────
 let _opponentName: string | null = null
 export function setOpponentName(n: string) { _opponentName = n; console.log('OPPONENT PROFILE:', n) }

@@ -24,6 +24,71 @@ const GRADIENTS = [
   'linear-gradient(135deg,#f472b6,#c084fc)',
 ]
 
+// Shared row→UserProfile mapping — used by both the initial fetch and the
+// realtime subscription below, so a newly-arrived profile is normalized
+// exactly the same way as ones loaded on first render.
+function mapProfileRow(row: any, i: number = 0): UserProfile {
+  const lastSeen = row.last_seen ? new Date(row.last_seen).getTime() : 0
+  const online = !!row.is_online && (Date.now() - lastSeen) <= 2 * 60 * 1000
+  return {
+    id: row.id,
+    name: row.name || 'Player',
+    age: row.age || 0,
+    photo: row.photo || '',
+    gradient: GRADIENTS[i % GRADIENTS.length],
+    location: { en: row.location || '', gr: row.location || '' },
+    online,
+    lastSeen: row.last_seen || null,
+    interests: Array.isArray(row.interests) ? row.interests : [],
+    bio: { en: row.bio || '', gr: row.bio || '' },
+    bioLanguage: row.bio_language || 'und',
+    photos: Array.isArray(row.photos) && row.photos.length > 0 ? row.photos : (row.photo ? [row.photo] : []),
+  }
+}
+
+// A row counts as "discoverable" once it has the minimum fields the
+// existing Discover UI already relies on — matches the same lax standard
+// the initial fetch already uses (it doesn't filter incomplete rows out
+// either), just guards against an empty placeholder row with no name yet.
+function isDiscoverableRow(row: any): boolean {
+  return !!row?.id && typeof row.name === 'string' && row.name.trim().length > 0
+}
+
+// ── Realtime: new profiles becoming discoverable ─────────────────
+// Subscribes to INSERT and UPDATE on `profiles` so a newly-registered user
+// appears for everyone currently on Discover without a refresh, even if
+// their profile row is created in stages (auto-created blank, then
+// upserted with real onboarding data — see AuthScreen.tsx/app/page.tsx).
+export function subscribeToNewProfiles(
+  myId: string | null,
+  onNewProfile: (p: UserProfile) => void
+) {
+  const channel = supabase
+    .channel(`discover-new-profiles-${myId || 'anon'}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'profiles' }, (payload: any) => {
+      const row = payload.new
+      if (!row || row.id === myId) return
+      if (!isDiscoverableRow(row)) { console.log('DISCOVER NEW PROFILE SKIPPED (incomplete):', row?.id); return }
+      console.log('DISCOVER NEW PROFILE INSERT:', row.id, row.name)
+      onNewProfile(mapProfileRow(row))
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload: any) => {
+      const row = payload.new
+      if (!row || row.id === myId) return
+      if (!isDiscoverableRow(row)) return
+      // Covers staged creation: a blank row inserted first, then filled in
+      // via a later UPDATE (e.g. onboarding finishing after the auto-create).
+      console.log('DISCOVER NEW PROFILE UPDATE:', row.id, row.name)
+      onNewProfile(mapProfileRow(row))
+    })
+    .subscribe()
+
+  return () => {
+    console.log('DISCOVER NEW PROFILES UNSUBSCRIBE')
+    supabase.removeChannel(channel)
+  }
+}
+
 // ── Fetch OTHER users (for Discover) ────────────────────────────
 export type FetchResult = { profiles: UserProfile[]; error: string | null }
 
@@ -47,25 +112,7 @@ export async function fetchProfiles(): Promise<FetchResult> {
 
     return {
       error: null,
-      profiles: data.map((row: any, i: number) => {
-        // Real presence: is_online AND last_seen within 2 min
-        const lastSeen = row.last_seen ? new Date(row.last_seen).getTime() : 0
-        const online = !!row.is_online && (Date.now() - lastSeen) <= 2 * 60 * 1000
-        return {
-          id: row.id,
-          name: row.name || 'Player',
-          age: row.age || 0,
-          photo: row.photo || '',
-          gradient: GRADIENTS[i % GRADIENTS.length],
-          location: { en: row.location || '', gr: row.location || '' },
-          online,
-          lastSeen: row.last_seen || null,
-          interests: Array.isArray(row.interests) ? row.interests : [],
-          bio: { en: row.bio || '', gr: row.bio || '' },
-          bioLanguage: row.bio_language || 'und',
-          photos: Array.isArray(row.photos) && row.photos.length > 0 ? row.photos : (row.photo ? [row.photo] : []),
-        }
-      }),
+      profiles: data.map((row: any, i: number) => mapProfileRow(row, i)),
     }
   } catch (e: any) {
     console.error('PROFILES catch:', e)
