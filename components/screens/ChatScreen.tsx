@@ -5,6 +5,7 @@ import { refreshMessagesState } from '@/lib/messagesState'
 import { supabase } from '@/lib/supabase'
 import { getCurrentMatch } from '@/lib/profiles'
 import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
+import { getPairProgress } from '@/lib/pairProgress'
 import { markAsRead } from '@/lib/unread'
 
 interface Message {
@@ -30,6 +31,30 @@ export default function ChatScreen() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const receiverId = match.id !== 'none' ? match.id : null
+
+  // ── Fail-closed access guard ──────────────────────────────────────
+  // Verifies effectiveChatUnlocked === true directly against the same
+  // authoritative pair-progress calculation used everywhere else, before
+  // ever rendering the conversation. This protects actual entry into Chat
+  // regardless of how this screen was reached (button click, browser
+  // refresh, or any other path) — not just the button's disabled state.
+  const [chatAccessVerified, setChatAccessVerified] = useState(false)
+  useEffect(() => {
+    if (!receiverId) { setChatAccessVerified(true); return }  // no specific pair to check — matches original behavior
+    let cancelled = false
+    getPairProgress(receiverId).then(prog => {
+      if (cancelled) return
+      if (!prog.chat_unlocked) {
+        console.log('CHAT ACCESS BLOCKED: chat not unlocked for this pair')
+        navigate('profile')
+        return
+      }
+      console.log('CHAT ACCESS VERIFIED')
+      setChatAccessVerified(true)
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receiverId])
 
   // Poll partner presence every 20s
   useEffect(() => {
@@ -170,6 +195,9 @@ export default function ChatScreen() {
     : ['your move 😏','rematch?','you got lucky','what\'s the prize?']
 
   return (
+    !chatAccessVerified ? (
+      <div className="flex items-center justify-center h-full" style={{background:"#0a0a10"}}><div className="text-center"><div className="text-[14px] text-white/40">{lang === 'gr' ? 'Φόρτωση...' : 'Loading...'}</div></div></div>
+    ) : (
     <div className="flex flex-col h-full" style={{ background: '#0a0a10' }}>
 
       {/* Top bar */}
@@ -301,5 +329,6 @@ export default function ChatScreen() {
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
       `}</style>
     </div>
+    )
   )
 }

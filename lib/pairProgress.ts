@@ -7,6 +7,20 @@ export interface PairProgress {
   error?: string
 }
 
+// ── Single authoritative unlock calculation ──────────────────────────
+// Every screen (Profile/Discover, Mystery Choice, Tic Tac Toe, Game Room,
+// Chat access) must use this same derivation. Chat is only ever unlocked
+// if the photo stage has ALSO been reached — this makes the rule
+// self-correcting even if a stored row's booleans are ever inconsistent
+// with games_completed (bad legacy data, a duplicate row, a stale write,
+// etc.). Thresholds are unchanged: photo at 5, chat at 10.
+export function deriveUnlockState(games_completed: number): { photo_unlocked: boolean; chat_unlocked: boolean } {
+  const safeCount = typeof games_completed === 'number' && games_completed > 0 ? games_completed : 0
+  const photo_unlocked = safeCount >= 5
+  const chat_unlocked = safeCount >= 10 && photo_unlocked
+  return { photo_unlocked, chat_unlocked }
+}
+
 // Normalize pair ids — identical ordering for both users
 function sortPair(a: string, b: string): [string, string] {
   const sorted = [a, b].sort()
@@ -34,9 +48,16 @@ export async function getPairProgress(otherUserId: string): Promise<PairProgress
     if (data && data.length > 1) console.log('DUPLICATE PAIR ROWS FOUND:', data.length)
 
     const best = data && data.length > 0 ? data[0] : fallback
+    // Fail-closed, authoritative: never trust the stored photo_unlocked/
+    // chat_unlocked columns directly — always recompute from
+    // games_completed. This is what stops a stale or inconsistent stored
+    // chat_unlocked=true from ever exposing Chat before games_completed
+    // actually reaches 10.
+    const derived = deriveUnlockState(best.games_completed)
     console.log('PAIR PROGRESS LOADED:', best.games_completed)
+    console.log('EFFECTIVE UNLOCK STATE:', derived)
     console.log('PROGRESS PRIVATE ROW:', one, two)
-    return { games_completed: best.games_completed, photo_unlocked: best.photo_unlocked, chat_unlocked: best.chat_unlocked }
+    return { games_completed: best.games_completed, photo_unlocked: derived.photo_unlocked, chat_unlocked: derived.chat_unlocked }
   } catch (e: any) { return { ...fallback, error: e.message } }
 }
 
@@ -70,8 +91,7 @@ export async function incrementPairGames(otherUserId: string): Promise<PairProgr
     const existing = rows && rows.length > 0 ? rows[0] : null
     console.log('PROGRESS BEFORE:', existing?.games_completed || 0)
     const newCount = (existing?.games_completed || 0) + 1
-    const photo_unlocked = newCount >= 5
-    const chat_unlocked = newCount >= 10
+    const { photo_unlocked, chat_unlocked } = deriveUnlockState(newCount)
 
     let updErr: any = null
     if (existing) {
