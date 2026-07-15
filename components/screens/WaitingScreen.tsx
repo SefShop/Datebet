@@ -2,9 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getPendingInvite, loadSessionByInvite, createGameSession,
-         setCurrentSession, setOpponentName, gameScreenFor, markInviteReconciled, GameInvite } from '@/lib/gameInvites'
-import { setCurrentMatch, UserProfile } from '@/lib/profiles'
+import { getPendingInvite, markInviteReconciled, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
 
 const GAME_NAMES: Record<string, string> = { tic_tac_toe: '⭕ Tic Tac Toe', connect_4: '🔴 Connect 4', mystery: '🎮 Game' }
 
@@ -57,50 +55,16 @@ export default function WaitingScreen() {
   }, [pending])
 
   async function enterRoom(inv: GameInvite) {
-    console.log('PLAY AGAIN SENDER:', inv.sender_id)
-    console.log('PLAY AGAIN RECEIVER:', inv.receiver_id)
-
-    // Sender waits for the receiver's session (retry, do NOT create a duplicate)
-    let session = await loadSessionByInvite(inv.id)
-    let tries = 0
-    while (!session && tries < 5) {
-      await new Promise(r => setTimeout(r, 500))
-      session = await loadSessionByInvite(inv.id)
-      tries++
-    }
-    // Last resort: create it (receiver may have failed)
-    if (!session) {
-      const created = await createGameSession(inv)
-      session = created.session || null
-    }
-    if (!session) { console.error('Could not start Tic Tac Toe.'); setStatus('declined'); return }
-    markInviteReconciled(inv.id)
-    console.log('ROUTING: session loaded (sender)', { id: session.id, game_type: session.game_type })
-    console.log('NEW SESSION PLAYER_ONE:', session.player_one_id)
-    console.log('NEW SESSION PLAYER_TWO:', session.player_two_id)
-    console.log('NEW SESSION CURRENT TURN:', session.state?.currentTurn)
-    setCurrentSession(session)
-
     const { data: { user } } = await supabase.auth.getUser()
-    const role = user?.id === session.player_one_id ? 'player_one (X)' : 'player_two (O)'
-    console.log('CURRENT USER ROLE:', role)
-    const oppId = user?.id === session.player_one_id ? session.player_two_id : session.player_one_id
-    const { data: opp } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
-    if (opp) {
-      const profile: UserProfile = {
-        id: opp.id, name: opp.name || 'Player', age: opp.age || 0,
-        photo: opp.photo || '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)',
-        location: { en: opp.location || '', gr: opp.location || '' },
-        online: true, interests: [], bio: { en: opp.bio || '', gr: opp.bio || '' },
-      }
-      setCurrentMatch(profile)
-      setOpponentName(opp.name || 'Player')
-      console.log('OPPONENT RESOLVED FROM NEW SESSION:', opp.name)
+    if (!user) { setStatus('declined'); return }
+
+    markInviteReconciled(inv.id)
+    const result = await enterAcceptedGame(inv, user.id)
+    if (!result.ok || !result.screen) {
+      setStatus('declined')
+      return
     }
-    const screen = gameScreenFor(session.game_type)
-    console.log('NAVIGATE TO TICTACTOE:', screen)
-    if (session.game_type === 'mystery_choice') console.log('OPENING MYSTERY CHOICE:', screen)
-    navigate(screen as any)
+    navigate(result.screen as any)
   }
 
   async function cancelInvite() {

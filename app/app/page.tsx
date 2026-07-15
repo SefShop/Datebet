@@ -25,8 +25,8 @@ import WaitingScreen     from '@/components/screens/WaitingScreen'
 import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { clearProfileState, setCurrentMatch, UserProfile } from '@/lib/profiles'
-import { reconcilePendingAcceptedInvite, setCurrentSession, setOpponentName, gameScreenFor } from '@/lib/gameInvites'
+import { clearProfileState } from '@/lib/profiles'
+import { reconcilePendingAcceptedInvite, enterAcceptedGame } from '@/lib/gameInvites'
 // SocialPresence removed
 
 const SCREENS = {
@@ -129,23 +129,14 @@ function AppShell() {
     // WaitingScreen's own live listener already handled it).
     reconcilePendingAcceptedInvite().then(async (result) => {
       if (!result) return
-      const { session } = result
-      console.log('RECONCILIATION: navigating into recovered session', session.id)
-      setCurrentSession(session)
+      const { invite } = result
       const { data: { user } } = await supabase.auth.getUser()
-      const oppId = user?.id === session.player_one_id ? session.player_two_id : session.player_one_id
-      const { data: opp } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
-      if (opp) {
-        const profile: UserProfile = {
-          id: opp.id, name: opp.name || 'Player', age: opp.age || 0,
-          photo: opp.photo || '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)',
-          location: { en: opp.location || '', gr: opp.location || '' },
-          online: true, interests: [], bio: { en: opp.bio || '', gr: opp.bio || '' },
-        }
-        setCurrentMatch(profile)
-        setOpponentName(opp.name || 'Player')
+      if (!user) { return }
+      const gameResult = await enterAcceptedGame(invite, user.id)
+      if (!gameResult.ok || !gameResult.screen) {
+        return
       }
-      navigate(gameScreenFor(session.game_type) as any)
+      navigate(gameResult.screen as any)
     })
     function onVisible() {
       if (document.visibilityState === 'visible') {

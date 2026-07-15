@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { generateMysteryQuestions, toRoundData } from '@/lib/mysteryChoiceQuestions'
+import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
 export interface GameInvite {
   id: string
@@ -319,4 +320,90 @@ export function gameScreenFor(gameType: string): string {
   if (gameType === 'connect_4') return 'connect4'
   if (gameType === 'mystery_choice') return 'mystery_choice'
   return 'tictactoe'  // tic_tac_toe + default
+}
+
+// ── ONE central function for entering an accepted game ───────────────
+// Used by all three places that can bring a user into a game after an
+// invite is accepted: the receiver (right after pressing Accept), the
+// sender (via the realtime "accepted" event), and reconciliation (missed
+// event recovery). Every one of these previously had its own separate,
+// slightly-different copy of this logic — this replaces all of them.
+//
+// Does everything except the actual screen navigation, since `navigate()`
+// only exists inside React components (useApp()) — callers do exactly:
+//   const result = await enterAcceptedGame(invite, currentUserId)
+//   if (result.ok) navigate(result.screen as any)
+export interface EnterAcceptedGameResult {
+  ok: boolean
+  session?: GameSession
+  screen?: string
+  opponentId?: string
+  error?: string
+}
+
+const _navigatingInviteIds = new Set<string>()
+
+export async function enterAcceptedGame(
+  invite: { id: string; sender_id: string; receiver_id: string; game_type: string },
+  currentUserId: string
+): Promise<EnterAcceptedGameResult> {
+
+  const guardKey = `${invite.id}`
+  if (_navigatingInviteIds.has(guardKey)) {
+    return { ok: false, error: 'already navigating' }
+  }
+  _navigatingInviteIds.add(guardKey)
+
+  try {
+    if (currentUserId !== invite.sender_id && currentUserId !== invite.receiver_id) {
+      return { ok: false, error: 'not a participant' }
+    }
+
+    // Resolve the ONE shared session — bounded retry (covers a brief
+    // read-after-write lag), create only as an absolute last resort, never
+    // more than once per invite (createGameSession itself is idempotent:
+    // it checks for an existing row by invite_id before ever inserting).
+    let session = await loadSessionByInvite(invite.id)
+    let tries = 0
+    while (!session && tries < 5) {
+      await new Promise(r => setTimeout(r, 400))
+      session = await loadSessionByInvite(invite.id)
+      tries++
+    }
+    if (!session) {
+      const created = await createGameSession(invite as GameInvite)
+      session = created.session || null
+      if (created.error) console.error('session creation error', created.error)
+    }
+    if (!session) {
+      return { ok: false, error: 'no session' }
+    }
+
+    const validPlayers = (session.player_one_id === invite.sender_id && session.player_two_id === invite.receiver_id)
+      || (session.player_one_id === invite.receiver_id && session.player_two_id === invite.sender_id)
+    if (!validPlayers) {
+      return { ok: false, error: 'session/invite mismatch' }
+    }
+
+    setCurrentSession(session)
+
+    const opponentId = currentUserId === session.player_one_id ? session.player_two_id : session.player_one_id
+    const { data: opp } = await supabase.from('profiles').select('*').eq('id', opponentId).maybeSingle()
+    if (opp) {
+      const profile: UserProfile = {
+        id: opp.id, name: opp.name || 'Player', age: opp.age || 0,
+        photo: opp.photo || '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)',
+        location: { en: opp.location || '', gr: opp.location || '' },
+        online: true, interests: [], bio: { en: opp.bio || '', gr: opp.bio || '' },
+      }
+      setCurrentMatch(profile)
+      setOpponentName(opp.name || 'Player')
+    }
+
+    const screen = gameScreenFor(session.game_type)
+
+    return { ok: true, session, screen, opponentId }
+  } finally {
+    _navigatingInviteIds.delete(guardKey)
+  }
 }

@@ -1,10 +1,8 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getIncomingInvites, getOutgoingInvites, respondInvite, createGameSession,
-         loadSessionByInvite, setCurrentSession, setOpponentName, gameScreenFor, GameInvite } from '@/lib/gameInvites'
-import { setCurrentMatch, UserProfile } from '@/lib/profiles'
+import { getIncomingInvites, getOutgoingInvites, respondInvite, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
 
 // Human-readable label for an invite's game_type
 function gameLabel(gameType: string): { emoji: string; name: string } {
@@ -74,18 +72,26 @@ export default function ActivityScreen() {
   }
 
   async function respond(c: GameInvite, accept: boolean) {
-    if (accept) console.log('B ACCEPT CLICKED:', c.id)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { return }
+
       console.log('ACCEPT FLOW: respondInvite start', c.id, 'game_type:', c.game_type)
       const { ok, error: respondError } = await respondInvite(c.id, accept)
-      console.log('ACCEPT FLOW: respondInvite result', ok, respondError)
       if (!ok) { console.error('ACCEPT FLOW: respondInvite failed', respondError); return }
 
       if (!accept) { load(); return }
 
       console.log('INVITE ACCEPTED', c.id, 'game_type:', c.game_type)
       if (c.game_type === 'mystery_choice') console.log('MYSTERY CHOICE INVITE ACCEPTED:', c.id)
-      await enterGame(c)
+
+      const result = await enterAcceptedGame(c, user.id)
+      if (!result.ok || !result.screen) {
+        alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start the game.')
+        load()
+        return
+      }
+      navigate(result.screen as any)
     } catch (e: any) {
       console.error('ACCEPT FLOW ERROR:', e?.message)
       alert(lang === 'gr' ? 'Κάτι πήγε στραβά. Δοκίμασε ξανά.' : 'Something went wrong. Please try again.')
@@ -93,78 +99,17 @@ export default function ActivityScreen() {
     }
   }
 
-  // Guards against the accepting user navigating twice — e.g. a double
-  // click on Accept, or this same invite also being resolved by a
-  // realtime/poll-triggered re-render while enterGame is still in flight.
-  const navigatingInviteIds = useRef<Set<string>>(new Set()).current
-
-  async function enterGame(c: GameInvite) {
-    if (navigatingInviteIds.has(c.id)) { console.log('ENTER GAME SKIPPED (already navigating):', c.id); return }
-    navigatingInviteIds.add(c.id)
-    try {
-      console.log('ROUTING: enterGame start', c.id, 'game_type:', c.game_type)
-
-      // Always confirm the CURRENT authenticated user here — never trust a
-      // possibly-stale value from an earlier render.
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { console.error('ENTER GAME: no authenticated user'); return }
-      if (user.id !== c.receiver_id) {
-        console.error('ENTER GAME: current user is not this invite\'s receiver — refusing to enter', user.id, c.receiver_id)
-        return
-      }
-
-      // Session may already exist (created by this same accept, or by the
-      // sender's own fallback path) — reuse it. Bounded retry covers a brief
-      // read-after-write lag; never creates a second session once one exists.
-      let session = await loadSessionByInvite(c.id)
-      let tries = 0
-      while (!session && tries < 6) {
-        await new Promise(r => setTimeout(r, 400))
-        session = await loadSessionByInvite(c.id)
-        tries++
-      }
-      if (!session) {
-        console.log('ENTER GAME: no existing session found after retry — creating one', c.id)
-        const created = await createGameSession(c)
-        session = created.session || null
-        if (created.error) console.error('ENTER GAME: createGameSession error', created.error)
-      }
-      if (!session) {
-        console.error('ENTER GAME: could not obtain a valid session', c.id)
-        alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start the game.')
-        return
-      }
-      // Confirm the session genuinely belongs to this invite's two players.
-      const validPlayers = (session.player_one_id === c.sender_id && session.player_two_id === c.receiver_id)
-        || (session.player_one_id === c.receiver_id && session.player_two_id === c.sender_id)
-      if (!validPlayers) { console.error('ENTER GAME: session players do not match invite — refusing to enter', session.id); return }
-
-      console.log('SAME SESSION ID:', session.id)
-      console.log('ROUTING: session loaded', { id: session.id, game_type: session.game_type })
-      setCurrentSession(session)
-
-      const oppId = user.id === session.player_one_id ? session.player_two_id : session.player_one_id
-      const { data: opp } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
-      if (opp) {
-        const profile: UserProfile = {
-          id: opp.id, name: opp.name || 'Player', age: opp.age || 0,
-          photo: opp.photo || '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)',
-          location: { en: opp.location || '', gr: opp.location || '' },
-          online: true, interests: [], bio: { en: opp.bio || '', gr: opp.bio || '' },
-        }
-        setCurrentMatch(profile)
-        setOpponentName(opp.name || 'Player')
-      }
-      const screen = gameScreenFor(session.game_type)
-      console.log('NAVIGATE TO TICTACTOE:', screen)
-      if (session.game_type === 'mystery_choice') console.log('OPENING MYSTERY CHOICE:', screen)
-      navigate(screen as any)
-    } catch (e: any) {
-      console.error('ENTER GAME ERROR:', e?.message)
-      alert(lang === 'gr' ? 'Κάτι πήγε στραβά. Δοκίμασε ξανά.' : 'Something went wrong. Please try again.')
-    } finally {
-      navigatingInviteIds.delete(c.id)
+  // For an invite already marked 'accepted' (e.g. the user navigated away
+  // and is coming back to it) — same shared function, no duplicate logic.
+  async function enterExistingGame(c: GameInvite) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const result = await enterAcceptedGame(c, user.id)
+    if (!result.ok || !result.screen) {
+      alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start the game.')
+      return
     }
+    navigate(result.screen as any)
   }
 
   function timeAgo(iso: string): string {
@@ -243,7 +188,7 @@ export default function ActivityScreen() {
               </div>
             )}
             {c.status === 'accepted' && (
-              <button onClick={() => enterGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#0a0a10' }}>{t.enter}</button>
+              <button onClick={() => enterExistingGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#0a0a10' }}>{t.enter}</button>
             )}
             {c.status === 'declined' && <span className="text-[12px] px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.354)' }}>{t.declined}</span>}
           </div>
@@ -261,7 +206,7 @@ export default function ActivityScreen() {
             </div>
             {c.status === 'pending' && <span className="text-[11px] font-medium px-3 py-1.5 rounded-full" style={{ background: 'rgba(253,41,123,0.118)', color: 'rgba(253,41,123,0.708)' }}>{t.waiting}</span>}
             {c.status === 'accepted' && (
-              <button onClick={() => enterGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#0a0a10' }}>{t.enter}</button>
+              <button onClick={() => enterExistingGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#0a0a10' }}>{t.enter}</button>
             )}
             {c.status === 'declined' && <span className="text-[12px] px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.354)' }}>{t.declined}</span>}
           </div>
