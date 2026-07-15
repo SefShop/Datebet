@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getIncomingInvites, getOutgoingInvites, respondInvite, createGameSession,
@@ -75,64 +75,96 @@ export default function ActivityScreen() {
 
   async function respond(c: GameInvite, accept: boolean) {
     if (accept) console.log('B ACCEPT CLICKED:', c.id)
-    if (accept) {
-      // Create (or find the deterministic existing) session BEFORE marking
-      // the invite accepted. Previously this order was reversed, so the
-      // sender's realtime listener could see status='accepted' before any
-      // session row existed yet — the exact race behind the "only one user
-      // enters the game" bug on a pair's first invite.
-      console.log('ACCEPT FLOW: createGameSession start', c.id, 'game_type:', c.game_type)
-      console.log('CREATING SESSION', c.id)
-      const { session, error } = await createGameSession(c)
-      console.log('ACCEPT FLOW: createGameSession result', { sessionId: session?.id, sessionGameType: session?.game_type, error })
-      if (error || !session) { alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το Tic Tac Toe.' : 'Could not start Tic Tac Toe.'); load(); return }
-      console.log('TICTACTOE SESSION CREATED:', session.id)
-      console.log('SESSION CREATED', session.id)
-
+    try {
       console.log('ACCEPT FLOW: respondInvite start', c.id, 'game_type:', c.game_type)
-      const { ok } = await respondInvite(c.id, accept)
-      console.log('ACCEPT FLOW: respondInvite result', ok)
-      if (!ok) return
+      const { ok, error: respondError } = await respondInvite(c.id, accept)
+      console.log('ACCEPT FLOW: respondInvite result', ok, respondError)
+      if (!ok) { console.error('ACCEPT FLOW: respondInvite failed', respondError); return }
+
+      if (!accept) { load(); return }
+
       console.log('INVITE ACCEPTED', c.id, 'game_type:', c.game_type)
       if (c.game_type === 'mystery_choice') console.log('MYSTERY CHOICE INVITE ACCEPTED:', c.id)
       await enterGame(c)
-    } else {
-      console.log('ACCEPT FLOW: respondInvite start', c.id, 'game_type:', c.game_type)
-      const { ok } = await respondInvite(c.id, accept)
-      console.log('ACCEPT FLOW: respondInvite result', ok)
-      if (!ok) return
+    } catch (e: any) {
+      console.error('ACCEPT FLOW ERROR:', e?.message)
+      alert(lang === 'gr' ? 'Κάτι πήγε στραβά. Δοκίμασε ξανά.' : 'Something went wrong. Please try again.')
       load()
     }
   }
 
-  async function enterGame(c: GameInvite) {
-    console.log('ROUTING: enterGame start', c.id, 'game_type:', c.game_type)
-    let session = await loadSessionByInvite(c.id)
-    if (!session) {
-      const created = await createGameSession(c)
-      session = created.session || null
-    }
-    if (!session) { alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το Tic Tac Toe.' : 'Could not start Tic Tac Toe.'); return }
-    console.log('SAME SESSION ID:', session.id)
-    console.log('ROUTING: session loaded', { id: session.id, game_type: session.game_type })
-    setCurrentSession(session)
+  // Guards against the accepting user navigating twice — e.g. a double
+  // click on Accept, or this same invite also being resolved by a
+  // realtime/poll-triggered re-render while enterGame is still in flight.
+  const navigatingInviteIds = useRef<Set<string>>(new Set()).current
 
-    const oppId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
-    const { data: opp } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
-    if (opp) {
-      const profile: UserProfile = {
-        id: opp.id, name: opp.name || 'Player', age: opp.age || 0,
-        photo: opp.photo || '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)',
-        location: { en: opp.location || '', gr: opp.location || '' },
-        online: true, interests: [], bio: { en: opp.bio || '', gr: opp.bio || '' },
+  async function enterGame(c: GameInvite) {
+    if (navigatingInviteIds.has(c.id)) { console.log('ENTER GAME SKIPPED (already navigating):', c.id); return }
+    navigatingInviteIds.add(c.id)
+    try {
+      console.log('ROUTING: enterGame start', c.id, 'game_type:', c.game_type)
+
+      // Always confirm the CURRENT authenticated user here — never trust a
+      // possibly-stale value from an earlier render.
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { console.error('ENTER GAME: no authenticated user'); return }
+      if (user.id !== c.receiver_id) {
+        console.error('ENTER GAME: current user is not this invite\'s receiver — refusing to enter', user.id, c.receiver_id)
+        return
       }
-      setCurrentMatch(profile)
-      setOpponentName(opp.name || 'Player')
+
+      // Session may already exist (created by this same accept, or by the
+      // sender's own fallback path) — reuse it. Bounded retry covers a brief
+      // read-after-write lag; never creates a second session once one exists.
+      let session = await loadSessionByInvite(c.id)
+      let tries = 0
+      while (!session && tries < 6) {
+        await new Promise(r => setTimeout(r, 400))
+        session = await loadSessionByInvite(c.id)
+        tries++
+      }
+      if (!session) {
+        console.log('ENTER GAME: no existing session found after retry — creating one', c.id)
+        const created = await createGameSession(c)
+        session = created.session || null
+        if (created.error) console.error('ENTER GAME: createGameSession error', created.error)
+      }
+      if (!session) {
+        console.error('ENTER GAME: could not obtain a valid session', c.id)
+        alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start the game.')
+        return
+      }
+      // Confirm the session genuinely belongs to this invite's two players.
+      const validPlayers = (session.player_one_id === c.sender_id && session.player_two_id === c.receiver_id)
+        || (session.player_one_id === c.receiver_id && session.player_two_id === c.sender_id)
+      if (!validPlayers) { console.error('ENTER GAME: session players do not match invite — refusing to enter', session.id); return }
+
+      console.log('SAME SESSION ID:', session.id)
+      console.log('ROUTING: session loaded', { id: session.id, game_type: session.game_type })
+      setCurrentSession(session)
+
+      const oppId = user.id === session.player_one_id ? session.player_two_id : session.player_one_id
+      const { data: opp } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
+      if (opp) {
+        const profile: UserProfile = {
+          id: opp.id, name: opp.name || 'Player', age: opp.age || 0,
+          photo: opp.photo || '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)',
+          location: { en: opp.location || '', gr: opp.location || '' },
+          online: true, interests: [], bio: { en: opp.bio || '', gr: opp.bio || '' },
+        }
+        setCurrentMatch(profile)
+        setOpponentName(opp.name || 'Player')
+      }
+      const screen = gameScreenFor(session.game_type)
+      console.log('NAVIGATE TO TICTACTOE:', screen)
+      if (session.game_type === 'mystery_choice') console.log('OPENING MYSTERY CHOICE:', screen)
+      navigate(screen as any)
+    } catch (e: any) {
+      console.error('ENTER GAME ERROR:', e?.message)
+      alert(lang === 'gr' ? 'Κάτι πήγε στραβά. Δοκίμασε ξανά.' : 'Something went wrong. Please try again.')
+    } finally {
+      navigatingInviteIds.delete(c.id)
     }
-    const screen = gameScreenFor(session.game_type)
-    console.log('NAVIGATE TO TICTACTOE:', screen)
-    if (session.game_type === 'mystery_choice') console.log('OPENING MYSTERY CHOICE:', screen)
-    navigate(screen as any)
   }
 
   function timeAgo(iso: string): string {
