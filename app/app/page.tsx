@@ -26,7 +26,7 @@ import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { clearProfileState } from '@/lib/profiles'
-import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, clearGameState } from '@/lib/gameInvites'
+import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, clearGameState, isValidActiveGameSession } from '@/lib/gameInvites'
 // SocialPresence removed
 
 const SCREENS = {
@@ -111,10 +111,17 @@ function AppShell() {
   // changes to one of them, getCurrentSession() is already non-null.
   useEffect(() => {
     const sessionRequiredScreens = ['tictactoe', 'mystery_choice', 'connect4', 'game_room']
-    if (sessionRequiredScreens.includes(screen) && !getCurrentSession()) {
-      console.log('SCREEN/SESSION MISMATCH — redirecting to profile:', screen)
-      navigate('profile')
-    }
+    if (!sessionRequiredScreens.includes(screen)) return
+    let cancelled = false
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled) return
+      const session = getCurrentSession()
+      if (!isValidActiveGameSession(session, user?.id)) {
+        console.log('SCREEN/SESSION MISMATCH — redirecting to profile:', screen, 'sessionId:', session?.id, 'userId:', user?.id)
+        navigate('profile')
+      }
+    })
+    return () => { cancelled = true }
   }, [screen])
 
   useEffect(() => {
@@ -159,7 +166,8 @@ function AppShell() {
     // itself guards against acting on the same invite twice (including if
     // WaitingScreen's own live listener already handled it).
     const generationAtStart = authKeyRef.current
-    reconcilePendingAcceptedInvite().then(async (result) => {
+    const loginStartedAt = new Date().toISOString()
+    reconcilePendingAcceptedInvite(loginStartedAt).then(async (result) => {
       if (!result) return
       // Auth changed (logout, or a different account logged in) while this
       // async call was in flight — discard the result rather than resurface

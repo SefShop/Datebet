@@ -291,18 +291,43 @@ export function subscribeCurrentSession(listener: SessionListener): () => void {
 const _reconciledInviteIds = new Set<string>()
 export function markInviteReconciled(inviteId: string) { _reconciledInviteIds.add(inviteId) }
 
-export async function reconcilePendingAcceptedInvite(): Promise<{ invite: GameInvite; session: GameSession } | null> {
+// ── Authoritative session validity check ─────────────────────────
+// The single source of truth for "is this session actually enterable right
+// now, by this exact user". Used both by the top-level screen invariant
+// (app/app/page.tsx) and anywhere else that needs to decide whether a
+// session is real and current rather than stale/finished/belonging to
+// someone else.
+export function isValidActiveGameSession(session: GameSession | null | undefined, authenticatedUserId: string | null | undefined): boolean {
+  if (!session || !session.id) return false
+  if (!authenticatedUserId) return false
+  if (session.player_one_id !== authenticatedUserId && session.player_two_id !== authenticatedUserId) return false
+  if (!session.state) return false
+  if (session.state.status === 'finished') return false
+  const supportedTypes = ['tic_tac_toe', 'mystery_choice', 'connect_4']
+  if (session.game_type && !supportedTypes.includes(session.game_type)) return false
+  return true
+}
+
+export async function reconcilePendingAcceptedInvite(loginStartedAt: string): Promise<{ invite: GameInvite; session: GameSession } | null> {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
 
-    const recentCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    // IMPORTANT: this must only ever recover an accept that happened
+    // DURING the current login — e.g. the sender wasn't on WaitingScreen
+    // when their invite got accepted moments ago. A blanket "created within
+    // the last 5 minutes" window doesn't distinguish that from an invite
+    // that was accepted BEFORE a logout that happened to occur within the
+    // same 5 minutes — which is exactly what let a logged-out session get
+    // resurrected on the next login. Using the exact moment this login
+    // started as the lower bound makes that impossible: nothing from
+    // before this login can ever match.
     const { data: invites, error } = await supabase
       .from('game_invites')
       .select('*')
       .eq('sender_id', user.id)
       .eq('status', 'accepted')
-      .gte('created_at', recentCutoff)
+      .gte('created_at', loginStartedAt)
       .order('created_at', { ascending: false })
       .limit(1)
 
@@ -320,24 +345,15 @@ export async function reconcilePendingAcceptedInvite(): Promise<{ invite: GameIn
       session = await loadSessionByInvite(invite.id)
       tries++
     }
-    if (!session) return null
 
-    // IMPORTANT: the game_sessions row's own `status` column is set to
-    // 'active' once at creation and is never updated again anywhere in the
-    // app — every move/result write only ever touches the `state` JSONB
-    // blob. Checking `session.status` here was always a no-op (it's always
-    // 'active'), which is exactly what let a completed game get treated as
-    // resumable. The real terminal indicator, consistent across every game
-    // type (Tic Tac Toe, Mystery Choice, Connect4), is `state.status`.
-    console.log('CANDIDATE SESSION STATE STATUS:', session.state?.status)
-    if (session.state?.status === 'finished') {
-      console.log('RECONCILIATION: session is finished, not resumable', session.id)
+    if (!isValidActiveGameSession(session, user.id)) {
+      console.log('RECONCILIATION: session not valid/active, not resumable', session?.id)
       return null
     }
 
     _reconciledInviteIds.add(invite.id)
-    console.log('RECONCILIATION: recovered missed accept for invite', invite.id, 'session', session.id)
-    return { invite, session }
+    console.log('RECONCILIATION: recovered missed accept for invite', invite.id, 'session', session!.id)
+    return { invite, session: session! }
   } catch (e: any) {
     console.error('reconcilePendingAcceptedInvite:', e.message)
     return null
@@ -438,10 +454,20 @@ export async function enterAcceptedGame(
       return { ok: false, error: 'no session' }
     }
 
-    const validPlayers = (session.player_one_id === invite.sender_id && session.player_two_id === invite.receiver_id)
-      || (session.player_one_id === invite.receiver_id && session.player_two_id === invite.sender_id)
-    if (!validPlayers) {
-      return { ok: false, error: 'session/invite mismatch' }
+    // Stale-async guard: if the user logged out (or a different account
+    // logged in) while this call was awaiting the network, the identity we
+    // started with is no longer the one actually signed in. Never publish
+    // a session in that case — this protects every caller (Accept, the
+    // sender's realtime handler, and reconciliation) uniformly, since they
+    // all funnel through this one function.
+    const { data: { user: currentAuthUser } } = await supabase.auth.getUser()
+    if (!currentAuthUser || currentAuthUser.id !== currentUserId) {
+      console.log('ENTER GAME BLOCKED: authenticated user changed since this call started')
+      return { ok: false, error: 'stale user' }
+    }
+
+    if (!isValidActiveGameSession(session, currentUserId)) {
+      return { ok: false, error: 'session not valid/active for this user' }
     }
 
     setCurrentSession(session)
