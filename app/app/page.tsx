@@ -26,7 +26,7 @@ import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { clearProfileState } from '@/lib/profiles'
-import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession } from '@/lib/gameInvites'
+import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, clearGameState } from '@/lib/gameInvites'
 // SocialPresence removed
 
 const SCREENS = {
@@ -103,6 +103,12 @@ function AppShell() {
       if (event === 'SIGNED_OUT' || !session) {
         console.log('AUTH: signed out, clearing profile state')
         clearProfileState()
+        clearGameState()
+        // Reset the top-level screen to Profiles/Discover so a finished or
+        // in-progress game can never reopen on the next login — this runs
+        // before setAuthKey below remounts the screens, so the clean state
+        // is already in place when they come back up.
+        navigate('profile')
       }
       // After sign-in (email or Google OAuth), make sure a profile row exists
       if (session?.user?.id && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {

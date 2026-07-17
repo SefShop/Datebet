@@ -333,6 +333,20 @@ let _pendingInvite: { id: string; receiverName: string; gameType: string } | nul
 export function setPendingInvite(p: { id: string; receiverName: string; gameType: string }) { _pendingInvite = p }
 export function getPendingInvite() { return _pendingInvite }
 
+// ── Logout cleanup ────────────────────────────────────────────────
+// Clears only temporary active-game/navigation state — never touches
+// profile data, messages, pair_progress, or anything persisted server-side.
+// Called once on SIGNED_OUT (app/app/page.tsx) so a finished or in-progress
+// game can never reopen automatically after the next login.
+export function clearGameState() {
+  console.log('CLEAR GAME STATE (logout)')
+  _session = null
+  _opponentName = null
+  _pendingInvite = null
+  _navigatingInviteIds.clear()
+  _reconciledInviteIds.clear()
+}
+
 
 // ── Map game_type → screen name ─────────────────────────────────
 export function gameScreenFor(gameType: string): string {
