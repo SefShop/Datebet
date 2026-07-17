@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, setCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
+import { getCurrentSession, setCurrentSession, subscribeCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
@@ -34,7 +34,25 @@ interface GameState {
 
 export default function TicTacToeScreen() {
   const { navigate, lang } = useApp()
-  const session = getCurrentSession()
+  // Reactive session — was previously `const session = getCurrentSession()`,
+  // re-read only when this component happened to render for some other
+  // reason. Since all game screens stay permanently mounted (just hidden
+  // via CSS), that could mean this screen didn't notice a brand-new
+  // session promptly. Now subscribed directly: setCurrentSession() being
+  // called anywhere immediately updates this component's own state.
+  const [session, setSessionState] = useState(() => getCurrentSession())
+
+  useEffect(() => {
+    const unsubscribe = subscribeCurrentSession((s) => {
+      // Only react to sessions this screen actually owns — mirrors the
+      // existing game_type guard used below for channel setup, so a
+      // Mystery Choice/Connect4 session being published elsewhere doesn't
+      // needlessly touch this screen's state.
+      if (s.game_type && s.game_type !== 'tic_tac_toe' && s.game_type !== 'mystery') return
+      setSessionState(s)
+    })
+    return unsubscribe
+  }, [])
 
   const [state, setState]   = useState<GameState | null>(null)
   const [myId, setMyId]     = useState<string | null>(null)
@@ -187,6 +205,30 @@ export default function TicTacToeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.id])
 
+  // Visibility reconciliation — Tic Tac Toe only, no polling. When the tab
+  // becomes visible again, fetch the exact active session's state once and
+  // apply it if it's still the current session. Realtime can be missed
+  // while a tab is backgrounded on some browsers/devices; this recovers
+  // without requiring a page refresh.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== 'visible') return
+      const sid = activeSessionRef.current
+      if (!sid) return
+      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
+        if (error || !data?.state) return
+        if (activeSessionRef.current !== sid) return  // session changed while fetching
+        const latest = data.state as any
+        if (!latest.board || !Array.isArray(latest.board)) return
+        console.log('TICTACTOE VISIBILITY RECONCILE:', latest.moves, 'moves')
+        latest.board = Array.from({ length: 9 }, (_, k) => latest.board?.[k] || '')
+        setState(latest)
+      })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   async function play(i: number) {
     if (!state || !session || !myId) { console.log('MOVE BLOCKED REASON: no state/session/user'); return }
     if (state.status === 'finished') { console.log('MOVE BLOCKED REASON: game finished'); return }
@@ -225,9 +267,29 @@ export default function TicTacToeScreen() {
     setState(newState) // optimistic
     console.log('MOVE ATTEMPT:', i, mySymbol)
 
-    const { error: e } = await supabase.from('game_sessions').update({ state: newState }).eq('id', session.id)
-    if (e) console.error('SESSION UPDATE error:', e)
-    else console.log('MOVE SAVED TO SESSION:', session.id)
+    const sessionIdAtWrite = session.id
+    const { data: confirmed, error: e } = await supabase
+      .from('game_sessions')
+      .update({ state: newState })
+      .eq('id', session.id)
+      .select('state')
+      .single()
+    if (e) {
+      console.error('SESSION UPDATE error:', e)
+    } else {
+      console.log('MOVE SAVED TO SESSION:', session.id)
+      // Reconcile with the confirmed database row instead of leaving this
+      // device permanently dependent on its own optimistic update. Guard
+      // against applying a stale write's confirmation if the session has
+      // since changed (e.g. a fast Play Again transition).
+      if (activeSessionRef.current === sessionIdAtWrite && confirmed?.state) {
+        const confirmedState = confirmed.state as any
+        if (confirmedState.board && Array.isArray(confirmedState.board)) {
+          confirmedState.board = Array.from({ length: 9 }, (_, k) => confirmedState.board?.[k] || '')
+          setState(confirmedState)
+        }
+      }
+    }
 
     // If this move finished the game, count progress once (the finishing mover records it)
     if (status === 'finished') {

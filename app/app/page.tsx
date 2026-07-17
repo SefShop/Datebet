@@ -26,7 +26,7 @@ import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { clearProfileState } from '@/lib/profiles'
-import { reconcilePendingAcceptedInvite, enterAcceptedGame } from '@/lib/gameInvites'
+import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession } from '@/lib/gameInvites'
 // SocialPresence removed
 
 const SCREENS = {
@@ -132,13 +132,30 @@ function AppShell() {
       const { invite } = result
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { return }
-      const gameResult = await enterAcceptedGame(invite, user.id)
-      if (gameResult.skipped) return  // already being handled elsewhere — not a failure
-      if (!gameResult.ok || !gameResult.screen) {
-        return
-      }
-      navigate(gameResult.screen as any)
+      // enterAcceptedGame() calls setCurrentSession() internally, which the
+      // session subscription below reacts to and performs navigation from
+      // — no need to navigate here too (that would be a second navigation
+      // implementation for the same event).
+      await enterAcceptedGame(invite, user.id)
     })
+
+    // ── Single authoritative navigation trigger for entering a game ────
+    // Reacts to setCurrentSession() being called from ANYWHERE (receiver's
+    // direct Accept, sender's realtime event, or reconciliation above) —
+    // this is what makes an already-mounted-but-hidden game screen (all
+    // game screens stay mounted, only hidden via CSS) get navigated to
+    // reliably, instead of depending on an unrelated parent re-render to
+    // happen to notice a new session.
+    let lastNavigatedSessionId: string | null = null
+    const unsubscribeSession = subscribeCurrentSession((s) => {
+      if (!s?.id || !s.game_type) return
+      if (s.id === lastNavigatedSessionId) return  // guard: same session already navigated
+      lastNavigatedSessionId = s.id
+      const dest = gameScreenFor(s.game_type)
+      console.log('SESSION PUBLISHED — NAVIGATING:', s.id, '->', dest)
+      navigate(dest as any)
+    })
+
     function onVisible() {
       if (document.visibilityState === 'visible') {
         console.log('VISIBILITY REFRESH CALLED')
@@ -155,6 +172,7 @@ function AppShell() {
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('beforeunload', onLeave)
+      unsubscribeSession()
       stopMessagesPolling()
       stopPresence()
       stopNotificationsPolling()

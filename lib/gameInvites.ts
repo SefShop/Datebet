@@ -251,8 +251,27 @@ export async function loadSessionByInvite(inviteId: string): Promise<GameSession
 
 // ── Current session holder (in-memory) ──────────────────────────
 let _session: GameSession | null = null
-export function setCurrentSession(s: GameSession) { _session = s; console.log('SESSION ID:', s.id) }
+type SessionListener = (s: GameSession) => void
+const _sessionListeners = new Set<SessionListener>()
+
+export function setCurrentSession(s: GameSession) {
+  _session = s
+  console.log('SESSION ID:', s.id)
+  // Notify every subscriber immediately — this is what makes an
+  // already-mounted-but-hidden screen (the app keeps all game screens
+  // mounted at once) find out about a new session right away, instead of
+  // only picking it up whenever it next happens to re-render for some
+  // unrelated reason.
+  _sessionListeners.forEach(fn => { try { fn(s) } catch (e) { console.error('session listener error:', e) } })
+}
 export function getCurrentSession(): GameSession | null { return _session }
+
+// Subscribe to be notified immediately whenever setCurrentSession() is
+// called anywhere in the app. Returns an unsubscribe function.
+export function subscribeCurrentSession(listener: SessionListener): () => void {
+  _sessionListeners.add(listener)
+  return () => { _sessionListeners.delete(listener) }
+}
 
 // ── Reconciliation: recover a missed realtime accept event ──────────
 // Called once on auth completion (app/app/page.tsx). Covers the case where

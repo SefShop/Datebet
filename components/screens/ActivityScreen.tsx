@@ -72,36 +72,26 @@ export default function ActivityScreen() {
   }
 
   async function respond(c: GameInvite, accept: boolean) {
-    if (accept) console.log('[TTT_ENTRY] accept button pressed', c.id, c.game_type)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { console.log('[TTT_ENTRY] no authenticated user'); return }
-      if (accept) console.log('[TTT_ENTRY] authenticated receiver id', user.id)
-      if (accept) console.log('[TTT_ENTRY] invite id', c.id)
+      if (!user) { return }
 
       const { ok, error: respondError } = await respondInvite(c.id, accept)
       if (!ok) { console.error('ACCEPT FLOW: respondInvite failed', respondError); return }
-      if (accept) console.log('[TTT_ENTRY] invite status updated', ok)
 
       if (!accept) { load(); return }
 
+      // enterAcceptedGame() validates the receiver, resolves the one
+      // authoritative session, and calls setCurrentSession() — the
+      // top-level session subscription (app/app/page.tsx) reacts to that
+      // and performs navigation. Not waiting on our own realtime event,
+      // and not a second navigation implementation.
       const result = await enterAcceptedGame(c, user.id)
-      console.log('[TTT_ENTRY] session created/found', result.session?.id)
-      console.log('[TTT_ENTRY] session id', result.session?.id)
-      if (result.skipped) {
-        console.log('[TTT_ENTRY] receiver call skipped — already in progress elsewhere')
-        return
-      }
-      if (!result.ok || !result.screen) {
-        console.log('[TTT_ENTRY] receiver enterAcceptedGame FAILED', result.error)
+      if (result.skipped) return  // another concurrent call is already handling this invite
+      if (!result.ok) {
         alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start the game.')
         load()
-        return
       }
-      console.log('[TTT_ENTRY] setCurrentSession called', result.session?.id)
-      console.log('[TTT_ENTRY] receiver navigation called', result.screen)
-      navigate(result.screen as any)
-      console.log('[TTT_ENTRY] final screen value', result.screen)
     } catch (e: any) {
       console.error('ACCEPT FLOW ERROR:', e?.message)
       alert(lang === 'gr' ? 'Κάτι πήγε στραβά. Δοκίμασε ξανά.' : 'Something went wrong. Please try again.')
@@ -115,12 +105,10 @@ export default function ActivityScreen() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const result = await enterAcceptedGame(c, user.id)
-    if (result.skipped) { console.log('ACCEPT FLOW: entry already in progress elsewhere, skipping'); return }
-    if (!result.ok || !result.screen) {
+    if (result.skipped) return
+    if (!result.ok) {
       alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start the game.')
-      return
     }
-    navigate(result.screen as any)
   }
 
   function timeAgo(iso: string): string {
