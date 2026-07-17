@@ -76,6 +76,10 @@ export default function TicTacToeScreen() {
     activeSessionRef.current = sess0.id
     console.log('ACTIVE SESSION ID:', sess0.id)
 
+    // Guards the post-SUBSCRIBED refetch below against applying state after
+    // this effect has been cleaned up (unmount, or session/game changed).
+    let cancelled = false
+
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError('Not logged in'); setLoading(false); return }
@@ -153,11 +157,33 @@ export default function TicTacToeScreen() {
             setState(newState)
           }
         })
-        .subscribe()
+        .subscribe(async (status: string) => {
+          if (status !== 'SUBSCRIBED') return
+          console.log('TICTACTOE CHANNEL SUBSCRIBED:', sess0.id)
+          // Closes the gap between the initial SELECT and the moment this
+          // channel actually goes live: re-fetch once, right now, in case
+          // the opponent's move landed in that window and was missed.
+          if (cancelled || activeSessionRef.current !== sess0.id) return
+          const { data: latest, error: latestErr } = await supabase
+            .from('game_sessions')
+            .select('state')
+            .eq('id', sess0.id)
+            .single()
+          if (cancelled || activeSessionRef.current !== sess0.id) return
+          if (latestErr || !latest?.state) return
+          const latestState = latest.state as any
+          if (!latestState.board || !Array.isArray(latestState.board)) return
+          console.log('TICTACTOE POST-SUBSCRIBE REFETCH:', latestState.moves, 'moves')
+          latestState.board = Array.from({ length: 9 }, (_, k) => latestState.board?.[k] || '')
+          setState(latestState)
+        })
     }
 
     init()
-    return () => { if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null } }
+    return () => {
+      cancelled = true
+      if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.id])
 
