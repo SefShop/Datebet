@@ -99,6 +99,24 @@ function AppShell() {
   const authKeyRef = useRef(authKey)
   useEffect(() => { authKeyRef.current = authKey }, [authKey])
 
+  // ── Safe guard: never leave the user staring at a game screen's own
+  // "No game session found" fallback. If the active top-level screen is
+  // one that requires a real session to render meaningfully, but no
+  // session currently exists, redirect to Profiles/Discover instead. This
+  // covers every way screen/session could end up mismatched (stale
+  // restored screen, a session cleared via the back arrow or logout,
+  // etc.) without needing to find every individual cause. Never fires for
+  // a legitimate entry — setCurrentSession() always happens before
+  // navigating to one of these screens, so by the time `screen` actually
+  // changes to one of them, getCurrentSession() is already non-null.
+  useEffect(() => {
+    const sessionRequiredScreens = ['tictactoe', 'mystery_choice', 'connect4', 'game_room']
+    if (sessionRequiredScreens.includes(screen) && !getCurrentSession()) {
+      console.log('SCREEN/SESSION MISMATCH — redirecting to profile:', screen)
+      navigate('profile')
+    }
+  }, [screen])
+
   useEffect(() => {
     if (!isSupabaseConfigured()) return
     supabase.auth.getSession().then(({ data }) => {
