@@ -266,6 +266,14 @@ export function setCurrentSession(s: GameSession) {
 }
 export function getCurrentSession(): GameSession | null { return _session }
 
+// Clears only the in-memory active session pointer — used when the user
+// leaves a finished game via the back arrow, so it's no longer registered
+// as the app's "current" session. Does not touch the database row/history.
+export function clearCurrentSession() {
+  console.log('CURRENT SESSION CLEARED (back arrow)')
+  _session = null
+}
+
 // Subscribe to be notified immediately whenever setCurrentSession() is
 // called anywhere in the app. Returns an unsubscribe function.
 export function subscribeCurrentSession(listener: SessionListener): () => void {
@@ -312,7 +320,20 @@ export async function reconcilePendingAcceptedInvite(): Promise<{ invite: GameIn
       session = await loadSessionByInvite(invite.id)
       tries++
     }
-    if (!session || session.status !== 'active') return null
+    if (!session) return null
+
+    // IMPORTANT: the game_sessions row's own `status` column is set to
+    // 'active' once at creation and is never updated again anywhere in the
+    // app — every move/result write only ever touches the `state` JSONB
+    // blob. Checking `session.status` here was always a no-op (it's always
+    // 'active'), which is exactly what let a completed game get treated as
+    // resumable. The real terminal indicator, consistent across every game
+    // type (Tic Tac Toe, Mystery Choice, Connect4), is `state.status`.
+    console.log('CANDIDATE SESSION STATE STATUS:', session.state?.status)
+    if (session.state?.status === 'finished') {
+      console.log('RECONCILIATION: session is finished, not resumable', session.id)
+      return null
+    }
 
     _reconciledInviteIds.add(invite.id)
     console.log('RECONCILIATION: recovered missed accept for invite', invite.id, 'session', session.id)

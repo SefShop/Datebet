@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { startMessagesPolling, stopMessagesPolling, refreshMessagesState } from '@/lib/messagesState'
 import { startNotificationsPolling, stopNotificationsPolling } from '@/lib/notificationsState'
 import { startPresence, stopPresence, setOnline, setOffline, heartbeat } from '@/lib/presence'
@@ -91,6 +91,13 @@ function AppShell() {
   const [authed, setAuthed] = useState(!isSupabaseConfigured())
   const [authKey, setAuthKey] = useState(0)  // true = skip auth if no config
   const [authChecked, setAuthChecked] = useState(!isSupabaseConfigured())
+  // Always reflects the LATEST authKey, readable from inside async
+  // callbacks (which otherwise only see the value captured when the
+  // effect first ran) — used to detect "auth changed again since this
+  // async call started" and discard stale results instead of acting on
+  // them.
+  const authKeyRef = useRef(authKey)
+  useEffect(() => { authKeyRef.current = authKey }, [authKey])
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return
@@ -133,11 +140,20 @@ function AppShell() {
     // subscription setup. Runs once per auth completion; the function
     // itself guards against acting on the same invite twice (including if
     // WaitingScreen's own live listener already handled it).
+    const generationAtStart = authKeyRef.current
     reconcilePendingAcceptedInvite().then(async (result) => {
       if (!result) return
+      // Auth changed (logout, or a different account logged in) while this
+      // async call was in flight — discard the result rather than resurface
+      // a session that belongs to a login that's no longer active.
+      if (authKeyRef.current !== generationAtStart) {
+        console.log('RECONCILIATION: discarded — auth changed since this call started')
+        return
+      }
       const { invite } = result
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { return }
+      if (authKeyRef.current !== generationAtStart) return
       // enterAcceptedGame() calls setCurrentSession() internally, which the
       // session subscription below reacts to and performs navigation from
       // — no need to navigate here too (that would be a second navigation

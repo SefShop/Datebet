@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, setCurrentSession, subscribeCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
+import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
@@ -422,7 +422,10 @@ export default function TicTacToeScreen() {
 
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
-        <button onClick={() => navigate('game_room')} className="text-white/40 text-[14px] cursor-pointer">←</button>
+        <button onClick={() => {
+          if (state?.status === 'finished') clearCurrentSession()
+          navigate('game_room')
+        }} className="text-white/40 text-[14px] cursor-pointer">←</button>
         <h1 className="text-[16px] font-extrabold text-white flex-1">⭕ Tic Tac Toe</h1>
       </div>
 
