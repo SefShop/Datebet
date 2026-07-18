@@ -100,6 +100,17 @@ function AppShell() {
   const [authed, setAuthed] = useState(!isSupabaseConfigured())
   const [authKey, setAuthKey] = useState(0)  // true = skip auth if no config
   const [authChecked, setAuthChecked] = useState(!isSupabaseConfigured())
+  // Tri-state, never treated as a boolean: 'loading' means genuinely
+  // unknown — nothing may render Profiles or Play Together while it's
+  // this value. Only 'complete'/'incomplete' are decisions. This is what
+  // was missing before: the app rendered the default screen (Play
+  // Together) immediately on auth, then navigated away later once the
+  // async check resolved — visible as a flash for completed users, and as
+  // "sent to Profiles first" for new users whenever that later navigation
+  // raced awkwardly with something else.
+  const [onboardingStatus, setOnboardingStatus] = useState<'loading' | 'incomplete' | 'complete'>(
+    isSupabaseConfigured() ? 'loading' : 'complete'
+  )
   // Always reflects the LATEST authKey, readable from inside async
   // callbacks (which otherwise only see the value captured when the
   // effect first ran) — used to detect "auth changed again since this
@@ -150,15 +161,19 @@ function AppShell() {
         // before setAuthKey below remounts the screens, so the clean state
         // is already in place when they come back up.
         navigate('profile')
+        // Also reset onboarding status back to unknown — the NEXT login
+        // (same user or a different one) must re-resolve it from scratch,
+        // never reuse a previous user's completion state.
+        setOnboardingStatus('loading')
       }
       // After sign-in (email or Google OAuth), make sure a profile row
-      // exists, then only send a genuinely completed user to Profiles.
-      // A brand-new/incomplete user is left exactly where they are —
-      // which for a fresh session is the default screen (Play Together);
-      // nothing here forces them there or away from it.
+      // exists, then record whether onboarding is genuinely complete. The
+      // separate effect below is the only place that acts on this value —
+      // nothing here navigates directly, so there is exactly one
+      // authoritative decision point instead of two competing ones.
       if (session?.user?.id && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
         ensureProfileExists(session.user).then((completed) => {
-          if (completed) navigate('profile')
+          setOnboardingStatus(completed ? 'complete' : 'incomplete')
         })
       }
       setAuthed(!!session)
@@ -166,6 +181,25 @@ function AppShell() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // ── The one authoritative screen decision for onboarding ───────────
+  // Fires exactly once per resolution (loading -> incomplete|complete).
+  // Both outcomes are explicit — 'incomplete' force-navigates to 'splash'
+  // (Play Together) rather than assuming it's already the visible screen,
+  // because the independent screen-restore effect in AppContext.tsx can
+  // run concurrently and set `screen` to a restored value (e.g. 'profile')
+  // while this is still 'loading' — invisible behind the loading overlay,
+  // but it must never be allowed to survive once onboarding is confirmed
+  // incomplete. This is the single point that can override that.
+  useEffect(() => {
+    if (onboardingStatus === 'complete') {
+      console.log('ONBOARDING COMPLETE — navigating to profile')
+      navigate('profile')
+    } else if (onboardingStatus === 'incomplete') {
+      console.log('ONBOARDING INCOMPLETE — navigating to play-together')
+      navigate('splash')
+    }
+  }, [onboardingStatus])
 
   // Global messages polling — single source of truth for inbox/menu/badge
   useEffect(() => {
@@ -266,7 +300,7 @@ function AppShell() {
             <AuthScreen onAuth={() => setAuthed(true)} lang={lang} />
           </div>
         )}
-        {!authChecked && (
+        {(!authChecked || (authed && onboardingStatus === 'loading')) && (
           <div className="absolute inset-0 z-[100] flex items-center justify-center" style={{background:'#0a0a10'}}>
             <div className="text-white/30 text-[14px]">...</div>
           </div>
