@@ -445,7 +445,7 @@ export default function TicTacToeScreen() {
       </div>
 
       {/* Players */}
-      <div className="flex items-center justify-center gap-6 py-5">
+      <div className="ttt-players-row flex items-center justify-center gap-6 py-5">
         <div className="text-center">
           <div className="flex justify-center mb-1.5">
             <GamePlayerAvatar
@@ -485,7 +485,7 @@ export default function TicTacToeScreen() {
       </div>
 
       {/* Status */}
-      <div className="text-center mb-4">
+      <div className="ttt-status-row text-center mb-4">
         <span className="text-[15px] font-bold px-4 py-2 rounded-full"
           style={{
             background: isMyTurn ? 'rgba(253,41,123,0.142)' : 'rgba(255,255,255,0.047)',
@@ -567,9 +567,19 @@ export default function TicTacToeScreen() {
       <style>{`
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
         @media (max-width: 767.98px) {
+          /* The app-shell frame uses overflow:hidden on mobile (no page
+             scroll) — so the earlier fix of only adding bottom padding
+             could never work by itself: it just made the total content
+             taller, pushing the message further into the clipped region
+             instead of closer to visible. The actual fix is to reduce
+             genuinely unnecessary spacing ABOVE the action group, pulling
+             the whole "Play Again + chat-unlock message" block upward so
+             it fits inside the frame's fixed height in the first place. */
+          .ttt-players-row { padding-top: 10px !important; padding-bottom: 10px !important; }
+          .ttt-status-row { margin-bottom: 8px !important; }
           .ttt-finished-actions {
             margin-top: 8px !important;
-            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px) !important;
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
           }
         }
       `}</style>
