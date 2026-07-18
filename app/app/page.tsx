@@ -167,12 +167,24 @@ function AppShell() {
         setOnboardingStatus('loading')
       }
       // After sign-in (email or Google OAuth), make sure a profile row
-      // exists, then record whether onboarding is genuinely complete. The
-      // separate effect below is the only place that acts on this value —
-      // nothing here navigates directly, so there is exactly one
-      // authoritative decision point instead of two competing ones.
+      // exists, then set BOTH onboardingStatus and the destination screen
+      // together, synchronously, in this one callback — not in a separate
+      // effect reacting to onboardingStatus afterward. That separation was
+      // the actual bug: React commits the gate-lifting render (triggered
+      // by onboardingStatus leaving 'loading') BEFORE a later effect gets
+      // a chance to call navigate(), leaving one real render where the
+      // gate is down but `screen` is still the old/default value. Setting
+      // both here means React batches them into the exact same render —
+      // the gate and the correct screen change together, never apart.
       if (session?.user?.id && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
         ensureProfileExists(session.user).then((completed) => {
+          if (completed) {
+            console.log('ONBOARDING COMPLETE — navigating to profile')
+            navigate('profile')
+          } else {
+            console.log('ONBOARDING INCOMPLETE — navigating to play-together')
+            navigate('splash')
+          }
           setOnboardingStatus(completed ? 'complete' : 'incomplete')
         })
       }
@@ -181,25 +193,6 @@ function AppShell() {
     })
     return () => subscription.unsubscribe()
   }, [])
-
-  // ── The one authoritative screen decision for onboarding ───────────
-  // Fires exactly once per resolution (loading -> incomplete|complete).
-  // Both outcomes are explicit — 'incomplete' force-navigates to 'splash'
-  // (Play Together) rather than assuming it's already the visible screen,
-  // because the independent screen-restore effect in AppContext.tsx can
-  // run concurrently and set `screen` to a restored value (e.g. 'profile')
-  // while this is still 'loading' — invisible behind the loading overlay,
-  // but it must never be allowed to survive once onboarding is confirmed
-  // incomplete. This is the single point that can override that.
-  useEffect(() => {
-    if (onboardingStatus === 'complete') {
-      console.log('ONBOARDING COMPLETE — navigating to profile')
-      navigate('profile')
-    } else if (onboardingStatus === 'incomplete') {
-      console.log('ONBOARDING INCOMPLETE — navigating to play-together')
-      navigate('splash')
-    }
-  }, [onboardingStatus])
 
   // Global messages polling — single source of truth for inbox/menu/badge
   useEffect(() => {
