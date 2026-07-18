@@ -567,7 +567,10 @@ export default function TicTacToeScreen() {
       <style>{`
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
         @media (max-width: 767.98px) {
-          .ttt-finished-actions { margin-top: 8px !important; }
+          .ttt-finished-actions {
+            margin-top: 8px !important;
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px) !important;
+          }
         }
       `}</style>
     </div>
