@@ -251,7 +251,7 @@ export async function loadSessionByInvite(inviteId: string): Promise<GameSession
 
 // ── Current session holder (in-memory) ──────────────────────────
 let _session: GameSession | null = null
-type SessionListener = (s: GameSession) => void
+type SessionListener = (s: GameSession | null) => void
 const _sessionListeners = new Set<SessionListener>()
 
 export function setCurrentSession(s: GameSession) {
@@ -272,6 +272,7 @@ export function getCurrentSession(): GameSession | null { return _session }
 export function clearCurrentSession() {
   console.log('CURRENT SESSION CLEARED (back arrow)')
   _session = null
+  _sessionListeners.forEach(fn => { try { fn(null) } catch (e) { console.error('session listener error:', e) } })
 }
 
 // Subscribe to be notified immediately whenever setCurrentSession() is

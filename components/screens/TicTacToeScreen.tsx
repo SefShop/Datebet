@@ -44,6 +44,7 @@ export default function TicTacToeScreen() {
 
   useEffect(() => {
     const unsubscribe = subscribeCurrentSession((s) => {
+      if (s === null) { setSessionState(null); return }
       // Only react to sessions this screen actually owns — mirrors the
       // existing game_type guard used below for channel setup, so a
       // Mystery Choice/Connect4 session being published elsewhere doesn't
@@ -423,8 +424,22 @@ export default function TicTacToeScreen() {
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
         <button onClick={() => {
-          if (state?.status === 'finished') clearCurrentSession()
-          navigate('game_room')
+          if (state?.status === 'finished') {
+            // Navigate FIRST, then clear the session — not the other way
+            // around. React 18 batches both calls into one render, but
+            // ordering it this way guarantees that by the instant the
+            // session actually becomes null, `screen` has already moved to
+            // 'profile' and this component is already hidden
+            // (opacity:0, pointerEvents:none) — there is no window,
+            // however brief, where a visible screen could reflect the
+            // cleared session. Also goes straight to 'profile' instead of
+            // via Game Room, which reads getCurrentSession() directly and
+            // would show its own identical fallback otherwise.
+            navigate('profile')
+            clearCurrentSession()
+          } else {
+            navigate('game_room')
+          }
         }} className="text-white/40 text-[14px] cursor-pointer">←</button>
         <h1 className="text-[16px] font-extrabold text-white flex-1">⭕ Tic Tac Toe</h1>
       </div>
