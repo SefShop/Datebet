@@ -82,6 +82,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const { data } = await supabase.auth.getSession()
         if (cancelled) return
         if (data.session) {
+          // Extra safety: never restore a screen for a user who hasn't
+          // completed the first-time Play Together intro yet — a brand
+          // new/incomplete user must always land there, never skip it via
+          // a stale localStorage value.
+          const { data: prof } = await supabase.from('profiles').select('onboarding_completed').eq('id', data.session.user.id).maybeSingle()
+          if (cancelled) return
+          if (prof && prof.onboarding_completed === false) return
           console.log('RESTORE ACTIVE SCREEN:', saved)
           setScreen(saved as Screen)
         }

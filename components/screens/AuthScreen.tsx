@@ -169,6 +169,7 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
         name: gName,
         age: fields.age || 0,
         bio: '', photo: gPhoto, location: '',
+        onboarding_completed: false,
       })
       if (error) throw error
       console.log('ONBOARDING PROFILE SAVE SUCCESS:')

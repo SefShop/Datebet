@@ -50,10 +50,10 @@ const SCREENS = {
 }
 
 // Create a profile row for a signed-in user if missing (Google OAuth / email)
-async function ensureProfileExists(user: any) {
+async function ensureProfileExists(user: any): Promise<boolean> {
   console.log('PROFILE ENSURE START')
   try {
-    const { data: existing } = await supabase.from('profiles').select('id, name, age').eq('id', user.id).maybeSingle()
+    const { data: existing } = await supabase.from('profiles').select('id, name, age, onboarding_completed').eq('id', user.id).maybeSingle()
     const meta = user.user_metadata || {}
     const metaName = meta.full_name || meta.name || ''
 
@@ -72,16 +72,25 @@ async function ensureProfileExists(user: any) {
       } else {
         console.log('PROFILE ENSURE SUCCESS (exists)')
       }
-      return
+      // onboarding_completed is intentionally never written here — only
+      // read. Never reset it for a returning user; a legacy row with no
+      // value at all is treated as already-completed (see requirement 7 —
+      // an existing account should never be forced through Play Together).
+      return existing.onboarding_completed !== false
     }
 
     await supabase.from('profiles').insert({
       id: user.id,
       name: metaName || 'Player',
       age: meta.age || 0, bio: '', photo: meta.avatar_url || meta.picture || '', location: '',
+      onboarding_completed: false,
     })
     console.log('PROFILE ENSURE SUCCESS')
-  } catch (e: any) { console.error('ensureProfileExists:', e.message) }
+    return false
+  } catch (e: any) {
+    console.error('ensureProfileExists:', e.message)
+    return true // fail safe: never trap a user on an error, default to Profiles
+  }
 }
 
 function AppShell() {
@@ -142,9 +151,15 @@ function AppShell() {
         // is already in place when they come back up.
         navigate('profile')
       }
-      // After sign-in (email or Google OAuth), make sure a profile row exists
+      // After sign-in (email or Google OAuth), make sure a profile row
+      // exists, then only send a genuinely completed user to Profiles.
+      // A brand-new/incomplete user is left exactly where they are —
+      // which for a fresh session is the default screen (Play Together);
+      // nothing here forces them there or away from it.
       if (session?.user?.id && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        ensureProfileExists(session.user)
+        ensureProfileExists(session.user).then((completed) => {
+          if (completed) navigate('profile')
+        })
       }
       setAuthed(!!session)
       setAuthKey(k => k + 1)  // force remount all screens
