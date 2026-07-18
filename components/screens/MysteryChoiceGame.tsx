@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
+import { getCurrentSession, subscribeCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import { getPresence, isOnlineNow } from '@/lib/presence'
 import { setCurrentMatch } from '@/lib/profiles'
@@ -164,7 +164,20 @@ function buildFreshMysteryState(): MysteryChoiceState {
 
 export default function MysteryChoiceGame() {
   const { navigate, lang } = useApp()
-  const session = getCurrentSession()
+  // Reactive — was previously `const session = getCurrentSession()`, only
+  // re-read whenever this always-mounted-but-hidden screen happened to
+  // re-render for some unrelated reason. Now subscribed directly so a new
+  // Play Again session is picked up immediately and reliably.
+  const [session, setSessionState] = useState(() => getCurrentSession())
+  useEffect(() => {
+    const unsubscribe = subscribeCurrentSession((s) => {
+      if (s === null) { setSessionState(null); return }
+      // Only react to sessions this screen actually owns.
+      if (s.game_type && s.game_type !== 'mystery_choice' && s.game_type !== 'mystery') return
+      setSessionState(s)
+    })
+    return unsubscribe
+  }, [])
 
   const [state, setState] = useState<MysteryChoiceState | null>(null)
   const [myId, setMyId] = useState<string | null>(null)

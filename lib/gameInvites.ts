@@ -368,8 +368,29 @@ export function getOpponentName(): string | null { return _opponentName }
 
 // ── Pending invite holder (for waiting screen) ──────────────────
 let _pendingInvite: { id: string; receiverName: string; gameType: string } | null = null
-export function setPendingInvite(p: { id: string; receiverName: string; gameType: string }) { _pendingInvite = p }
+type PendingInviteListener = (p: { id: string; receiverName: string; gameType: string } | null) => void
+const _pendingInviteListeners = new Set<PendingInviteListener>()
+
+export function setPendingInvite(p: { id: string; receiverName: string; gameType: string }) {
+  _pendingInvite = p
+  _pendingInviteListeners.forEach(fn => { try { fn(p) } catch (e) { console.error('pending invite listener error:', e) } })
+}
 export function getPendingInvite() { return _pendingInvite }
+
+// Subscribe to be notified immediately whenever setPendingInvite() is
+// called — was previously a plain module variable only re-read whenever
+// WaitingScreen happened to re-render for some unrelated reason (same
+// class of bug the current-session store had). Since WaitingScreen stays
+// permanently mounted (hidden via CSS) between uses, a Play Again on a
+// SECOND game could leave it still watching the FIRST game's invite id if
+// that incidental re-render didn't line up — and if an even older invite
+// between the same two users had genuinely been declined at some point,
+// polling that stale id would immediately (and incorrectly) report
+// status: 'declined' for the brand new invite.
+export function subscribePendingInvite(listener: PendingInviteListener): () => void {
+  _pendingInviteListeners.add(listener)
+  return () => { _pendingInviteListeners.delete(listener) }
+}
 
 // ── Logout cleanup ────────────────────────────────────────────────
 // Clears only temporary active-game/navigation state — never touches
@@ -383,6 +404,7 @@ export function clearGameState() {
   _pendingInvite = null
   _navigatingInviteIds.clear()
   _reconciledInviteIds.clear()
+  _pendingInviteListeners.forEach(fn => { try { fn(null) } catch (e) { console.error('pending invite listener error:', e) } })
 }
 
 

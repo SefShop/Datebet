@@ -2,14 +2,24 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getPendingInvite, markInviteReconciled, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
+import { getPendingInvite, subscribePendingInvite, markInviteReconciled, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
 
 const GAME_NAMES: Record<string, string> = { tic_tac_toe: '⭕ Tic Tac Toe', connect_4: '🔴 Connect 4', mystery: '🎮 Game' }
 
 export default function WaitingScreen() {
   const { navigate, lang } = useApp()
-  const pending = getPendingInvite()
+  // Reactive — was previously `const pending = getPendingInvite()`, only
+  // re-read whenever this always-mounted-but-hidden screen happened to
+  // re-render for some other reason. Now subscribed directly, so a new
+  // Play Again invite is picked up the instant it's set, never leaving
+  // this screen watching a stale invite id from a previous game.
+  const [pending, setPendingState] = useState(() => getPendingInvite())
+  useEffect(() => {
+    const unsubscribe = subscribePendingInvite((p) => setPendingState(p))
+    return unsubscribe
+  }, [])
   const [status, setStatus] = useState<'waiting'|'declined'>('waiting')
+  useEffect(() => { setStatus('waiting') }, [pending?.id])
   const channelRef = useRef<any>(null)
 
   useEffect(() => {
