@@ -79,6 +79,18 @@ export default function Connect4Screen() {
     console.log('CONNECT4 SESSION:', s0.id)
     activeSessionRef.current = s0.id
 
+    // Clear the previous game's transient state immediately, synchronously,
+    // before any async work starts. Without this, the old `state` (still
+    // holding the just-finished game's board/winner/status) stays exactly
+    // as-is until init()'s async fetch resolves — meaning the previous
+    // Result/Game Over screen (which renders purely from `state.status`)
+    // would still be showing for that entire window. Resetting to null
+    // here means the render falls through to the existing loading state
+    // instead, and only the new session's fresh data is ever shown.
+    setState(null)
+    setLoading(true)
+    latestMovesRef.current = -1
+
     // Guards the post-SUBSCRIBED refetch below against applying state
     // after this effect has been cleaned up (unmount, or session changed).
     let cancelled = false
