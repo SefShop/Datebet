@@ -394,6 +394,18 @@ export function subscribePendingInvite(listener: PendingInviteListener): () => v
 
 // ── Logout cleanup ────────────────────────────────────────────────
 // Clears only temporary active-game/navigation state — never touches
+// ── Rematch-in-progress guard ────────────────────────────────────
+// A brief, explicit flag set while a Play Again invite is actively being
+// created and the sender is being routed to the waiting screen. Any
+// profile-fallback logic elsewhere (e.g. the top-level screen validity
+// guard in app/app/page.tsx) must skip acting while this is true — a
+// legitimate, in-flight rematch invite always takes priority over any
+// "no valid active session" fallback, since the old session's game has
+// correctly already finished at this point.
+let _rematchInProgress = false
+export function setRematchInProgress(v: boolean) { _rematchInProgress = v }
+export function isRematchInProgress() { return _rematchInProgress }
+
 // profile data, messages, pair_progress, or anything persisted server-side.
 // Called once on SIGNED_OUT (app/app/page.tsx) so a finished or in-progress
 // game can never reopen automatically after the next login.

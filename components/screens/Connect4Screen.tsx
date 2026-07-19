@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
+import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite, setRematchInProgress } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 
 const COLS = 7, ROWS = 6
@@ -224,15 +224,20 @@ export default function Connect4Screen() {
   // "Rematch" presses would race to overwrite the same row.
   async function playAgain() {
     if (!session || !myId) return
-    const opponentId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
-    const result = await sendGameInvite(opponentId, 'connect_4')
-    if (!result.ok || !result.inviteId) {
-      console.error('Play again invite failed:', result.error)
-      return
+    setRematchInProgress(true)
+    try {
+      const opponentId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
+      const result = await sendGameInvite(opponentId, 'connect_4')
+      if (!result.ok || !result.inviteId) {
+        console.error('Play again invite failed:', result.error)
+        return
+      }
+      const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()
+      setPendingInvite({ id: result.inviteId, receiverName: opp?.name || 'Player', gameType: 'connect_4' })
+      navigate('waiting')
+    } finally {
+      setRematchInProgress(false)
     }
-    const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()
-    setPendingInvite({ id: result.inviteId, receiverName: opp?.name || 'Player', gameType: 'connect_4' })
-    navigate('waiting')
   }
 
   if (!session) {
