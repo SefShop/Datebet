@@ -293,26 +293,46 @@ function AppShell() {
             <AuthScreen onAuth={() => setAuthed(true)} lang={lang} />
           </div>
         )}
-        {(!authChecked || (authed && onboardingStatus === 'loading')) && (
-          <div className="absolute inset-0 z-[100] flex items-center justify-center" style={{background:'#0a0a10'}}>
-            <div className="text-white/30 text-[14px]">...</div>
-          </div>
-        )}
+        {(() => {
+          const initializing = !authChecked || (authed && onboardingStatus === 'loading')
+          return <>
+            {initializing && (
+              <div className="absolute inset-0 z-[100] flex items-center justify-center" style={{background:'#0a0a10'}}>
+                <div className="text-white/30 text-[14px]">...</div>
+              </div>
+            )}
 
-        {/* Normal screens — key forces remount on auth change */}
-        <div key={authKey} className="absolute inset-0">
-        {(Object.entries(SCREENS) as [string, React.ReactNode][]).map(([key, comp]) => (
-          <div key={key} className="absolute inset-0"
-            style={{
-              opacity:       screen===key ? 1 : 0,
-              transform:     screen===key ? 'translateX(0)' : 'translateX(24px)',
-              pointerEvents: screen===key ? 'all' : 'none',
-              transition:    'opacity 0.32s cubic-bezier(0.4,0,0.2,1), transform 0.32s cubic-bezier(0.4,0,0.2,1)',
-            }}>
-            {comp}
-          </div>
-        ))}
-        </div>
+            {/* Normal screens — key forces remount on auth change. Not
+                mounted at all until initialization finishes: `screen` is
+                already 'profile' or 'splash' (whichever is correct) by
+                the moment this first renders, in the SAME batch as
+                `initializing` turning false. Every screen div has a CSS
+                opacity transition — if this wrapper stayed mounted the
+                whole time (hidden only behind the opaque loading overlay
+                above), the very first change away from the default
+                'splash' screen would still be a real style change on an
+                ALREADY-MOUNTED element, so the browser would visibly
+                animate the crossfade the instant the overlay disappears —
+                that 0.32s crossfade was the entire "flash". A fresh mount
+                has no prior style to transition from, so there is nothing
+                to animate. */}
+            {!initializing && (
+              <div key={authKey} className="absolute inset-0">
+              {(Object.entries(SCREENS) as [string, React.ReactNode][]).map(([key, comp]) => (
+                <div key={key} className="absolute inset-0"
+                  style={{
+                    opacity:       screen===key ? 1 : 0,
+                    transform:     screen===key ? 'translateX(0)' : 'translateX(24px)',
+                    pointerEvents: screen===key ? 'all' : 'none',
+                    transition:    'opacity 0.32s cubic-bezier(0.4,0,0.2,1), transform 0.32s cubic-bezier(0.4,0,0.2,1)',
+                  }}>
+                  {comp}
+                </div>
+              ))}
+              </div>
+            )}
+          </>
+        })()}
 
         {/* Return overlay — sits on top, slides in from below */}
         { /* ReturnScreen removed */ }
