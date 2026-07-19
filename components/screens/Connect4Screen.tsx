@@ -46,6 +46,20 @@ export default function Connect4Screen() {
   const [pairCount, setPairCount] = useState<number>(0)
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
+  // Tracks the highest `moves` count ever applied to this session, kept in
+  // a ref (not React state) so async callbacks always see the live value,
+  // not whatever was captured in their closure at effect-setup time. This
+  // is the actual fix: any incoming state — realtime, post-subscribe
+  // refetch, or visibility reconciliation — is only ever applied if its
+  // move count is >= what's already showing, never regressing to a staler
+  // snapshot. Moves only ever increase, so this is a reliable ordering
+  // guard independent of network/fetch timing.
+  const latestMovesRef = useRef<number>(-1)
+  function applyIfNotStale(candidate: GameState) {
+    if (typeof candidate.moves !== 'number' || candidate.moves < latestMovesRef.current) return
+    latestMovesRef.current = candidate.moves
+    setState(candidate)
+  }
 
   const myColor = session && myId === session.player_one_id ? 'R' : 'Y'
 
@@ -94,6 +108,7 @@ export default function Connect4Screen() {
         await supabase.from('game_sessions').update({ state: gs }).eq('id', s0.id)
       }
       if (cancelled) return
+      latestMovesRef.current = typeof gs.moves === 'number' ? gs.moves : -1
       setState(gs); setLoading(false)
 
       channelRef.current = supabase
@@ -103,7 +118,7 @@ export default function Connect4Screen() {
             const updatedId = payload.new?.id
             if (updatedId !== activeSessionRef.current) return
             const ns = payload.new?.state
-            if (ns && ns.board) { console.log('REALTIME GAME UPDATE:', ns.moves); setState(ns) }
+            if (ns && ns.board) { console.log('REALTIME GAME UPDATE:', ns.moves); applyIfNotStale(ns) }
           })
         .subscribe(async (status: string) => {
           if (status !== 'SUBSCRIBED') return
@@ -116,7 +131,7 @@ export default function Connect4Screen() {
             .from('game_sessions').select('state').eq('id', s0.id).single()
           if (cancelled || activeSessionRef.current !== s0.id) return
           if (latestErr || !latest?.state?.board) return
-          setState(latest.state as GameState)
+          applyIfNotStale(latest.state as GameState)
         })
     }
     init()
@@ -136,7 +151,7 @@ export default function Connect4Screen() {
       supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
         if (error || !data?.state?.board) return
         if (activeSessionRef.current !== sid) return
-        setState(data.state as GameState)
+        applyIfNotStale(data.state as GameState)
       })
     }
     document.addEventListener('visibilitychange', onVisible)
@@ -161,7 +176,7 @@ export default function Connect4Screen() {
     else if (moves >= 42) { winner = 'draw'; status = 'finished' }
 
     const newState: GameState = { board, currentTurn, winner, status, moves }
-    setState(newState) // optimistic
+    applyIfNotStale(newState) // optimistic
 
     const sessionIdAtWrite = session.id
     const { data: confirmed, error } = await supabase
@@ -172,7 +187,7 @@ export default function Connect4Screen() {
     } else {
       console.log('SESSION UPDATED:', session.id)
       if (activeSessionRef.current === sessionIdAtWrite && confirmed?.state?.board) {
-        setState(confirmed.state as GameState)
+        applyIfNotStale(confirmed.state as GameState)
       }
     }
 
@@ -188,7 +203,7 @@ export default function Connect4Screen() {
       const live = (f?.state || finishedState) as GameState
       const marked = { ...live, progressCounted: true }
       await supabase.from('game_sessions').update({ state: marked }).eq('id', session!.id)
-      setState(marked)
+      applyIfNotStale(marked)
     }
 
     if (!isRealWin) { await markCounted(); return }
