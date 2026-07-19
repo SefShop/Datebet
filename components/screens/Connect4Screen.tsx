@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession } from '@/lib/gameInvites'
+import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
+import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 
 const COLS = 7, ROWS = 6
 
@@ -19,16 +20,32 @@ function checkWin(b: string[]): string | null {
   return null
 }
 
-interface GameState { board: string[]; currentTurn: string; winner: string | null; status: string; moves: number }
+interface GameState { board: string[]; currentTurn: string; winner: string | null; status: string; moves: number; progressCounted?: boolean }
 
 export default function Connect4Screen() {
   const { navigate, lang } = useApp()
-  const session = getCurrentSession()
+  // Reactive — mirrors the fix already proven for Tic Tac Toe and Mystery
+  // Choice. All game screens stay permanently mounted (hidden via CSS), so
+  // reading getCurrentSession() only at render time meant this screen
+  // could miss a brand-new session (e.g. after Rematch) until some
+  // unrelated re-render happened to occur.
+  const [session, setSessionState] = useState(() => getCurrentSession())
+  useEffect(() => {
+    const unsubscribe = subscribeCurrentSession((s) => {
+      if (s === null) { setSessionState(null); return }
+      if (s.game_type && s.game_type !== 'connect_4') return
+      setSessionState(s)
+    })
+    return unsubscribe
+  }, [])
+
   const [state, setState] = useState<GameState | null>(null)
   const [myId, setMyId]   = useState<string | null>(null)
   const [names, setNames] = useState<{ one: string; two: string }>({ one: 'P1', two: 'P2' })
   const [loading, setLoading] = useState(true)
+  const [pairCount, setPairCount] = useState<number>(0)
   const channelRef = useRef<any>(null)
+  const activeSessionRef = useRef<string | null>(null)
 
   const myColor = session && myId === session.player_one_id ? 'R' : 'Y'
 
@@ -46,6 +63,12 @@ export default function Connect4Screen() {
     }
 
     console.log('CONNECT4 SESSION:', s0.id)
+    activeSessionRef.current = s0.id
+
+    // Guards the post-SUBSCRIBED refetch below against applying state
+    // after this effect has been cleaned up (unmount, or session changed).
+    let cancelled = false
+
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
@@ -54,29 +77,71 @@ export default function Connect4Screen() {
       const nm = new Map(profs?.map(p => [p.id, p.name]) || [])
       setNames({ one: nm.get(s0.player_one_id) || 'P1', two: nm.get(s0.player_two_id) || 'P2' })
 
+      // Load pair progress (for chat unlock gate) — same shared source of
+      // truth already used by Tic Tac Toe and Mystery Choice.
+      const otherId = user.id === s0.player_one_id ? s0.player_two_id : s0.player_one_id
+      const prog = await getPairProgress(otherId)
+      setPairCount(prog.games_completed)
+
       const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', s0.id).maybeSingle()
       let gs: GameState
       if (sess?.state && sess.state.board && sess.state.board.length === 42) {
         gs = sess.state as GameState
-        if (!gs.currentTurn) gs.currentTurn = s0.player_one_id
+        const validTurn = gs.currentTurn === s0.player_one_id || gs.currentTurn === s0.player_two_id
+        if (!validTurn) gs.currentTurn = s0.player_one_id
       } else {
         gs = { board: Array(42).fill(''), currentTurn: s0.player_one_id, winner: null, status: 'active', moves: 0 }
         await supabase.from('game_sessions').update({ state: gs }).eq('id', s0.id)
       }
+      if (cancelled) return
       setState(gs); setLoading(false)
 
       channelRef.current = supabase
         .channel(`c4-${s0.id}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${s0.id}` },
           (payload: any) => {
+            const updatedId = payload.new?.id
+            if (updatedId !== activeSessionRef.current) return
             const ns = payload.new?.state
             if (ns && ns.board) { console.log('REALTIME GAME UPDATE:', ns.moves); setState(ns) }
           })
-        .subscribe()
+        .subscribe(async (status: string) => {
+          if (status !== 'SUBSCRIBED') return
+          // Closes the gap between the initial SELECT and the moment this
+          // channel actually goes live — re-fetch once in case a move
+          // landed in that window and was missed. Same fix already proven
+          // for Tic Tac Toe.
+          if (cancelled || activeSessionRef.current !== s0.id) return
+          const { data: latest, error: latestErr } = await supabase
+            .from('game_sessions').select('state').eq('id', s0.id).single()
+          if (cancelled || activeSessionRef.current !== s0.id) return
+          if (latestErr || !latest?.state?.board) return
+          setState(latest.state as GameState)
+        })
     }
     init()
-    return () => { if (channelRef.current) supabase.removeChannel(channelRef.current) }
-  }, [session])
+    return () => {
+      cancelled = true
+      if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
+    }
+  }, [session?.id])
+
+  // Visibility reconciliation — Connect4 only, no polling. When the tab
+  // becomes visible again, fetch the exact active session's state once.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== 'visible') return
+      const sid = activeSessionRef.current
+      if (!sid) return
+      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
+        if (error || !data?.state?.board) return
+        if (activeSessionRef.current !== sid) return
+        setState(data.state as GameState)
+      })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   async function drop(col: number) {
     if (!state || !session || !myId) return
@@ -96,16 +161,63 @@ export default function Connect4Screen() {
     else if (moves >= 42) { winner = 'draw'; status = 'finished' }
 
     const newState: GameState = { board, currentTurn, winner, status, moves }
-    setState(newState)
-    await supabase.from('game_sessions').update({ state: newState }).eq('id', session.id)
-    console.log('SESSION UPDATED:', session.id)
+    setState(newState) // optimistic
+
+    const sessionIdAtWrite = session.id
+    const { data: confirmed, error } = await supabase
+      .from('game_sessions').update({ state: newState }).eq('id', session.id)
+      .select('state').single()
+    if (error) {
+      console.error('SESSION UPDATE error:', error)
+    } else {
+      console.log('SESSION UPDATED:', session.id)
+      if (activeSessionRef.current === sessionIdAtWrite && confirmed?.state?.board) {
+        setState(confirmed.state as GameState)
+      }
+    }
+
+    if (status === 'finished') await countProgress(newState)
   }
 
-  async function rematch() {
-    if (!session) return
-    const gs: GameState = { board: Array(42).fill(''), currentTurn: session.player_one_id, winner: null, status: 'active', moves: 0 }
-    setState(gs)
-    await supabase.from('game_sessions').update({ state: gs }).eq('id', session.id)
+  async function countProgress(finishedState: GameState) {
+    if (!session || !myId) return
+    const isRealWin = finishedState.winner === session.player_one_id || finishedState.winner === session.player_two_id
+
+    async function markCounted() {
+      const { data: f } = await supabase.from('game_sessions').select('state').eq('id', session!.id).maybeSingle()
+      const live = (f?.state || finishedState) as GameState
+      const marked = { ...live, progressCounted: true }
+      await supabase.from('game_sessions').update({ state: marked }).eq('id', session!.id)
+      setState(marked)
+    }
+
+    if (!isRealWin) { await markCounted(); return }
+    if (finishedState.progressCounted) return
+    const { data: fresh } = await supabase.from('game_sessions').select('state').eq('id', session.id).maybeSingle()
+    if (fresh?.state?.progressCounted) return
+
+    const otherId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
+    await markCounted()
+    const after = await incrementPairGames(otherId)
+    if (!after.error) setPairCount(after.games_completed)
+  }
+
+  // ── Play Again = new invite (same working flow already proven for
+  // Tic Tac Toe and Mystery Choice) — was previously a direct in-place
+  // session reset with no invite/accept step at all, meaning a rematch
+  // could start without the other player's consent, and two simultaneous
+  // "Rematch" presses would race to overwrite the same row.
+  async function playAgain() {
+    if (!session || !myId) return
+    const opponentId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
+    const result = await sendGameInvite(opponentId, 'connect_4')
+    if (!result.ok || !result.inviteId) {
+      console.error('Play again invite failed:', result.error)
+      return
+    }
+    const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()
+    setPendingInvite({ id: result.inviteId, receiverName: opp?.name || 'Player', gameType: 'connect_4' })
+    navigate('waiting')
   }
 
   if (!session) {
@@ -133,7 +245,19 @@ export default function Connect4Screen() {
   return (
     <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(253,41,123,0.094) 0%, transparent 55%), #0a0a10' }}>
       <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
-        <button onClick={() => navigate('game_room')} className="text-white/40 text-[14px] cursor-pointer">←</button>
+        <button onClick={() => {
+          if (state?.status === 'finished') {
+            // Same fix already proven for Tic Tac Toe: go straight to
+            // Profiles instead of via Game Room (which reads the session
+            // directly and would show its own "No game session found"
+            // fallback the instant it's cleared), and clear the session
+            // AFTER navigating so the transition is atomic.
+            navigate('profile')
+            clearCurrentSession()
+          } else {
+            navigate('game_room')
+          }
+        }} className="text-white/40 text-[14px] cursor-pointer">←</button>
         <h1 className="text-[16px] font-extrabold text-white flex-1">🔴 Connect 4</h1>
       </div>
 
@@ -168,12 +292,24 @@ export default function Connect4Screen() {
       </div>
 
       {state.status === 'finished' && (
-        <div className="px-6 mt-5 flex flex-col gap-2.5">
-          <button onClick={rematch} className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>{lang === 'gr' ? 'Ρεβάνς' : 'Rematch'}</button>
-          <button onClick={() => navigate('chat')} className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 cursor-pointer" style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}</button>
+        <div className="c4-finished-actions px-6 mt-5 flex flex-col gap-2.5">
+          <button onClick={playAgain} className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>{lang === 'gr' ? 'Ρεβάνς' : 'Rematch'}</button>
+          {pairCount >= 10 ? (
+            <button onClick={() => navigate('chat')} className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 cursor-pointer" style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}</button>
+          ) : (
+            <div className="text-center text-[12px] px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.55)' }}>
+              🔒 {lang === 'gr' ? `Το chat ξεκλειδώνει μετά από 10 νίκες μαζί (${pairCount}/10)` : `Chat unlocks after 10 wins together (${pairCount}/10)`}
+            </div>
+          )}
         </div>
       )}
-      <style>{`@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }`}</style>
+      <style>{`
+        @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+        @media (max-width: 767.98px) {
+          .c4-finished-actions { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important; }
+        }
+      `}</style>
     </div>
   )
 }
+
