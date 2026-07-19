@@ -308,7 +308,7 @@ export default function Connect4Screen() {
 
       {state.status === 'finished' && (
         <div className="c4-finished-actions px-6 mt-5 flex flex-col gap-2.5">
-          <button onClick={playAgain} className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>{lang === 'gr' ? 'Play Again' : 'Play Again'}</button>
+          <button onClick={playAgain} className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>{lang === 'gr' ? 'Παίξε ξανά' : 'Play Again'}</button>
           {pairCount >= 10 ? (
             <button onClick={() => navigate('chat')} className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 cursor-pointer" style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}</button>
           ) : (
