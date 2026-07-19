@@ -60,43 +60,20 @@ function pickFreshQuestion(usedIds: string[], lastId?: string): BiQuestion {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [screen,    setScreen]   = useState<Screen>('splash')
 
-  // ── Active top-level screen: persist across refresh ──────────────
-  // Previously `screen` always started at 'splash' with no persistence at
-  // all, so any refresh (e.g. while on Profiles/Discover) dropped the user
-  // back to the "Play a game together" splash screen — that was the entire
-  // cause of the bug, not anything related to auth or routing.
+  // ── Active top-level screen restoration — DISABLED ────────────────
+  // This effect used to independently call supabase.auth.getSession() and
+  // query profiles.onboarding_completed, then call setScreen() itself.
+  // That made it a SECOND, uncoordinated authority over the initial
+  // screen, racing against app/app/page.tsx's own auth/onboarding
+  // initialization (which has its own loading gate) — the exact cause of
+  // the Profiles/Play-Together flash. AppContext must only store screen
+  // state and expose navigate(); it must not decide the initial screen.
+  // app/app/page.tsx is now the sole authority for that decision.
   //
-  // Only a safe allowlist of standalone screens are restorable — screens
-  // that depend on ephemeral in-memory session/match state (game rooms,
-  // active games, chat, results, waiting) are intentionally excluded so a
-  // refresh never reopens a broken, session-less game screen.
-  useEffect(() => {
-    let cancelled = false
-    async function restoreActiveScreen() {
-      try {
-        const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('dateduel_active_screen') : null
-        if (!saved || !RESTORABLE_SCREENS.includes(saved as Screen)) return
-        // Auth safety: only restore a protected screen once a session is
-        // actually confirmed to exist — this is a read-only check and does
-        // not alter the existing authentication flow at all.
-        const { data } = await supabase.auth.getSession()
-        if (cancelled) return
-        if (data.session) {
-          // Extra safety: never restore a screen for a user who hasn't
-          // completed the first-time Play Together intro yet — a brand
-          // new/incomplete user must always land there, never skip it via
-          // a stale localStorage value.
-          const { data: prof } = await supabase.from('profiles').select('onboarding_completed').eq('id', data.session.user.id).maybeSingle()
-          if (cancelled) return
-          if (prof && prof.onboarding_completed === false) return
-          console.log('RESTORE ACTIVE SCREEN:', saved)
-          setScreen(saved as Screen)
-        }
-      } catch {}
-    }
-    restoreActiveScreen()
-    return () => { cancelled = true }
-  }, [])
+  // (Kept here, disabled, rather than deleted outright — restoring a
+  // safe screen like Profiles/Discover across a refresh is still a real,
+  // separate need; it will be reintroduced through app/app/page.tsx's own
+  // initialization sequence in a later step, not duplicated here again.)
 
   // ── Language: auto-detect on first visit, then persist ──
   const [lang, setLangState] = useState<Lang>('en')
