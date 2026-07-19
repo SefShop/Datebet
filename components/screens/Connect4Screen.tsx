@@ -287,18 +287,19 @@ export default function Connect4Screen() {
       </div>
 
       {/* Board */}
-      <div className="flex items-center justify-center px-4">
-        <div className="rounded-2xl p-2" style={{ background: 'rgba(108,99,255,0.142)', border: '1px solid rgba(108,99,255,0.236)' }}>
-          <div className="grid grid-cols-7 gap-1.5">
+      <div className="flex items-center justify-center px-3">
+        <div className="rounded-2xl p-2 w-full" style={{ background: 'rgba(108,99,255,0.142)', border: '1px solid rgba(108,99,255,0.236)', maxWidth: 460 }}>
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
             {Array.from({ length: COLS }).map((_, col) => (
-              <button key={col} onClick={() => drop(col)} disabled={!isMyTurn} className="flex flex-col gap-1.5" style={{ cursor: isMyTurn ? 'pointer' : 'default' }}>
+              <button key={col} onClick={() => drop(col)} disabled={!isMyTurn} className="flex flex-col gap-1.5 sm:gap-2" style={{ cursor: isMyTurn ? 'pointer' : 'default' }}>
                 {Array.from({ length: ROWS }).map((_, row) => {
                   const cell = state.board[row * COLS + col]
-                  return <div key={row} className="rounded-full" style={{ width: 36, height: 36,
+                  return <div key={row} className="rounded-full w-full" style={{ aspectRatio: '1 / 1',
                     background: cell === 'R' ? 'radial-gradient(circle at 35% 35%, #ff6b6b, #ef4444)'
                               : cell === 'Y' ? 'radial-gradient(circle at 35% 35%, #fde047, #fbbf24)'
-                              : 'rgba(6,6,10,0.6)',
-                    border: '1px solid rgba(255,255,255,0.059)' }} />
+                              : 'rgba(6,6,10,0.72)',
+                    border: cell ? '2px solid rgba(255,255,255,0.14)' : '2px solid rgba(255,255,255,0.1)',
+                    boxShadow: cell === 'R' ? '0 2px 8px rgba(239,68,68,0.45)' : cell === 'Y' ? '0 2px 8px rgba(251,191,36,0.4)' : 'inset 0 1px 3px rgba(0,0,0,0.4)' }} />
                 })}
               </button>
             ))}
