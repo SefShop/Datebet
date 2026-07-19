@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { refreshMessagesState } from '@/lib/messagesState'
 import { supabase } from '@/lib/supabase'
-import { getCurrentMatch } from '@/lib/profiles'
+import { getCurrentMatch, subscribeCurrentMatch } from '@/lib/profiles'
 import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
 import { getPairProgress } from '@/lib/pairProgress'
 import { markAsRead } from '@/lib/unread'
@@ -18,8 +18,19 @@ interface Message {
 
 export default function ChatScreen() {
   const { navigate, lang } = useApp()
-  const match = getCurrentMatch()
-  if (!match) return <div className="flex items-center justify-center h-full" style={{background:"#0a0a10"}}><div className="text-center"><div className="text-[14px] text-white/40">No player selected</div></div></div>
+  // Reactive — was previously `const match = getCurrentMatch()`, read once
+  // per render. ChatScreen, like every other game screen, stays
+  // permanently mounted (hidden via CSS) between visits — reading the
+  // module variable directly meant it could still show a stale opponent
+  // (or none at all) from an earlier visit until some unrelated re-render
+  // happened to occur, which is exactly what could leave the chat-access
+  // verification effect below checking the wrong pair (or none), stuck at
+  // "Loading..." forever.
+  const [match, setMatchState] = useState(() => getCurrentMatch())
+  useEffect(() => {
+    const unsubscribe = subscribeCurrentMatch((m) => setMatchState(m))
+    return unsubscribe
+  }, [])
 
   const [msgs, setMsgs]       = useState<Message[]>([])
   const [input, setInput]     = useState('')
@@ -30,7 +41,7 @@ export default function ChatScreen() {
   const [partnerPresence, setPartnerPresence] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const receiverId = match.id !== 'none' ? match.id : null
+  const receiverId = match && match.id !== 'none' ? match.id : null
 
   // ── Fail-closed access guard ──────────────────────────────────────
   // Verifies effectiveChatUnlocked === true directly against the same
@@ -163,6 +174,8 @@ export default function ChatScreen() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [msgs])
+
+  if (!match) return <div className="flex items-center justify-center h-full" style={{background:"#0a0a10"}}><div className="text-center"><div className="text-[14px] text-white/40">No player selected</div></div></div>
 
   async function send() {
     if (!input.trim() || !userId || !receiverId) return

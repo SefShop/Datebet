@@ -122,18 +122,35 @@ export async function fetchProfiles(): Promise<FetchResult> {
 
 // ── Current match state (who user is playing against) ───────────
 let _match: UserProfile | null = null
+type MatchListener = (m: UserProfile | null) => void
+const _matchListeners = new Set<MatchListener>()
 
 export function setCurrentMatch(p: UserProfile) {
   console.log('SET MATCH:', p.id, p.name)
   _match = p
+  _matchListeners.forEach(fn => { try { fn(p) } catch (e) { console.error('match listener error:', e) } })
 }
 
 export function getCurrentMatch(): UserProfile | null {
   return _match
 }
 
+// Subscribe to be notified immediately whenever setCurrentMatch() is
+// called anywhere in the app — mirrors subscribeCurrentSession /
+// subscribePendingInvite. ChatScreen (like every other game screen) stays
+// permanently mounted, hidden via CSS, between uses — reading
+// getCurrentMatch() only at render time meant it could still be showing a
+// stale opponent (or none) from an earlier render, since nothing forced
+// it to notice a fresh setCurrentMatch() call until some unrelated
+// re-render happened to occur.
+export function subscribeCurrentMatch(listener: MatchListener): () => void {
+  _matchListeners.add(listener)
+  return () => { _matchListeners.delete(listener) }
+}
+
 // ── Clear ALL profile state (call on logout / auth change) ──────
 export function clearProfileState() {
   console.log('CLEAR PROFILE STATE')
   _match = null
+  _matchListeners.forEach(fn => { try { fn(null) } catch (e) { console.error('match listener error:', e) } })
 }
