@@ -69,25 +69,33 @@ export default function WaitingScreen() {
   }, [pending])
 
   async function enterRoom(inv: GameInvite) {
+    const isTTT = inv.game_type === 'tic_tac_toe'
+    if (isTTT) console.log('[TIC_TAC_TOE_ENTRY] sender realtime event received, invite id:', inv.id)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { console.error('WAITING: no authenticated user, cannot enter'); return }
 
     markInviteReconciled(inv.id)
+    if (isTTT) console.log('[TIC_TAC_TOE_ENTRY] session creation started (sender), invite id:', inv.id)
     // enterAcceptedGame() calls setCurrentSession() internally — the
     // top-level session subscription (app/app/page.tsx) reacts to that and
     // performs navigation. No direct navigate() call needed here.
     const result = await enterAcceptedGame(inv, user.id)
+    if (isTTT) console.log('[TIC_TAC_TOE_ENTRY] session creation result (sender):', result.ok, 'session id:', result.session?.id, 'skipped:', result.skipped, 'error:', result.error)
     if (result.skipped) {
       // Another concurrent call (realtime + poll both firing) is already
       // handling entry into this same game — do nothing, this is not a
       // failure and must never show the rejected screen.
+      if (isTTT) console.log('[TIC_TAC_TOE_ENTRY] sender entry skipped — already being handled elsewhere')
       return
     }
     if (!result.ok) {
       console.error('WAITING: could not enter game:', result.error)
+      if (isTTT) console.log('[TIC_TAC_TOE_ENTRY] sender entry failed, no navigation will occur. reason:', result.error)
       // Genuine failure to start the game — not the same as the receiver
       // declining. Log it, but do not show the "invite rejected" UI for a
       // technical failure; leave the user on the waiting state instead.
+    } else if (isTTT) {
+      console.log('[TIC_TAC_TOE_ENTRY] active session set (sender), session id:', result.session?.id, 'game type: tic_tac_toe, navigation requested to:', result.screen)
     }
   }
 

@@ -81,11 +81,15 @@ export default function ActivityScreen() {
   async function respond(c: GameInvite, accept: boolean) {
     if (processingIds.has(c.id)) return
     setProcessingIds(prev => new Set(prev).add(c.id))
+    const isTTT = c.game_type === 'tic_tac_toe'
+    if (isTTT && accept) console.log('[TIC_TAC_TOE_ENTRY] Accept pressed, invite id:', c.id)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { return }
+      if (isTTT && accept) console.log('[TIC_TAC_TOE_ENTRY] acceptance request started, invite id:', c.id, 'accepting user:', user.id)
 
       const { ok, error: respondError } = await respondInvite(c.id, accept)
+      if (isTTT && accept) console.log('[TIC_TAC_TOE_ENTRY] acceptance response:', ok, respondError)
       if (!ok) { console.error('ACCEPT FLOW: respondInvite failed', respondError); return }
 
       if (!accept) { load(); return }
@@ -95,11 +99,16 @@ export default function ActivityScreen() {
       // top-level session subscription (app/app/page.tsx) reacts to that
       // and performs navigation. Not waiting on our own realtime event,
       // and not a second navigation implementation.
+      if (isTTT) console.log('[TIC_TAC_TOE_ENTRY] session creation started, invite id:', c.id)
       const result = await enterAcceptedGame(c, user.id)
+      if (isTTT) console.log('[TIC_TAC_TOE_ENTRY] session creation result:', result.ok, 'session id:', result.session?.id, 'skipped:', result.skipped, 'error:', result.error)
       if (result.skipped) return  // another concurrent call is already handling this invite
       if (!result.ok) {
+        if (isTTT) console.log('[TIC_TAC_TOE_ENTRY] entry failed, no navigation will occur. reason:', result.error)
         alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start the game.')
         load()
+      } else if (isTTT) {
+        console.log('[TIC_TAC_TOE_ENTRY] active session set, session id:', result.session?.id, 'game type: tic_tac_toe, navigation requested to:', result.screen)
       }
     } catch (e: any) {
       console.error('ACCEPT FLOW ERROR:', e?.message)

@@ -306,6 +306,7 @@ export default function ProfileScreenNew() {
     setChecking(false)
     if (result.ok && result.inviteId) {
       console.log('INVITE CREATED:', result.inviteId)
+      if (gameType === 'tic_tac_toe') console.log('[TIC_TAC_TOE_ENTRY] invite sent, invite id:', result.inviteId)
       console.log('NAVIGATING TO WAITING:', { id: result.inviteId, name: pickerProfile.name, gameType })
       setPendingInvite({ id: result.inviteId, receiverName: pickerProfile.name, gameType })
       navigate('waiting')

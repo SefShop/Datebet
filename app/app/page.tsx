@@ -136,10 +136,15 @@ function AppShell() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (cancelled) return
       if (isRematchInProgress()) return  // a legitimate Play Again is actively in flight — never override it
-      if (isEnteringGame()) { setEnteringGame(false); return }  // a just-accepted invite's session is actively being resolved — never override it; consume the flag now that it's done its job
+      if (isEnteringGame()) {
+        if (screen === 'tictactoe') console.log('[TIC_TAC_TOE_ENTRY] Profiles redirect skipped — entering-game transition in progress')
+        setEnteringGame(false)
+        return
+      }  // a just-accepted invite's session is actively being resolved — never override it; consume the flag now that it's done its job
       const session = getCurrentSession()
       if (!isValidActiveGameSession(session, user?.id)) {
         console.log('SCREEN/SESSION MISMATCH — redirecting to profile:', screen, 'sessionId:', session?.id, 'userId:', user?.id)
+        if (screen === 'tictactoe') console.log('[TIC_TAC_TOE_ENTRY] Profiles redirect ATTEMPTED. reason: session invalid or missing. sessionId:', session?.id, 'userId:', user?.id, 'sessionState:', session?.state)
         navigate('profile')
       }
     })
