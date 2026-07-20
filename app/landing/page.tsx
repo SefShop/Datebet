@@ -63,32 +63,87 @@ function Count({ n, suffix = '' }: { n: number; suffix?: string }) {
 }
 
 // ── Scenario line ───────────────────────────────────────────────
-// ── Lang toggle ─────────────────────────────────────────────────
-function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
+// ── Language dropdown ───────────────────────────────────────────
+// English/Ελληνικά reuse the app's one existing lang state and
+// localStorage persistence (via the setLang prop, same as before) — no
+// second translation or persistence system. The other 8 entries are
+// listed for the eventual dropdown structure but are intentionally
+// disabled/non-functional until real translation dictionaries exist —
+// selecting them does nothing and never silently shows English while
+// claiming another language is active.
+const ALL_LANGUAGES: { code: Lang | string; native: string; active: boolean }[] = [
+  { code: 'en', native: 'English',  active: true },
+  { code: 'es', native: 'Español',  active: false },
+  { code: 'fr', native: 'Français', active: false },
+  { code: 'de', native: 'Deutsch',  active: false },
+  { code: 'it', native: 'Italiano', active: false },
+  { code: 'pt', native: 'Português', active: false },
+  { code: 'gr', native: 'Ελληνικά', active: true },
+  { code: 'tr', native: 'Türkçe',   active: false },
+  { code: 'pl', native: 'Polski',   active: false },
+  { code: 'ro', native: 'Română',   active: false },
+]
+
+function LanguageDropdown({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const t = { label: lang === 'gr' ? 'Γλώσσα' : 'Language', comingSoon: lang === 'gr' ? 'Σύντομα' : 'Coming soon' }
+
+  useEffect(() => {
+    if (!open) return
+    function onClickOutside(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onClickOutside)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
   return (
-    <div style={{
-      display: 'flex', gap: 1,
-      background: 'rgba(255,255,255,0.03)',
-      border: '1px solid rgba(255,255,255,0.06)',
-      borderRadius: 100, padding: 2,
-    }}>
-      {(['en', 'gr'] as Lang[]).map(l => (
-        <button key={l} onClick={() => setLang(l)}
-          style={{
-            padding: '3px 8px', borderRadius: 100, border: 'none',
-            fontSize: 9, fontWeight: 600, letterSpacing: '0.5px',
-            textTransform: 'uppercase' as const,
-            cursor: 'pointer', fontFamily: 'inherit',
-            transition: 'all 0.2s ease',
-            background: lang === l
-              ? 'rgba(253,41,123,0.25)'
-              : 'transparent',
-            color: lang === l ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)',
-            boxShadow: 'none',
-          }}>
-          {l}
-        </button>
-      ))}
+    <div ref={rootRef} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#fff', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 100, background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s ease', outline: 'none' }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.075)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
+        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(255,255,255,0.12)' }}
+        onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.boxShadow = 'none' }}>
+        <span style={{ fontSize: 13, lineHeight: 1 }}>🌐</span>
+        {t.label}
+        <span style={{ fontSize: 9, opacity: 0.6, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▾</span>
+      </button>
+      {open && (
+        <div role="listbox" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: 180, maxWidth: '80vw', background: 'rgba(14,13,18,0.97)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 6, boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(253,41,123,0.06)', zIndex: 200 }}>
+          {ALL_LANGUAGES.map(l => {
+            const selected = l.active && l.code === lang
+            return (
+              <button key={l.code as string}
+                role="option" aria-selected={selected} disabled={!l.active}
+                onClick={() => { if (l.active) { setLang(l.code as Lang); setOpen(false) } }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+                  padding: '9px 12px', borderRadius: 8, border: 'none', fontSize: 13, fontFamily: 'inherit',
+                  textAlign: 'left' as const, transition: 'background 0.15s',
+                  background: selected ? 'rgba(253,41,123,0.16)' : 'transparent',
+                  color: l.active ? (selected ? '#fff' : 'rgba(255,255,255,0.8)') : 'rgba(255,255,255,0.3)',
+                  cursor: l.active ? 'pointer' : 'default',
+                  outline: 'none',
+                }}
+                onMouseEnter={e => { if (l.active && !selected) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                onMouseLeave={e => { if (l.active && !selected) e.currentTarget.style.background = 'transparent' }}
+                onFocus={e => { if (l.active) e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+                onBlur={e => { if (l.active && !selected) e.currentTarget.style.background = 'transparent' }}>
+                <span>{l.native}</span>
+                {selected && <span style={{ fontSize: 11, color: '#fd297b' }}>✓</span>}
+                {!l.active && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)', fontWeight: 500 }}>{t.comingSoon}</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -142,6 +197,7 @@ export default function Landing() {
           Date<span style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <LanguageDropdown lang={lang} setLang={setLang} />
           <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 600, padding: '9px 18px', borderRadius: 100, background: 'rgba(255,255,255,0.045)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(253,41,123,0.28)', boxShadow: '0 2px 12px rgba(253,41,123,0.1)', transition: 'all 0.2s ease', outline: 'none' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.borderColor = 'rgba(253,41,123,0.5)'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(253,41,123,0.22)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.045)'; e.currentTarget.style.borderColor = 'rgba(253,41,123,0.28)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(253,41,123,0.1)' }}
@@ -149,7 +205,6 @@ export default function Landing() {
             onBlur={e => { e.currentTarget.style.borderColor = 'rgba(253,41,123,0.28)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(253,41,123,0.1)' }}>
             {c.nav.login}
           </a>
-          <LangToggle lang={lang} setLang={setLang} />
         </div>
       </nav>
 
