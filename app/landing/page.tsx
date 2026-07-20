@@ -182,7 +182,7 @@ export default function Landing() {
 
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' as const, marginBottom: 32, animation: 'fadeUp 0.7s 0.4s ease both' }}>
-            <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0,#6c63ff)', color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 700, padding: '17px 36px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4), 0 2px 10px rgba(108,99,255,0.25)', transition: 'transform 0.15s,box-shadow 0.15s', outline: 'none' }}
+            <a style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0,#6c63ff)', color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 700, padding: '17px 36px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4), 0 2px 10px rgba(108,99,255,0.25)', transition: 'transform 0.15s,box-shadow 0.15s', outline: 'none' }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 48px rgba(253,41,123,0.55), 0 4px 18px rgba(108,99,255,0.35)' }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4), 0 2px 10px rgba(108,99,255,0.25)' }}
               onFocus={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(253,41,123,0.4), 0 14px 48px rgba(253,41,123,0.55), 0 4px 18px rgba(108,99,255,0.35)' }}
