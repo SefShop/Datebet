@@ -7,6 +7,7 @@ import { appLangToIso } from '@/lib/langDetect'
 import DesktopProfileDetails from '@/components/ui/DesktopProfileDetails'
 import { sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
 import { getPairProgress, PairProgress } from '@/lib/pairProgress'
+import { isOnlineNow } from '@/lib/presence'
 import { supabase } from '@/lib/supabase'
 
 
@@ -152,8 +153,7 @@ export default function ProfileScreenNew() {
     console.log('PRESENCE DATA RECEIVED:', data.length)
 
     const presMap = new Map(data.map((r: any) => {
-      const lastSeen = r.last_seen ? new Date(r.last_seen).getTime() : 0
-      const online = !!r.is_online && (Date.now() - lastSeen) <= 2 * 60 * 1000
+      const online = isOnlineNow(r.is_online, r.last_seen)
       return [r.id, { online, lastSeen: r.last_seen || null }]
     }))
 

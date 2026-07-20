@@ -269,9 +269,17 @@ function AppShell() {
     function onLeave() { setOffline() }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('beforeunload', onLeave)
+    // beforeunload is unreliable on mobile (often doesn't fire at all on
+    // iOS Safari, or when backgrounding rather than closing a tab).
+    // pagehide has much better cross-browser/mobile support for this
+    // exact case — same existing setOffline() call, just a more reliable
+    // trigger for it. The 2-minute last_seen timeout (isOnlineNow) already
+    // covers the case where neither fires.
+    window.addEventListener('pagehide', onLeave)
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('beforeunload', onLeave)
+      window.removeEventListener('pagehide', onLeave)
       unsubscribeSession()
       stopMessagesPolling()
       stopPresence()
