@@ -26,7 +26,7 @@ import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { clearProfileState } from '@/lib/profiles'
-import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, clearGameState, isValidActiveGameSession, isRematchInProgress } from '@/lib/gameInvites'
+import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, clearGameState, isValidActiveGameSession, isRematchInProgress, isEnteringGame, setEnteringGame } from '@/lib/gameInvites'
 // SocialPresence removed
 
 const SCREENS = {
@@ -136,6 +136,7 @@ function AppShell() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (cancelled) return
       if (isRematchInProgress()) return  // a legitimate Play Again is actively in flight — never override it
+      if (isEnteringGame()) { setEnteringGame(false); return }  // a just-accepted invite's session is actively being resolved — never override it; consume the flag now that it's done its job
       const session = getCurrentSession()
       if (!isValidActiveGameSession(session, user?.id)) {
         console.log('SCREEN/SESSION MISMATCH — redirecting to profile:', screen, 'sessionId:', session?.id, 'userId:', user?.id)

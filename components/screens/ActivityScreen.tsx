@@ -14,6 +14,13 @@ function gameLabel(gameType: string): { emoji: string; name: string } {
 export default function ActivityScreen() {
   const { navigate, lang } = useApp()
   const [incoming, setIncoming] = useState<GameInvite[]>([])
+  // Prevents a fast double-tap on Accept/Decline from starting a second
+  // concurrent request for the same invite. enterAcceptedGame() already
+  // guards against any resulting harm (a second call is skipped safely),
+  // but the button itself should also stop responding to further taps
+  // while the first request is still in flight — same visual design,
+  // just briefly non-interactive.
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set())
   const [outgoing, setOutgoing] = useState<GameInvite[]>([])
   const [loading, setLoading]   = useState(true)
   const [tab, setTab]           = useState<'in'|'out'>('in')
@@ -72,6 +79,8 @@ export default function ActivityScreen() {
   }
 
   async function respond(c: GameInvite, accept: boolean) {
+    if (processingIds.has(c.id)) return
+    setProcessingIds(prev => new Set(prev).add(c.id))
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { return }
@@ -96,6 +105,8 @@ export default function ActivityScreen() {
       console.error('ACCEPT FLOW ERROR:', e?.message)
       alert(lang === 'gr' ? 'Κάτι πήγε στραβά. Δοκίμασε ξανά.' : 'Something went wrong. Please try again.')
       load()
+    } finally {
+      setProcessingIds(prev => { const next = new Set(prev); next.delete(c.id); return next })
     }
   }
 
@@ -182,8 +193,8 @@ export default function ActivityScreen() {
             </div>
             {c.status === 'pending' && (
               <div className="flex gap-2">
-                <button onClick={() => respond(c, true)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)', color: '#fff' }}>{t.accept}</button>
-                <button onClick={() => respond(c, false)} className="rounded-full px-3 py-2 text-[12px] font-medium active:scale-95 cursor-pointer" style={{ background: 'rgba(255,255,255,0.059)', color: 'rgba(255,255,255,0.472)' }}>{t.decline}</button>
+                <button onClick={() => respond(c, true)} disabled={processingIds.has(c.id)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)', color: '#fff' }}>{t.accept}</button>
+                <button onClick={() => respond(c, false)} disabled={processingIds.has(c.id)} className="rounded-full px-3 py-2 text-[12px] font-medium active:scale-95 cursor-pointer" style={{ background: 'rgba(255,255,255,0.059)', color: 'rgba(255,255,255,0.472)' }}>{t.decline}</button>
               </div>
             )}
             {c.status === 'accepted' && (

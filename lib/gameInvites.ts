@@ -453,6 +453,29 @@ export interface EnterAcceptedGameResult {
 
 const _navigatingInviteIds = new Set<string>()
 
+// A brief, explicit flag set for the entire duration of enterAcceptedGame()
+// — from the moment an accept is confirmed until the resolved session is
+// fully published (or the attempt fails). Any profile-fallback logic
+// elsewhere (the top-level screen validity guard in app/app/page.tsx)
+// must skip acting while this is true: a genuinely in-flight session
+// resolution — including the bounded retry that covers a brief
+// read-after-write lag on a session's very first creation — must never be
+// second-guessed as "no valid session" while it's still being resolved.
+let _enteringGame = false
+export function setEnteringGame(v: boolean) {
+  _enteringGame = v
+  if (v) {
+    // Defensive fallback only — the screen guard is expected to consume
+    // (clear) this itself the moment it observes it true. This timeout
+    // exists solely so the flag can never get stuck true indefinitely if,
+    // for some reason, the guard's effect never happens to re-fire for
+    // this specific transition (e.g. `screen` was already the same
+    // value). Comfortably longer than any real network round trip.
+    setTimeout(() => { _enteringGame = false }, 5000)
+  }
+}
+export function isEnteringGame() { return _enteringGame }
+
 export async function enterAcceptedGame(
   invite: { id: string; sender_id: string; receiver_id: string; game_type: string },
   currentUserId: string
@@ -463,9 +486,11 @@ export async function enterAcceptedGame(
     return { ok: false, error: 'already navigating', skipped: true }
   }
   _navigatingInviteIds.add(guardKey)
+  setEnteringGame(true)
 
   try {
     if (currentUserId !== invite.sender_id && currentUserId !== invite.receiver_id) {
+      setEnteringGame(false)
       return { ok: false, error: 'not a participant' }
     }
 
@@ -486,6 +511,7 @@ export async function enterAcceptedGame(
       if (created.error) console.error('session creation error', created.error)
     }
     if (!session) {
+      setEnteringGame(false)  // no session, no screen change coming — safe to clear now
       return { ok: false, error: 'no session' }
     }
 
@@ -498,14 +524,28 @@ export async function enterAcceptedGame(
     const { data: { user: currentAuthUser } } = await supabase.auth.getUser()
     if (!currentAuthUser || currentAuthUser.id !== currentUserId) {
       console.log('ENTER GAME BLOCKED: authenticated user changed since this call started')
+      setEnteringGame(false)
       return { ok: false, error: 'stale user' }
     }
 
     if (!isValidActiveGameSession(session, currentUserId)) {
+      setEnteringGame(false)
       return { ok: false, error: 'session not valid/active for this user' }
     }
 
     setCurrentSession(session)
+    // IMPORTANT: do NOT clear _enteringGame here (or in a finally block
+    // below). setCurrentSession() synchronously notifies the session
+    // subscription in app/app/page.tsx, which calls navigate() — but React
+    // only actually processes that screen change and runs the top-level
+    // screen guard's effect AFTER this entire synchronous call stack
+    // unwinds. If this flag were cleared here (or in an unconditional
+    // finally), it would already be false by the time the guard's effect
+    // runs moments later — exactly the flaw that made the previous fix
+    // for this ineffective. Instead, the screen guard itself consumes
+    // (clears) this flag the moment it observes it true, guaranteeing the
+    // flag is still set at the exact instant it's needed regardless of
+    // React's batching/render timing.
 
     const opponentId = currentUserId === session.player_one_id ? session.player_two_id : session.player_one_id
     const { data: opp } = await supabase.from('profiles').select('*').eq('id', opponentId).maybeSingle()
@@ -523,6 +563,9 @@ export async function enterAcceptedGame(
     const screen = gameScreenFor(session.game_type)
 
     return { ok: true, session, screen, opponentId }
+  } catch (e: any) {
+    setEnteringGame(false)  // genuine exception — no screen change coming, safe to clear
+    throw e
   } finally {
     _navigatingInviteIds.delete(guardKey)
   }
