@@ -60,6 +60,12 @@ export default function Connect4Screen() {
     latestMovesRef.current = candidate.moves
     setState(candidate)
   }
+  // Tracks whether this device has already refreshed its own pairCount
+  // display for the current session's finish — same fix as Tic Tac Toe.
+  // incrementPairGames() is only ever called by the winning move's own
+  // device (correctly, to avoid double-counting) — the other player's
+  // own pairCount display was never being refreshed to reflect it.
+  const progressRefreshedRef = useRef<string | null>(null)
 
   const myColor = session && myId === session.player_one_id ? 'R' : 'Y'
 
@@ -78,6 +84,7 @@ export default function Connect4Screen() {
 
     console.log('CONNECT4 SESSION:', s0.id)
     activeSessionRef.current = s0.id
+    progressRefreshedRef.current = null
 
     // Clear the previous game's transient state immediately, synchronously,
     // before any async work starts. Without this, the old `state` (still
@@ -130,7 +137,20 @@ export default function Connect4Screen() {
             const updatedId = payload.new?.id
             if (updatedId !== activeSessionRef.current) return
             const ns = payload.new?.state
-            if (ns && ns.board) { console.log('REALTIME GAME UPDATE:', ns.moves); applyIfNotStale(ns) }
+            if (ns && ns.board) {
+              console.log('REALTIME GAME UPDATE:', ns.moves)
+              applyIfNotStale(ns)
+              if (ns.status === 'finished' && ns.progressCounted && progressRefreshedRef.current !== s0.id) {
+                progressRefreshedRef.current = s0.id
+                supabase.auth.getUser().then(({ data: { user } }) => {
+                  if (!user) return
+                  const otherId = user.id === s0.player_one_id ? s0.player_two_id : s0.player_one_id
+                  getPairProgress(otherId).then(prog => {
+                    if (!prog.error) { console.log('PROGRESS REFRESHED (non-mover):', prog.games_completed); setPairCount(prog.games_completed) }
+                  })
+                })
+              }
+            }
           })
         .subscribe(async (status: string) => {
           if (status !== 'SUBSCRIBED') return

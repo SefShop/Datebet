@@ -78,6 +78,14 @@ export default function TicTacToeScreen() {
   const [error, setError]   = useState<string | null>(null)
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
+  // Tracks whether this device has already refreshed its own pairCount
+  // display for the current session's finish — needed because
+  // incrementPairGames() is only ever called by the winning move's own
+  // device (correctly — calling it from both devices would double-count).
+  // The other player's pairCount was never being refreshed at all, so
+  // their own "x/10" display stayed stale even though the shared database
+  // row was already correctly updated by the mover.
+  const progressRefreshedRef = useRef<string | null>(null)
   const [progressError, setProgressError] = useState<string | null>(null)
   const [pairCount, setPairCount] = useState<number>(0)
   const [photoAccess, setPhotoAccess] = useState<{ photoUnlocked: boolean; myPhoto: string | null; opponentPhoto: string | null }>({ photoUnlocked: false, myPhoto: null, opponentPhoto: null })
@@ -111,6 +119,7 @@ export default function TicTacToeScreen() {
 
     // Hard guard: mark the active session id
     activeSessionRef.current = sess0.id
+    progressRefreshedRef.current = null
     console.log('ACTIVE SESSION ID:', sess0.id)
 
     // Guards the post-SUBSCRIBED refetch below against applying state after
@@ -192,6 +201,23 @@ export default function TicTacToeScreen() {
             console.log('TICTACTOE REALTIME UPDATE:', newState.moves, 'moves')
             newState.board = Array.from({ length: 9 }, (_, k) => newState.board?.[k] || '')
             setState(newState)
+
+            // The winning move's own device is the only one that ever
+            // calls incrementPairGames() (correct — avoids double-
+            // counting). That left this device's own pairCount display
+            // never refreshing to reflect a win the OTHER player just
+            // scored. This only ever reads the already-updated shared
+            // count — it never increments anything itself.
+            if (newState.status === 'finished' && newState.progressCounted && progressRefreshedRef.current !== sess0.id) {
+              progressRefreshedRef.current = sess0.id
+              supabase.auth.getUser().then(({ data: { user } }) => {
+                if (!user) return
+                const otherId = user.id === sess0.player_one_id ? sess0.player_two_id : sess0.player_one_id
+                getPairProgress(otherId).then(prog => {
+                  if (!prog.error) { console.log('PROGRESS REFRESHED (non-mover):', prog.games_completed); setPairCount(prog.games_completed) }
+                })
+              })
+            }
           }
         })
         .subscribe(async (status: string) => {
