@@ -52,11 +52,13 @@ export default function ChatScreen() {
   const [chatAccessVerified, setChatAccessVerified] = useState(false)
   useEffect(() => {
     if (!receiverId) { setChatAccessVerified(true); return }  // no specific pair to check — matches original behavior
+    console.log('[PROFILES_REDIRECT_TRACE] file: ChatScreen.tsx | function: access-verification useEffect | fired because receiverId changed to:', receiverId)
     let cancelled = false
     getPairProgress(receiverId).then(prog => {
       if (cancelled) return
       if (!prog.chat_unlocked) {
         console.log('CHAT ACCESS BLOCKED: chat not unlocked for this pair')
+        console.log('[PROFILES_REDIRECT_TRACE] file: ChatScreen.tsx | function: access-verification useEffect | REDIRECTING to profile | reason: chat_unlocked=false for receiverId:', receiverId, '| games_completed:', prog.games_completed)
         navigate('profile')
         return
       }
