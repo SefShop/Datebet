@@ -182,14 +182,18 @@ export default function Landing() {
 
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' as const, marginBottom: 32, animation: 'fadeUp 0.7s 0.4s ease both' }}>
-            <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0)', color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 700, padding: '17px 36px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 48px rgba(253,41,123,0.55)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4)' }}>
-              🎮 {c.hero.ctaPrimary}
+            <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0,#6c63ff)', color: '#fff', textDecoration: 'none', fontSize: 16, fontWeight: 700, padding: '17px 36px', borderRadius: 100, boxShadow: '0 8px 36px rgba(253,41,123,0.4), 0 2px 10px rgba(108,99,255,0.25)', transition: 'transform 0.15s,box-shadow 0.15s', outline: 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 48px rgba(253,41,123,0.55), 0 4px 18px rgba(108,99,255,0.35)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4), 0 2px 10px rgba(108,99,255,0.25)' }}
+              onFocus={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(253,41,123,0.4), 0 14px 48px rgba(253,41,123,0.55), 0 4px 18px rgba(108,99,255,0.35)' }}
+              onBlur={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4), 0 2px 10px rgba(108,99,255,0.25)' }}>
+              {c.hero.ctaPrimary}
             </a>
-            <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: 14, fontWeight: 500, padding: '17px 24px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s' }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}>
+            <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,rgba(253,41,123,0.14),rgba(108,99,255,0.14))', color: '#fff', textDecoration: 'none', fontSize: 15, fontWeight: 600, padding: '17px 30px', borderRadius: 100, border: '1px solid rgba(253,41,123,0.32)', boxShadow: '0 4px 20px rgba(108,99,255,0.18)', transition: 'all 0.2s', outline: 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'rgba(253,41,123,0.55)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(108,99,255,0.3)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(253,41,123,0.32)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(108,99,255,0.18)' }}
+              onFocus={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'rgba(253,41,123,0.55)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(253,41,123,0.3), 0 8px 28px rgba(108,99,255,0.3)' }}
+              onBlur={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(253,41,123,0.32)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(108,99,255,0.18)' }}>
               {c.hero.ctaSecond}
             </a>
           </div>
