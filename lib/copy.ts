@@ -94,7 +94,7 @@ const en: Copy = {
     sub:        'Play. Connect. Discover who they really are.',
     typewriter: ['ghosting.', 'maybe.', 'disappearing.', 'excuses.'],
     ctaPrimary: 'Start Playing',
-    ctaSecond:  'See How It Works',
+    ctaSecond:  'Create Account',
   },
 
   proof: {
@@ -190,7 +190,7 @@ const gr: Copy = {
     sub:        'Παίξε. Συνδέσου. Ανακάλυψε ποιος είναι πραγματικά.',
     typewriter: ['ghosting.', 'ίσως.', 'εξαφανίσεις.', 'δικαιολογίες.'],
     ctaPrimary: 'Ξεκίνα να παίζεις',
-    ctaSecond:  'Δες πώς λειτουργεί',
+    ctaSecond:  'Δημιουργία λογαριασμού',
   },
 
   proof: {

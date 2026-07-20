@@ -187,7 +187,7 @@ export default function Landing() {
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 36px rgba(253,41,123,0.4)' }}>
               🎮 {c.hero.ctaPrimary}
             </a>
-            <a href="#how" style={{ display: 'inline-flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: 14, fontWeight: 500, padding: '17px 24px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s' }}
+            <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: 14, fontWeight: 500, padding: '17px 24px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s' }}
               onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}>
               {c.hero.ctaSecond}
