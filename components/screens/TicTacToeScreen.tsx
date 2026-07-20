@@ -34,6 +34,22 @@ interface GameState {
 
 export default function TicTacToeScreen() {
   const { navigate, lang } = useApp()
+
+  // Diagnostic only — proves whether this component mounts fresh (a real
+  // remount) or was already mounted the whole time (the always-mounted
+  // architecture, no remount at all) when a Tic Tac Toe session becomes
+  // active. Also logs the browser's own navigation-type record, which
+  // would show "reload" only if an actual full-page reload occurred —
+  // it does not change on in-app React state transitions.
+  useEffect(() => {
+    console.log('[TIC_TAC_TOE_REFRESH_TRACE] TicTacToeScreen component MOUNTED')
+    try {
+      const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+      console.log('[TIC_TAC_TOE_REFRESH_TRACE] performance.getEntriesByType("navigation")[0]?.type =', navEntry?.type)
+    } catch (e) { console.log('[TIC_TAC_TOE_REFRESH_TRACE] performance navigation API unavailable') }
+    return () => { console.log('[TIC_TAC_TOE_REFRESH_TRACE] TicTacToeScreen component UNMOUNTED') }
+  }, [])
+
   // Reactive session — was previously `const session = getCurrentSession()`,
   // re-read only when this component happened to render for some other
   // reason. Since all game screens stay permanently mounted (just hidden

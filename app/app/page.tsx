@@ -99,6 +99,9 @@ function AppShell() {
   // ── Auth gate (skip if Supabase not configured) ──
   const [authed, setAuthed] = useState(!isSupabaseConfigured())
   const [authKey, setAuthKey] = useState(0)  // true = skip auth if no config
+  useEffect(() => {
+    console.log('[TIC_TAC_TOE_REFRESH_TRACE] authKey changed to:', authKey, '— this forces a remount of all game screens')
+  }, [authKey])
   const [authChecked, setAuthChecked] = useState(!isSupabaseConfigured())
   // Tri-state, never treated as a boolean: 'loading' means genuinely
   // unknown — nothing may render Profiles or Play Together while it's
