@@ -73,6 +73,7 @@ export default function TicTacToeScreen() {
   useEffect(() => {
     if (!session) { setLoading(false); return }
     const sess0 = session  // non-null capture for closure
+    console.log('[TTT_DIAG] session became available in TicTacToeScreen', sess0.id, 'game_type:', sess0.game_type)
 
     // GUARD: this screen must only touch tic_tac_toe sessions.
     // All game screens are always-mounted and share the same global session,
@@ -82,6 +83,7 @@ export default function TicTacToeScreen() {
       console.log('TICTACTOE SCREEN SKIP: wrong game_type', sess0.game_type, sess0.id)
       return
     }
+    console.log('[TTT_DIAG] session accepted by TicTacToeScreen, session id:', sess0.id, 'player_one:', sess0.player_one_id, 'player_two:', sess0.player_two_id)
 
     // Clear old state when session changes (fresh board for new game)
     console.log('SESSION SWITCH DETECTED:', sess0.id)
@@ -379,6 +381,7 @@ export default function TicTacToeScreen() {
 
   // ── No session ──
   if (!session) {
+    console.log('[TTT_DIAG] TicTacToeScreen rendering no-session fallback — this screen is active but has no session')
     return (
       <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#0a0a10' }}>
         <div className="text-[40px] mb-3">⚠️</div>
