@@ -386,9 +386,9 @@ export default function ProfileScreenNew() {
                 <p className="text-[12px] mt-1" style={{ color:'rgba(255,255,255,0.472)' }}>{lang==='gr'?`Πρόσκληση προς ${pickerProfile?.name}`:`Invite ${pickerProfile?.name}`}</p>
               </div>
               <div className="flex flex-col gap-2.5">
+                <button onClick={() => pickGame('mystery_choice')} className="w-full rounded-2xl py-4 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer" style={{ background:'rgba(216,77,216,0.177)', color:'#f0a8f0', border:'1px solid rgba(216,77,216,0.295)' }}>🎭 Mystery Choice</button>
                 <button onClick={() => pickGame('tic_tac_toe')} className="w-full rounded-2xl py-4 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer" style={{ background:'linear-gradient(135deg,#ff3384,#d84dd8)', color:'#fff', boxShadow:'0 8px 24px rgba(253,41,123,0.354)' }}>⭕ Tic Tac Toe</button>
                 <button onClick={() => pickGame('connect_4')} className="w-full rounded-2xl py-4 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer" style={{ background:'rgba(108,99,255,0.177)', color:'#b79cfc', border:'1px solid rgba(108,99,255,0.295)' }}>🔴 Connect 4</button>
-                <button onClick={() => pickGame('mystery_choice')} className="w-full rounded-2xl py-4 text-[15px] font-bold active:scale-95 transition-transform cursor-pointer" style={{ background:'rgba(216,77,216,0.177)', color:'#f0a8f0', border:'1px solid rgba(216,77,216,0.295)' }}>🎭 Mystery Choice</button>
                 <button onClick={() => setShowPicker(false)} className="w-full py-2.5 text-[13px] font-medium active:opacity-60 cursor-pointer" style={{ color:'rgba(255,255,255,0.413)' }}>{lang==='gr'?'Άκυρο':'Cancel'}</button>
               </div>
             </div>
