@@ -8,7 +8,7 @@ export type Lang = 'en' | 'gr'
 
 export interface Copy {
   // Nav
-  nav: { cta: string }
+  nav: { cta: string; login: string }
 
   // Hero
   hero: {
@@ -85,7 +85,7 @@ export interface Copy {
 
 // ── ENGLISH ────────────────────────────────────────────────────
 const en: Copy = {
-  nav: { cta: 'Start Playing' },
+  nav: { cta: 'Start Playing', login: 'Log In' },
 
   hero: {
     eyebrow:    'mystery dating through play',
@@ -181,7 +181,7 @@ const en: Copy = {
 // - Avoid literal translations where they sound stiff
 // - The scenario should read like a countdown, not a description
 const gr: Copy = {
-  nav: { cta: 'Ξεκίνα' },
+  nav: { cta: 'Ξεκίνα', login: 'Σύνδεση' },
 
   hero: {
     eyebrow:    'Δεν υπάρχει έξοδος. Απλά δείξου.',

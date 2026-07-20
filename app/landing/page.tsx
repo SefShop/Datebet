@@ -142,6 +142,13 @@ export default function Landing() {
           Date<span style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 600, padding: '9px 18px', borderRadius: 100, background: 'rgba(255,255,255,0.045)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(253,41,123,0.28)', boxShadow: '0 2px 12px rgba(253,41,123,0.1)', transition: 'all 0.2s ease', outline: 'none' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.borderColor = 'rgba(253,41,123,0.5)'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(253,41,123,0.22)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.045)'; e.currentTarget.style.borderColor = 'rgba(253,41,123,0.28)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(253,41,123,0.1)' }}
+            onFocus={e => { e.currentTarget.style.borderColor = 'rgba(253,41,123,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(253,41,123,0.25), 0 2px 16px rgba(253,41,123,0.22)' }}
+            onBlur={e => { e.currentTarget.style.borderColor = 'rgba(253,41,123,0.28)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(253,41,123,0.1)' }}>
+            {c.nav.login}
+          </a>
           <LangToggle lang={lang} setLang={setLang} />
         </div>
       </nav>
