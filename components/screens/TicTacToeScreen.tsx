@@ -86,6 +86,15 @@ export default function TicTacToeScreen() {
   // their own "x/10" display stayed stale even though the shared database
   // row was already correctly updated by the mover.
   const progressRefreshedRef = useRef<string | null>(null)
+  // Set the instant the user presses back on a finished game, before the
+  // session is cleared. Screen divs use a CSS opacity transition (not an
+  // instant display:none) — clearing the session and navigating away both
+  // land in the same batched render, so this component's own "no session
+  // found" fallback would otherwise still render (just fading out over
+  // ~0.3s), making a real error message briefly visible during an
+  // entirely expected, intentional exit. This ref lets that fallback
+  // recognize this specific case and render nothing instead.
+  const isExitingRef = useRef(false)
   const [progressError, setProgressError] = useState<string | null>(null)
   const [pairCount, setPairCount] = useState<number>(0)
   const [photoAccess, setPhotoAccess] = useState<{ photoUnlocked: boolean; myPhoto: string | null; opponentPhoto: string | null }>({ photoUnlocked: false, myPhoto: null, opponentPhoto: null })
@@ -120,6 +129,7 @@ export default function TicTacToeScreen() {
     // Hard guard: mark the active session id
     activeSessionRef.current = sess0.id
     progressRefreshedRef.current = null
+    isExitingRef.current = false
     console.log('ACTIVE SESSION ID:', sess0.id)
 
     // Guards the post-SUBSCRIBED refetch below against applying state after
@@ -423,6 +433,12 @@ export default function TicTacToeScreen() {
 
   // ── No session ──
   if (!session) {
+    if (isExitingRef.current) {
+      // Intentional exit after a finished game — not a real error. Render
+      // nothing (a neutral background) instead of the error message while
+      // this component fades out and 'profile' fades in.
+      return <div className="flex flex-col h-full" style={{ background: '#0a0a10' }} />
+    }
     console.log('[TTT_DIAG] TicTacToeScreen rendering no-session fallback — this screen is active but has no session')
     return (
       <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#0a0a10' }}>
@@ -481,6 +497,7 @@ export default function TicTacToeScreen() {
             // via Game Room, which reads getCurrentSession() directly and
             // would show its own identical fallback otherwise.
             navigate('profile')
+            isExitingRef.current = true
             clearCurrentSession()
           } else {
             navigate('game_room')

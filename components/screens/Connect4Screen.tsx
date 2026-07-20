@@ -66,6 +66,12 @@ export default function Connect4Screen() {
   // device (correctly, to avoid double-counting) — the other player's
   // own pairCount display was never being refreshed to reflect it.
   const progressRefreshedRef = useRef<string | null>(null)
+  // Set the instant the user presses back on a finished game, before the
+  // session is cleared — same fix as Tic Tac Toe. Prevents this
+  // component's own "no session found" fallback from being briefly
+  // visible during the CSS opacity fade-out of an entirely expected,
+  // intentional exit.
+  const isExitingRef = useRef(false)
 
   const myColor = session && myId === session.player_one_id ? 'R' : 'Y'
 
@@ -85,6 +91,7 @@ export default function Connect4Screen() {
     console.log('CONNECT4 SESSION:', s0.id)
     activeSessionRef.current = s0.id
     progressRefreshedRef.current = null
+    isExitingRef.current = false
 
     // Clear the previous game's transient state immediately, synchronously,
     // before any async work starts. Without this, the old `state` (still
@@ -273,6 +280,9 @@ export default function Connect4Screen() {
   }
 
   if (!session) {
+    if (isExitingRef.current) {
+      return <div className="flex flex-col h-full" style={{ background: '#0a0a10' }} />
+    }
     return (
       <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#0a0a10' }}>
         <div className="text-[40px] mb-3">⚠️</div>
@@ -305,6 +315,7 @@ export default function Connect4Screen() {
             // fallback the instant it's cleared), and clear the session
             // AFTER navigating so the transition is atomic.
             navigate('profile')
+            isExitingRef.current = true
             clearCurrentSession()
           } else {
             navigate('game_room')
