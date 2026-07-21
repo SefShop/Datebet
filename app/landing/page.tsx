@@ -449,13 +449,12 @@ export default function Landing() {
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase' as const, color: 'rgba(253,41,123,0.65)', marginBottom: 16 }}>{c.cta.label}</div>
           <h2 style={{ fontSize: 'clamp(32px,6vw,62px)', fontWeight: 900, letterSpacing: '-2px', lineHeight: 1.0, marginBottom: 16, whiteSpace: 'pre-line' as const }}>{c.cta.headline}</h2>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.35)', lineHeight: 1.7, marginBottom: 36, whiteSpace: 'pre-line' as const }}>{c.cta.sub}</p>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' as const, marginBottom: 14 }}>
-            <input type="email" placeholder={c.cta.placeholder} style={{ flex: 1, minWidth: 200, maxWidth: 260, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 100, padding: '14px 20px', fontSize: 14, color: '#fff', fontFamily: 'inherit', outline: 'none', transition: 'border-color 0.2s' }}
-              onFocus={e => (e.currentTarget.style.borderColor = 'rgba(253,41,123,0.5)')}
-              onBlur={e  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')} />
-            <button onClick={() => window.location.href='/app'} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#ff655b)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: '14px 26px', borderRadius: 100, boxShadow: '0 8px 28px rgba(253,41,123,0.4)', transition: 'transform 0.15s,box-shadow 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 36px rgba(253,41,123,0.55)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(253,41,123,0.4)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+            <button onClick={() => window.location.href='/app'} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'linear-gradient(135deg,#fd297b,#c850c0,#6c63ff)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', padding: '18px 52px', borderRadius: 100, boxShadow: '0 10px 40px rgba(253,41,123,0.45), 0 3px 14px rgba(108,99,255,0.3)', transition: 'transform 0.2s ease,box-shadow 0.2s ease', outline: 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 16px 52px rgba(253,41,123,0.6), 0 5px 20px rgba(108,99,255,0.4)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 40px rgba(253,41,123,0.45), 0 3px 14px rgba(108,99,255,0.3)' }}
+              onFocus={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(253,41,123,0.35), 0 16px 52px rgba(253,41,123,0.6), 0 5px 20px rgba(108,99,255,0.4)' }}
+              onBlur={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 40px rgba(253,41,123,0.45), 0 3px 14px rgba(108,99,255,0.3)' }}>
               {c.cta.button}
             </button>
           </div>
@@ -466,11 +465,6 @@ export default function Landing() {
       {/* ── FINAL HOOK ── */}
       <section style={{ textAlign: 'center' as const, padding: '0 24px 80px' }}>
         <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14, marginBottom: 12 }}>{c.hook.line}</p>
-        <a href="#cta" style={{ color: '#fd297b', fontSize: 14, fontWeight: 600, textDecoration: 'none', borderBottom: '1px solid rgba(253,41,123,0.3)', paddingBottom: 2, transition: 'border-color 0.2s' }}
-          onMouseEnter={e => (e.currentTarget.style.borderColor = '#fd297b')}
-          onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(253,41,123,0.3)')}>
-          {c.hook.cta}
-        </a>
       </section>
 
       {/* ── FOOTER ── */}
