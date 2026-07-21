@@ -281,6 +281,7 @@ const _sessionListeners = new Set<SessionListener>()
 export function setCurrentSession(s: GameSession) {
   _session = s
   console.log('SESSION ID:', s.id)
+  try { localStorage.setItem('dateduel_active_session_id', s.id) } catch {}
   // Notify every subscriber immediately — this is what makes an
   // already-mounted-but-hidden screen (the app keeps all game screens
   // mounted at once) find out about a new session right away, instead of
@@ -296,6 +297,7 @@ export function getCurrentSession(): GameSession | null { return _session }
 export function clearCurrentSession() {
   console.log('CURRENT SESSION CLEARED (back arrow)')
   _session = null
+  try { localStorage.removeItem('dateduel_active_session_id') } catch {}
   _sessionListeners.forEach(fn => { try { fn(null) } catch (e) { console.error('session listener error:', e) } })
 }
 
@@ -331,6 +333,45 @@ export function isValidActiveGameSession(session: GameSession | null | undefined
   const supportedTypes = ['tic_tac_toe', 'mystery_choice', 'connect_4']
   if (session.game_type && !supportedTypes.includes(session.game_type)) return false
   return true
+}
+
+export function getPersistedActiveSessionId(): string | null {
+  try { return localStorage.getItem('dateduel_active_session_id') } catch { return null }
+}
+
+export function clearPersistedActiveSessionId() {
+  try { localStorage.removeItem('dateduel_active_session_id') } catch {}
+}
+
+// Restore the active game session after a page refresh/reload — the
+// in-memory _session is always lost on reload (it's a plain module
+// variable), so this re-fetches it from the one persisted identifier
+// (the session ID) and re-derives everything else from that same
+// database row, which remains the single source of truth. Deliberately
+// allows a finished session through (unlike isValidActiveGameSession,
+// used elsewhere for a different purpose): the game screens already
+// know how to render a result view for a finished-in-session game, so
+// refreshing on that result screen should restore it too, not be
+// treated as invalid.
+export async function restorePersistedActiveSession(currentUserId: string): Promise<{ session: GameSession; screen: string } | null> {
+  const sessionId = getPersistedActiveSessionId()
+  if (!sessionId) return null
+  try {
+    const { data: session } = await supabase.from('game_sessions').select('*').eq('id', sessionId).maybeSingle()
+    if (!session) { clearPersistedActiveSessionId(); return null }
+    if (session.player_one_id !== currentUserId && session.player_two_id !== currentUserId) {
+      clearPersistedActiveSessionId()
+      return null
+    }
+    const supportedTypes = ['tic_tac_toe', 'mystery_choice', 'connect_4']
+    if (session.game_type && !supportedTypes.includes(session.game_type)) {
+      clearPersistedActiveSessionId()
+      return null
+    }
+    return { session, screen: gameScreenFor(session.game_type) }
+  } catch {
+    return null
+  }
 }
 
 export async function reconcilePendingAcceptedInvite(loginStartedAt: string): Promise<{ invite: GameInvite; session: GameSession } | null> {
@@ -436,6 +477,7 @@ export function isRematchInProgress() { return _rematchInProgress }
 export function clearGameState() {
   console.log('CLEAR GAME STATE (logout)')
   _session = null
+  try { localStorage.removeItem('dateduel_active_session_id') } catch {}
   _opponentName = null
   _pendingInvite = null
   _navigatingInviteIds.clear()

@@ -26,7 +26,7 @@ import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { clearProfileState } from '@/lib/profiles'
-import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, clearGameState, isValidActiveGameSession, isRematchInProgress, isEnteringGame, setEnteringGame } from '@/lib/gameInvites'
+import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, setCurrentSession, clearGameState, isValidActiveGameSession, isRematchInProgress, isEnteringGame, setEnteringGame, restorePersistedActiveSession } from '@/lib/gameInvites'
 // SocialPresence removed
 
 const SCREENS = {
@@ -187,10 +187,24 @@ function AppShell() {
       // both here means React batches them into the exact same render —
       // the gate and the correct screen change together, never apart.
       if (session?.user?.id && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        ensureProfileExists(session.user).then((completed) => {
+        ensureProfileExists(session.user).then(async (completed) => {
           if (completed) {
-            console.log('ONBOARDING COMPLETE — navigating to profile')
-            navigate('profile')
+            // Before falling back to Profiles, check whether this user has
+            // a persisted active game session (survives page refresh/reload
+            // — the in-memory session is always lost on reload, this is
+            // what restores it). Only relevant once onboarding is
+            // confirmed complete, since an incomplete-onboarding user
+            // can't have an active game.
+            const restored = await restorePersistedActiveSession(session.user.id)
+            if (restored) {
+              console.log('RESTORED ACTIVE SESSION AFTER REFRESH:', restored.session.id, '→', restored.screen)
+              setEnteringGame(true)  // protects this navigation from the screen guard's own check, same as the accept-invite flow
+              setCurrentSession(restored.session)
+              navigate(restored.screen as any)
+            } else {
+              console.log('ONBOARDING COMPLETE — navigating to profile')
+              navigate('profile')
+            }
           } else {
             console.log('ONBOARDING INCOMPLETE — navigating to play-together')
             navigate('splash')
