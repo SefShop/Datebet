@@ -6,6 +6,7 @@ import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCur
 import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
+import BackControl from '@/components/ui/BackControl'
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
@@ -484,7 +485,7 @@ export default function TicTacToeScreen() {
 
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
-        <button onClick={() => {
+        <BackControl lang={lang} onClick={() => {
           if (state?.status === 'finished') {
             // Navigate FIRST, then clear the session — not the other way
             // around. React 18 batches both calls into one render, but
@@ -502,7 +503,7 @@ export default function TicTacToeScreen() {
           } else {
             navigate('game_room')
           }
-        }} className="text-white/40 text-[14px] cursor-pointer">←</button>
+        }} />
         <h1 className="text-[16px] font-extrabold text-white flex-1">⭕ Tic Tac Toe</h1>
       </div>
 

@@ -4,6 +4,7 @@ import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite, setRematchInProgress } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
+import BackControl from '@/components/ui/BackControl'
 
 const COLS = 7, ROWS = 6
 
@@ -307,7 +308,7 @@ export default function Connect4Screen() {
   return (
     <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(253,41,123,0.094) 0%, transparent 55%), #0a0a10' }}>
       <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
-        <button onClick={() => {
+        <BackControl lang={lang} onClick={() => {
           if (state?.status === 'finished') {
             // Same fix already proven for Tic Tac Toe: go straight to
             // Profiles instead of via Game Room (which reads the session
@@ -320,7 +321,7 @@ export default function Connect4Screen() {
           } else {
             navigate('game_room')
           }
-        }} className="text-white/40 text-[14px] cursor-pointer">←</button>
+        }} />
         <h1 className="text-[16px] font-extrabold text-white flex-1">🔴 Connect 4</h1>
       </div>
 

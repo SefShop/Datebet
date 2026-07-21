@@ -8,6 +8,7 @@ import { getPresence, isOnlineNow } from '@/lib/presence'
 import { setCurrentMatch } from '@/lib/profiles'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
+import BackControl from '@/components/ui/BackControl'
 import { getAnswerEmoji } from '@/lib/answerEmoji'
 import { getResultPool, selectRandomResult, getResultById } from '@/lib/mysteryResultLibrary'
 import {
@@ -1038,7 +1039,7 @@ export default function MysteryChoiceGame() {
 
       {/* Header */}
       <div className="mc-header-row relative z-10 flex items-center gap-3 px-5 pt-14 pb-3">
-        <button onClick={() => navigate('profile')} className="text-white/50 text-[16px] cursor-pointer w-7 h-7 flex items-center justify-center rounded-full active:scale-90 transition-transform" style={{ background: 'rgba(255,255,255,0.06)' }}>←</button>
+        <BackControl lang={lang} onClick={() => navigate('profile')} />
         <h1 className="mc-header-title text-[16px] font-extrabold text-white flex-1">🎭 Mystery Choice</h1>
       </div>
 
