@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { getCurrentMatch } from '@/lib/profiles'
+import BackControl from '@/components/ui/BackControl'
 
 type Phase = 'intro' | 'confirming' | 'waiting' | 'accepted' | 'postAccept' | 'hesitated'
 
@@ -86,11 +87,9 @@ export default function LockDateScreen() {
             style={{ background:'linear-gradient(135deg,#ff3384,#ff7a6e)', color:'#fff', boxShadow:'0 12px 40px rgba(253,41,123,0.472)' }}>
             {lang==='gr' ? "Είμαι μέσα. Κλείδωσέ το." : "I'm in. Lock it."}
           </button>
-          <button onClick={() => navigate('chat')}
-            className="w-full text-[13px] font-medium py-3 mt-2 active:opacity-60 transition-opacity cursor-pointer"
-            style={{ color:'rgba(255,255,255,0.295)' }}>
-            {lang==='gr' ? '← πίσω' : '← back'}
-          </button>
+          <div className="w-full flex justify-center mt-2">
+            <BackControl lang={lang} onClick={() => navigate('chat')} />
+          </div>
         </div>
       )}
 
