@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getIncomingInvites, getOutgoingInvites, respondInvite, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
+import BackControl from '@/components/ui/BackControl'
 
 // Human-readable label for an invite's game_type
 function gameLabel(gameType: string): { emoji: string; name: string } {
@@ -159,7 +160,7 @@ export default function ActivityScreen() {
   return (
     <div className="flex flex-col h-full" style={{ background: '#0a0a10' }}>
       <div className="flex items-center justify-between px-5 pt-14 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
-        <button onClick={() => navigate('profile')} className="text-white/40 text-[14px] cursor-pointer">←</button>
+        <BackControl lang={lang} onClick={() => navigate('profile')} />
         <h1 className="text-[18px] font-extrabold text-white">⚔️ {t.title}</h1>
         <div style={{ width: 24 }} />
       </div>
