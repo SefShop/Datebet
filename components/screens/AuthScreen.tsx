@@ -30,7 +30,10 @@ const C = {
 }
 
 export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
-  const [lang, setLang] = useState<'en'|'gr'>(langProp)
+  // Uses whatever language was already selected (Landing page / AppContext,
+  // both read the same 'lang' localStorage key) — no independent toggle or
+  // separate state here anymore.
+  const lang = langProp
   const t = C[lang]
   const [email, setEmail]     = useState('')
   const [pass, setPass]       = useState('')
@@ -44,20 +47,6 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
   const [focus, setFocus]     = useState<string|null>(null)
 
   useEffect(() => { setTimeout(() => setShow(true), 80) }, [])
-
-  // Load saved language preference on mount (same key as app context)
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('lang')
-      if (saved === 'en' || saved === 'gr') setLang(saved)
-    } catch {}
-  }, [])
-
-  function toggleLang() {
-    const next = lang === 'gr' ? 'en' : 'gr'
-    setLang(next)
-    try { localStorage.setItem('lang', next) } catch {}
-  }
 
   async function submit() {
     if (!email || !pass) return
@@ -200,14 +189,6 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
 
   return (
     <div className="relative flex flex-col h-full overflow-hidden" style={{ background:'#09090f' }}>
-
-      {/* Language toggle — top right */}
-      <button onClick={toggleLang}
-        className="absolute z-[110] flex items-center rounded-full overflow-hidden active:scale-95 transition-transform cursor-pointer"
-        style={{ top: 16, right: 16, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.142)' }}>
-        <span className="px-2.5 py-1.5 text-[11px] font-bold" style={{ background: lang==='en'?'linear-gradient(135deg,#ff3384,#d84dd8)':'transparent', color: lang==='en'?'#fff':'rgba(255,255,255,0.59)' }}>EN</span>
-        <span className="px-2.5 py-1.5 text-[11px] font-bold" style={{ background: lang==='gr'?'linear-gradient(135deg,#ff3384,#d84dd8)':'transparent', color: lang==='gr'?'#fff':'rgba(255,255,255,0.59)' }}>GR</span>
-      </button>
 
       {/* ── BG: blurred romantic image ── */}
       <div className="absolute inset-0">
