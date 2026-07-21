@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentSession, setOpponentName } from '@/lib/gameInvites'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
+import BackControl from '@/components/ui/BackControl'
+import { getPairProgress } from '@/lib/pairProgress'
 
 export default function GameRoomScreen() {
   const { navigate, lang } = useApp()
@@ -12,6 +14,7 @@ export default function GameRoomScreen() {
   const [bothNames, setBothNames] = useState<{ one: string; two: string }>({ one: 'Player 1', two: 'Player 2' })
   const [photoAccess, setPhotoAccess] = useState<{ photoUnlocked: boolean; myPhoto: string | null; opponentPhoto: string | null }>({ photoUnlocked: false, myPhoto: null, opponentPhoto: null })
   const [myId, setMyId] = useState<string | null>(null)
+  const [chatUnlocked, setChatUnlocked] = useState(false)
 
   useEffect(() => {
     if (!session) { console.log('GAME ROOM MOUNT: no session'); return }
@@ -31,11 +34,14 @@ export default function GameRoomScreen() {
       const oppName = user?.id === s0.player_one_id ? twoName : oneName
       setOpponentName(oppName)
 
-      // Shared avatar photo access — reuses the same pair-unlock source of
-      // truth as Discover/Profile. Presentation-only.
+      // Chat unlock — reuses the exact same shared pair-progress source of
+      // truth already used inside the games (10/10 wins). Presentation-only
+      // gate here; the actual unlock logic/threshold lives in pairProgress.ts,
+      // unchanged.
       if (user?.id) {
         const oppId = user.id === s0.player_one_id ? s0.player_two_id : s0.player_one_id
         fetchGamePlayerPhotoAccess(user.id, oppId).then(setPhotoAccess)
+        getPairProgress(oppId).then(prog => setChatUnlocked(prog.chat_unlocked))
       }
     }
     init()
@@ -69,7 +75,7 @@ export default function GameRoomScreen() {
     <div className="flex flex-col h-full desktop-game-room-shell" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.094) 0%, transparent 60%), #0a0a10' }}>
       <div className="desktop-game-room-card flex flex-col h-full">
       <div className="flex items-center gap-3 px-5 pt-14 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
-        <button onClick={() => navigate('profile')} className="text-white/40 text-[14px] cursor-pointer">←</button>
+        <BackControl lang={lang} onClick={() => navigate('profile')} />
         <h1 className="text-[16px] font-extrabold text-white flex-1">🎮 {lang === 'gr' ? 'Δωμάτιο Παιχνιδιού' : 'Game Room'}</h1>
       </div>
 
@@ -122,7 +128,7 @@ export default function GameRoomScreen() {
           <button onClick={() => navigate(game.screen as any)}
             className="w-full max-w-[300px] rounded-2xl py-5 text-[17px] font-bold active:scale-95 transition-transform cursor-pointer"
             style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 30px rgba(253,41,123,0.413)' }}>
-            {game.emoji} {lang === 'gr' ? 'Ξεκίνα' : 'Start'} {game.name}
+            {game.emoji} {lang === 'gr' ? 'Συνέχεια Παιχνιδιού' : 'Continue Game'}
           </button>
         ) : (
           <div className="text-center">
@@ -130,10 +136,10 @@ export default function GameRoomScreen() {
             <div className="text-[15px] font-bold text-white">{lang === 'gr' ? 'Μη υποστηριζόμενο παιχνίδι' : 'Game type not supported'}</div>
           </div>
         )}
-        <button onClick={() => navigate('chat')}
+        <button onClick={() => { if (!chatUnlocked) return; navigate('chat') }} disabled={!chatUnlocked}
           className="w-full max-w-[300px] mt-3 rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-          style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>
-          💬 {lang === 'gr' ? 'Κουβέντα πρώτα' : 'Chat first'}
+          style={{ background: chatUnlocked ? 'rgba(108,99,255,0.142)' : 'rgba(255,255,255,0.05)', color: chatUnlocked ? '#b79cfc' : 'rgba(255,255,255,0.4)', border: chatUnlocked ? '1px solid rgba(108,99,255,0.236)' : '1px solid rgba(255,255,255,0.094)', opacity: chatUnlocked ? 1 : 0.6 }}>
+          {chatUnlocked ? '💬 ' + (lang === 'gr' ? 'Κουβέντα πρώτα' : 'Chat first') : '🔒 ' + (lang === 'gr' ? 'Chat (10)' : 'Chat (10)')}
         </button>
       </div>
       </div>
