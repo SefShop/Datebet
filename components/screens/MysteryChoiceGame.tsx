@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, subscribeCurrentSession, sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
+import { getCurrentSession, subscribeCurrentSession, sendGameInvite, setPendingInvite, clearCurrentSession } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import { getPresence, isOnlineNow } from '@/lib/presence'
 import { setCurrentMatch } from '@/lib/profiles'
@@ -189,6 +189,11 @@ export default function MysteryChoiceGame() {
   const [sessionRetrying, setSessionRetrying] = useState(false)
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
+  // Set the instant the user presses back on a finished game, before the
+  // session is cleared — same fix already proven for Tic Tac Toe and
+  // Connect4. Prevents the "no session found" fallback below from being
+  // briefly visible during the CSS opacity fade-out of an intentional exit.
+  const isExitingRef = useRef(false)
   const resultWriteLock = useRef(false)
   const advanceWriteLock = useRef(false)
   const countLockRef = useRef(false)
@@ -241,6 +246,7 @@ export default function MysteryChoiceGame() {
                        // so without this reset "loading" could still be false from an earlier
                        // render, causing the "Game not found" branch to flash while this fetch runs.
     activeSessionRef.current = sess0.id
+    isExitingRef.current = false
 
     async function fetchSessionRow(retriesLeft: number, attempt = 0): Promise<any> {
       const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
@@ -836,6 +842,12 @@ export default function MysteryChoiceGame() {
 
   // No session_id → "No game session found."
   if (!session?.id || !state) {
+    if (isExitingRef.current) {
+      // Intentional exit after a finished game — not a real error. Render
+      // nothing (a neutral background) instead of the error message while
+      // this component fades out and 'profile' fades in.
+      return <div className="flex flex-col h-full" style={{ background: '#0a0a10' }} />
+    }
     return (
       <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(253,41,123,0.1) 0%, transparent 60%), #0a0a10' }}>
         <div className="rounded-3xl p-8 text-center" style={{ background: 'rgba(15,12,25,0.7)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 16px 50px rgba(0,0,0,0.5)' }}>
@@ -1039,7 +1051,21 @@ export default function MysteryChoiceGame() {
 
       {/* Header */}
       <div className="mc-header-row relative z-10 flex items-center gap-3 px-5 pt-14 pb-3">
-        <BackControl lang={lang} onClick={() => navigate('profile')} />
+        <BackControl lang={lang} onClick={() => {
+          if (state?.status === 'finished') {
+            // Same fix already proven for Tic Tac Toe and Connect4: go
+            // straight to Profiles instead of via Game Room (which reads
+            // the session directly and would show its own "No game
+            // session found" fallback the instant it's cleared), and
+            // clear the session AFTER navigating so the transition is
+            // atomic.
+            navigate('profile')
+            isExitingRef.current = true
+            clearCurrentSession()
+          } else {
+            navigate('game_room')
+          }
+        }} />
         <h1 className="mc-header-title text-[16px] font-extrabold text-white flex-1">🎭 Mystery Choice</h1>
       </div>
 
