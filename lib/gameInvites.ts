@@ -48,6 +48,17 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
   } catch (e: any) { return { ok: false, error: e.message } }
 }
 
+// Pending invites (not yet responded to) expire 15 minutes after creation —
+// they simply stop appearing in either list, can no longer be accepted, and
+// there is no age display for them at all. This does NOT apply to accepted
+// invites: those represent an active game, which must stay resumable via
+// "Enter" regardless of how long it's been running (see enterExistingGame).
+const PENDING_INVITE_EXPIRY_MS = 15 * 60 * 1000
+function isExpiredPending(invite: { status: string; created_at: string }): boolean {
+  if (invite.status !== 'pending') return false
+  return Date.now() - new Date(invite.created_at).getTime() > PENDING_INVITE_EXPIRY_MS
+}
+
 export async function getIncomingInvites(): Promise<GameInvite[]> {
   if (!isSupabaseConfigured()) return []
   try {
@@ -63,11 +74,13 @@ export async function getIncomingInvites(): Promise<GameInvite[]> {
 
     if (error || !data) { console.error('INCOMING INVITES error:', error); return [] }
 
-    const ids = data.map(i => i.sender_id)
+    const active = data.filter(i => !isExpiredPending(i))
+
+    const ids = active.map(i => i.sender_id)
     const { data: profiles } = await supabase.from('profiles').select('id, name, photo').in('id', ids)
     const pMap = new Map(profiles?.map(p => [p.id, p]) || [])
 
-    const result = data.map(i => ({
+    const result = active.map(i => ({
       ...i,
       sender_name: pMap.get(i.sender_id)?.name || 'Player',
       sender_photo: pMap.get(i.sender_id)?.photo || '',
@@ -92,11 +105,13 @@ export async function getOutgoingInvites(): Promise<GameInvite[]> {
 
     if (error || !data) return []
 
-    const ids = data.map(i => i.receiver_id)
+    const active = data.filter(i => !isExpiredPending(i))
+
+    const ids = active.map(i => i.receiver_id)
     const { data: profiles } = await supabase.from('profiles').select('id, name').in('id', ids)
     const pMap = new Map(profiles?.map(p => [p.id, p]) || [])
 
-    return data.map(i => ({
+    return active.map(i => ({
       ...i,
       receiver_name: pMap.get(i.receiver_id)?.name || 'Player',
     }))
@@ -105,6 +120,15 @@ export async function getOutgoingInvites(): Promise<GameInvite[]> {
 
 export async function respondInvite(inviteId: string, accept: boolean): Promise<{ ok: boolean; error?: string }> {
   try {
+    if (accept) {
+      // Defensive check: the invite lists already filter expired pending
+      // invites out entirely, but re-verify here in case a brief window
+      // exists between the last list refresh and this click.
+      const { data: current } = await supabase.from('game_invites').select('status, created_at').eq('id', inviteId).maybeSingle()
+      if (current && isExpiredPending(current)) {
+        return { ok: false, error: 'invite expired' }
+      }
+    }
     const { error } = await supabase
       .from('game_invites')
       .update({ status: accept ? 'accepted' : 'declined' })
