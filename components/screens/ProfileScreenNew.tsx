@@ -957,6 +957,18 @@ export default function ProfileScreenNew() {
            stays stable and predictable while switching profiles/views.
            ══════════════════════════════════════════════════════════════ */
         @media (min-width: 1024px) {
+          /* Desktop-only vertical stack: online indicator (unchanged,
+             top-left) → white photo-progress line directly below it →
+             Mystery Player badge directly below the line, still
+             right-aligned. Mobile/tablet keep their existing inline
+             top/left/right values untouched — these overrides only ever
+             apply at this breakpoint. */
+          .photo-nav-line {
+            top: 44px !important;
+          }
+          .mystery-badge {
+            top: 60px !important;
+          }
           .mc-profile-shell {
             height: auto !important;
             min-height: 100% !important;
