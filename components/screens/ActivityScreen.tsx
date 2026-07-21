@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getIncomingInvites, getOutgoingInvites, respondInvite, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
+import { getIncomingInvites, respondInvite, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
 import BackControl from '@/components/ui/BackControl'
 
 // Human-readable label for an invite's game_type
@@ -22,9 +22,7 @@ export default function ActivityScreen() {
   // while the first request is still in flight — same visual design,
   // just briefly non-interactive.
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set())
-  const [outgoing, setOutgoing] = useState<GameInvite[]>([])
   const [loading, setLoading]   = useState(true)
-  const [tab, setTab]           = useState<'in'|'out'>('in')
   const [myId, setMyId]         = useState<string | null>(null)
 
   useEffect(() => {
@@ -71,12 +69,12 @@ export default function ActivityScreen() {
   async function load() {
     const { data: { user } } = await supabase.auth.getUser()
     setMyId(user?.id || null)
-    const [inc, out] = await Promise.all([getIncomingInvites(), getOutgoingInvites()])
+    const inc = await getIncomingInvites()
     const pending = inc.filter(i => i.status === 'pending')
     console.log('INVITE POLL RESULT:', inc.length, 'total')
     console.log('PENDING INVITES COUNT:', pending.length)
     console.log('INVITES STATE UPDATED FROM POLL:', pending.length, 'pending')
-    setIncoming(inc); setOutgoing(out); setLoading(false)
+    setIncoming(inc); setLoading(false)
   }
 
   async function respond(c: GameInvite, accept: boolean) {
@@ -165,30 +163,15 @@ export default function ActivityScreen() {
         <div style={{ width: 24 }} />
       </div>
 
-      {/* Tabs */}
-      <div className="flex mx-5 mt-3 mb-2 rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.047)', border: '1px solid rgba(255,255,255,0.071)' }}>
-        {(['in', 'out'] as const).map(tb => (
-          <button key={tb} onClick={() => setTab(tb)}
-            className="flex-1 py-2.5 text-[13px] font-bold transition-all cursor-pointer relative"
-            style={{ color: tab === tb ? '#fff' : 'rgba(255,255,255,0.413)' }}>
-            {tb === 'in' ? `${t.incoming}${pendingCount > 0 ? ` (${pendingCount})` : ''}` : t.outgoing}
-            {tab === tb && <div className="absolute bottom-0 left-[20%] right-[20%] h-[2px] rounded-full" style={{ background: 'linear-gradient(90deg,#ff3384,#d84dd8)' }} />}
-          </button>
-        ))}
-      </div>
-
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         {loading && <div className="flex justify-center py-16"><div className="text-[28px]" style={{ animation: 'pulse 1s infinite' }}>⚔️</div></div>}
 
-        {!loading && tab === 'in' && incoming.length === 0 && (
+        {!loading && incoming.length === 0 && (
           <div className="text-center px-8 py-16"><div className="text-[40px] mb-3">⚔️</div><div className="text-[15px] text-white/50">{t.empty}</div></div>
-        )}
-        {!loading && tab === 'out' && outgoing.length === 0 && (
-          <div className="text-center px-8 py-16"><div className="text-[40px] mb-3">📤</div><div className="text-[15px] text-white/50">{t.empty}</div></div>
         )}
 
         {/* INCOMING */}
-        {tab === 'in' && incoming.map((c, i) => (
+        {incoming.map((c, i) => (
           <div key={c.id} className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.047)' }}>
             <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{ border: '2px solid rgba(253,41,123,0.354)' }}>
               {c.sender_photo ? <img src={c.sender_photo} alt="" className="w-full h-full object-cover" />
@@ -207,24 +190,6 @@ export default function ActivityScreen() {
                 <button onClick={() => respond(c, false)} disabled={processingIds.has(c.id)} className="rounded-full px-3 py-2 text-[12px] font-medium active:scale-95 cursor-pointer" style={{ background: 'rgba(255,255,255,0.059)', color: 'rgba(255,255,255,0.472)' }}>{t.decline}</button>
               </div>
             )}
-            {c.status === 'accepted' && (
-              <button onClick={() => enterExistingGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#0a0a10' }}>{t.enter}</button>
-            )}
-            {c.status === 'declined' && <span className="text-[12px] px-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.354)' }}>{t.declined}</span>}
-          </div>
-        ))}
-
-        {/* OUTGOING */}
-        {tab === 'out' && outgoing.map((c, i) => (
-          <div key={c.id} className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.047)' }}>
-            <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{ border: '2px solid rgba(108,99,255,0.354)' }}>
-              <div className="w-full h-full flex items-center justify-center text-[20px]" style={{ background: 'linear-gradient(135deg,#7c72ff,#a855f7)' }}>👤</div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-bold text-white">{c.receiver_name}</div>
-              <div className="text-[12px] text-white/40">{timeAgo(c.created_at)}</div>
-            </div>
-            {c.status === 'pending' && <span className="text-[11px] font-medium px-3 py-1.5 rounded-full" style={{ background: 'rgba(253,41,123,0.118)', color: 'rgba(253,41,123,0.708)' }}>{t.waiting}</span>}
             {c.status === 'accepted' && (
               <button onClick={() => enterExistingGame(c)} className="rounded-full px-4 py-2 text-[12px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#4ade80,#22c55e)', color: '#0a0a10' }}>{t.enter}</button>
             )}
