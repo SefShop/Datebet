@@ -973,9 +973,9 @@ export default function ProfileScreenNew() {
           .desktop-profile-card {
             width: clamp(420px, 34vw, 500px) !important;
             max-width: 500px !important;
-            height: clamp(650px, 80vh, 780px) !important;
-            min-height: 650px !important;
-            max-height: 780px !important;
+            height: clamp(600px, 72vh, 720px) !important;
+            min-height: 600px !important;
+            max-height: 720px !important;
             margin: 0 auto !important;
             overflow: hidden !important;
             position: relative !important;
@@ -990,7 +990,7 @@ export default function ProfileScreenNew() {
           .desktop-profile-card.desktop-card-front-active {
             height: auto !important;
             min-height: 0 !important;
-            max-height: clamp(650px, 80vh, 780px) !important;
+            max-height: clamp(600px, 72vh, 720px) !important;
           }
           /* Was flex:0 0 70% of the card's own height — with the card now
              content-sized (auto) in front-view mode, that had no stable
@@ -1000,7 +1000,7 @@ export default function ProfileScreenNew() {
              only decoupled from a fixed card height. */
           .mc-photo-zone {
             flex: 0 0 auto !important;
-            height: clamp(455px, 56vh, 546px) !important;
+            height: clamp(420px, 50vh, 504px) !important;
           }
           .desktop-profile-details-toggle {
             display: flex !important;
