@@ -999,7 +999,19 @@ export default function MysteryChoiceGame() {
                   style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 28px rgba(253,41,123,0.45)' }}>
                   🎮 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
                 </button>
-                <button onClick={() => navigate('profile')} className="rounded-2xl py-3 text-[13px] font-bold active:scale-95 transition-transform cursor-pointer"
+                <button onClick={() => {
+                  // This is a separate button from the header BackControl,
+                  // specific to the result screen — it must clear the
+                  // session exactly like BackControl already does for a
+                  // finished game, or the persisted session reference
+                  // stays set and a refresh after this incorrectly
+                  // restores the old result. Navigate first, then clear —
+                  // same ordering already proven to avoid a CSS-transition
+                  // flash of the "no session" fallback.
+                  navigate('profile')
+                  isExitingRef.current = true
+                  clearCurrentSession()
+                }} className="rounded-2xl py-3 text-[13px] font-bold active:scale-95 transition-transform cursor-pointer"
                   style={{ background: 'transparent', color: 'rgba(255,255,255,0.5)' }}>
                   {lang === 'gr' ? 'Πίσω στο Discover' : 'Back to Discover'}
                 </button>
