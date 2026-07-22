@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { getCurrentMatch } from '@/lib/profiles'
+import { setChatOrigin } from '@/lib/gameInvites'
 import { supabase } from '@/lib/supabase'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
@@ -66,7 +67,7 @@ export default function PostGameScreen() {
           style={{ background:'rgba(255,255,255,0.071)', color:'rgba(255,255,255,0.708)', border:'1px solid rgba(255,255,255,0.118)' }}>
           {t.rematchBtn}
         </button>
-        <button onClick={() => navigate('chat')}
+        <button onClick={() => { setChatOrigin(null); navigate('chat') }}
           className="w-full text-[13px] font-medium py-2 active:opacity-60 transition-opacity cursor-pointer"
           style={{ color:'rgba(255,255,255,0.354)' }}>
           {t.chatBtn}

@@ -7,6 +7,8 @@ import { getCurrentMatch, subscribeCurrentMatch } from '@/lib/profiles'
 import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
 import { getPairProgress } from '@/lib/pairProgress'
 import { markAsRead } from '@/lib/unread'
+import { getChatOrigin, setChatOrigin, getCurrentSession } from '@/lib/gameInvites'
+import BackControl from '@/components/ui/BackControl'
 
 interface Message {
   id: string
@@ -224,7 +226,15 @@ export default function ChatScreen() {
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 pt-12 pb-3"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.071)', background: 'rgba(6,6,10,0.95)', backdropFilter: 'blur(12px)' }}>
-        <button onClick={() => navigate('profile')} className="text-white/40 text-[16px] mr-1 active:opacity-60 cursor-pointer">←</button>
+        <BackControl lang={lang} onClick={() => {
+          const cameFromGameRoom = getChatOrigin() === 'game_room'
+          setChatOrigin(null)  // consume — never leaks into a future chat visit from a different origin
+          if (cameFromGameRoom && getCurrentSession()) {
+            navigate('game_room')
+          } else {
+            navigate('profile')
+          }
+        }} />
         {receiverId ? (
           <>
             <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0"

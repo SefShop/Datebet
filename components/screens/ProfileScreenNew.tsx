@@ -5,7 +5,7 @@ import { APP_COPY } from '@/lib/copy'
 import { setCurrentMatch, fetchProfiles, subscribeToNewProfiles, UserProfile } from '@/lib/profiles'
 import { appLangToIso } from '@/lib/langDetect'
 import DesktopProfileDetails from '@/components/ui/DesktopProfileDetails'
-import { sendGameInvite, setPendingInvite } from '@/lib/gameInvites'
+import { sendGameInvite, setPendingInvite, setChatOrigin } from '@/lib/gameInvites'
 import { getPairProgress, PairProgress } from '@/lib/pairProgress'
 import { isOnlineNow } from '@/lib/presence'
 import { supabase } from '@/lib/supabase'
@@ -755,7 +755,7 @@ export default function ProfileScreenNew() {
               style={{ background:'rgba(56,189,248,0.15)', border:'2px solid rgba(56,189,248,0.3)' }}>
               ⚡
             </button>
-            <button onClick={() => { if(!p||locked)return; if(!progress.chat_unlocked){ setChallengeMsg(lang==='gr'?'Παίξε περισσότερα για chat (10)':'Play more games to unlock chat.'); setTimeout(()=>setChallengeMsg(null),2200); return } setCurrentMatch(p); navigate('chat') }} disabled={locked}
+            <button onClick={() => { if(!p||locked)return; if(!progress.chat_unlocked){ setChallengeMsg(lang==='gr'?'Παίξε περισσότερα για chat (10)':'Play more games to unlock chat.'); setTimeout(()=>setChallengeMsg(null),2200); return } setCurrentMatch(p); setChatOrigin(null); navigate('chat') }} disabled={locked}
               className="w-12 h-12 rounded-full flex items-center justify-center text-[16px] active:scale-90 transition-transform cursor-pointer disabled:opacity-40"
               style={{ background: progress.chat_unlocked ? 'rgba(167,139,250,0.18)' : 'rgba(255,255,255,0.05)', border: progress.chat_unlocked ? '2px solid rgba(167,139,250,0.35)' : '2px solid rgba(255,255,255,0.094)', opacity: progress.chat_unlocked ? 1 : 0.5 }}>
               {progress.chat_unlocked ? '💬' : '🔒'}

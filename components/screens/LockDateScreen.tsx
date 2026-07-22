@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { getCurrentMatch } from '@/lib/profiles'
+import { setChatOrigin } from '@/lib/gameInvites'
 import BackControl from '@/components/ui/BackControl'
 
 type Phase = 'intro' | 'confirming' | 'waiting' | 'accepted' | 'postAccept' | 'hesitated'
@@ -88,7 +89,7 @@ export default function LockDateScreen() {
             {lang==='gr' ? "Είμαι μέσα. Κλείδωσέ το." : "I'm in. Lock it."}
           </button>
           <div className="w-full flex justify-center mt-2">
-            <BackControl lang={lang} onClick={() => navigate('chat')} />
+            <BackControl lang={lang} onClick={() => { setChatOrigin(null); navigate('chat') }} />
           </div>
         </div>
       )}
@@ -160,7 +161,7 @@ export default function LockDateScreen() {
             "{postMsg}"
           </div>
           <div className="flex flex-col gap-2.5">
-            <button onClick={() => navigate('chat')}
+            <button onClick={() => { setChatOrigin(null); navigate('chat') }}
               className="w-full rounded-2xl py-[16px] text-[15px] font-bold active:scale-95 transition-transform cursor-pointer"
               style={{ background:'linear-gradient(135deg,#ff3384,#ff7a6e)', color:'#fff', boxShadow:'0 12px 36px rgba(253,41,123,0.413)' }}>
               {lang==='gr' ? 'Συνέχισε κουβέντα' : 'Continue chatting'}
@@ -191,7 +192,7 @@ export default function LockDateScreen() {
               style={{ background:'linear-gradient(135deg,#ff3384,#ff7a6e)', color:'#fff', boxShadow:'0 12px 36px rgba(253,41,123,0.413)' }}>
               {lang==='gr' ? 'Παίξε ξανά' : 'Play again'}
             </button>
-            <button onClick={() => navigate('chat')}
+            <button onClick={() => { setChatOrigin(null); navigate('chat') }}
               className="w-full rounded-2xl py-[14px] text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
               style={{ background:'rgba(255,255,255,0.071)', color:'rgba(255,255,255,0.708)', border:'1px solid rgba(255,255,255,0.118)' }}>
               {lang==='gr' ? 'Προσπάθησε πιο σκληρά' : 'Try harder'}

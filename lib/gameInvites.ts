@@ -335,6 +335,23 @@ export function isValidActiveGameSession(session: GameSession | null | undefined
   return true
 }
 
+// Tracks whether Chat was opened specifically from a Game Room, so its
+// Back control knows to return there instead of Profiles. Every other
+// chat-entry point must explicitly clear this (set null) before
+// navigating to chat, so a stale 'game_room' value from an earlier visit
+// never leaks into a chat session opened from somewhere else. Persisted
+// (same existing localStorage mechanism as the active session ID) so it
+// survives a refresh while inside Chat.
+export function setChatOrigin(origin: 'game_room' | null) {
+  try {
+    if (origin) localStorage.setItem('dateduel_chat_origin', origin)
+    else localStorage.removeItem('dateduel_chat_origin')
+  } catch {}
+}
+export function getChatOrigin(): 'game_room' | null {
+  try { return localStorage.getItem('dateduel_chat_origin') as 'game_room' | null } catch { return null }
+}
+
 export function getPersistedActiveSessionId(): string | null {
   try { return localStorage.getItem('dateduel_active_session_id') } catch { return null }
 }

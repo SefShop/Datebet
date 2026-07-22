@@ -4,6 +4,7 @@ import { useApp } from '@/lib/AppContext'
 import { getMessagesState, subscribeMessages, refreshMessagesState } from '@/lib/messagesState'
 import { supabase } from '@/lib/supabase'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
+import { setChatOrigin } from '@/lib/gameInvites'
 
 interface Conversation {
   partnerId: string
@@ -118,6 +119,7 @@ export default function InboxScreen() {
       bio: { en: '', gr: '' },
     }
     setCurrentMatch(profile)
+    setChatOrigin(null)
     navigate('chat')
   }
 

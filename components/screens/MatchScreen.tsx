@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
 import { getCurrentMatch } from '@/lib/profiles'
+import { setChatOrigin } from '@/lib/gameInvites'
 import BrandBoard from '@/components/ui/BrandBoard'
 
 export default function MatchScreen() {
@@ -59,7 +60,7 @@ export default function MatchScreen() {
           style={{ background:'linear-gradient(135deg,#ff3384,#ff7a6e)', color:'#fff', boxShadow:'0 12px 40px rgba(253,41,123,0.472)' }}>
           {t.startGame}
         </button>
-        <button onClick={() => navigate('chat')}
+        <button onClick={() => { setChatOrigin(null); navigate('chat') }}
           className="w-full rounded-2xl py-[14px] text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
           style={{ background:'rgba(255,255,255,0.071)', color:'rgba(255,255,255,0.708)', border:'1px solid rgba(255,255,255,0.118)' }}>
           {t.sendMsg}

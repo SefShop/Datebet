@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, subscribeCurrentSession, sendGameInvite, setPendingInvite, clearCurrentSession } from '@/lib/gameInvites'
+import { getCurrentSession, subscribeCurrentSession, sendGameInvite, setPendingInvite, clearCurrentSession, setChatOrigin } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import { getPresence, isOnlineNow } from '@/lib/presence'
 import { setCurrentMatch } from '@/lib/profiles'
@@ -979,6 +979,7 @@ export default function MysteryChoiceGame() {
                       const oppId = isPlayerOne ? session.player_two_id : session.player_one_id
                       const oppName = isPlayerOne ? names.two : names.one
                       setCurrentMatch({ id: oppId, name: oppName, age: 0, photo: '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)', location: { en: '', gr: '' }, online: false, interests: [], bio: { en: '', gr: '' } })
+                      setChatOrigin(null)
                       navigate('chat')
                     }}
                     className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
