@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getPendingInvite, subscribePendingInvite, markInviteReconciled, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
+import { getPendingInvite, subscribePendingInvite, markInviteReconciled, enterAcceptedGame, clearCurrentSession, GameInvite } from '@/lib/gameInvites'
 
 const GAME_NAMES: Record<string, string> = { tic_tac_toe: '⭕ Tic Tac Toe', connect_4: '🔴 Connect 4', mystery: '🎮 Game' }
 
@@ -184,7 +184,13 @@ export default function WaitingScreen() {
           <p className="text-[14px] text-center mb-8" style={{ color: 'rgba(255,255,255,0.59)' }}>
             {pending.receiverName} {lang === 'gr' ? 'δεν μπορεί τώρα.' : "can't play right now."}
           </p>
-          <button onClick={() => navigate('profile')}
+          <button onClick={() => {
+            // Prevents a stale session reference (from this or any earlier
+            // game) from being restored on the next refresh, now that the
+            // user is intentionally leaving this declined-invite screen.
+            clearCurrentSession()
+            navigate('profile')
+          }}
             className="rounded-full px-6 py-3 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
             style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>
             {lang === 'gr' ? 'Πίσω στο Discover' : 'Back to Discover'}
