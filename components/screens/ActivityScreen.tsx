@@ -155,6 +155,18 @@ export default function ActivityScreen() {
 
   const pendingCount = incoming.filter(i => i.status === 'pending').length
 
+  // Display-only filtering for this screen: notifications older than 5
+  // minutes are hidden, and at most 6 are shown, newest first. This never
+  // touches the database or the underlying `incoming` data — an accepted
+  // invite (an active, resumable game) is exempt from the age limit
+  // entirely, so re-entry via Enter Game Room is never affected by this.
+  const FIVE_MIN_MS = 5 * 60 * 1000
+  const now = Date.now()
+  const visibleChallenges = incoming
+    .filter(c => c.status === 'accepted' || (now - new Date(c.created_at).getTime()) < FIVE_MIN_MS)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 6)
+
   return (
     <div className="flex flex-col h-full" style={{ background: '#0a0a10' }}>
       <div className="flex items-center justify-between px-5 pt-14 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
@@ -166,12 +178,12 @@ export default function ActivityScreen() {
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         {loading && <div className="flex justify-center py-16"><div className="text-[28px]" style={{ animation: 'pulse 1s infinite' }}>⚔️</div></div>}
 
-        {!loading && incoming.length === 0 && (
+        {!loading && visibleChallenges.length === 0 && (
           <div className="text-center px-8 py-16"><div className="text-[40px] mb-3">⚔️</div><div className="text-[15px] text-white/50">{t.empty}</div></div>
         )}
 
         {/* INCOMING */}
-        {incoming.map((c, i) => (
+        {visibleChallenges.map((c, i) => (
           <div key={c.id} className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.047)' }}>
             <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{ border: '2px solid rgba(253,41,123,0.354)' }}>
               {c.sender_photo ? <img src={c.sender_photo} alt="" className="w-full h-full object-cover" />
