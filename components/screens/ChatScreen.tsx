@@ -17,7 +17,7 @@ interface Message {
 }
 
 export default function ChatScreen() {
-  const { navigate, lang } = useApp()
+  const { navigate, lang, screen } = useApp()
   // Reactive — was previously `const match = getCurrentMatch()`, read once
   // per render. ChatScreen, like every other game screen, stays
   // permanently mounted (hidden via CSS) between visits — reading the
@@ -52,22 +52,28 @@ export default function ChatScreen() {
   const [chatAccessVerified, setChatAccessVerified] = useState(false)
   useEffect(() => {
     if (!receiverId) { setChatAccessVerified(true); return }  // no specific pair to check — matches original behavior
-    console.log('[PROFILES_REDIRECT_TRACE] file: ChatScreen.tsx | function: access-verification useEffect | fired because receiverId changed to:', receiverId)
+    // This screen is always-mounted, so receiverId can change purely
+    // because a DIFFERENT screen's flow (e.g. any game's Accept) just set
+    // a new opponent via setCurrentMatch() — not because the user is
+    // actually trying to view chat. Only perform this check (and thus
+    // only ever redirect) while the user is genuinely on the chat screen;
+    // re-running it whenever `screen` becomes 'chat' means it's still
+    // verified correctly if they reach chat later without receiverId
+    // changing again.
+    if (screen !== 'chat') return
     let cancelled = false
     getPairProgress(receiverId).then(prog => {
       if (cancelled) return
       if (!prog.chat_unlocked) {
         console.log('CHAT ACCESS BLOCKED: chat not unlocked for this pair')
-        console.log('[PROFILES_REDIRECT_TRACE] file: ChatScreen.tsx | function: access-verification useEffect | REDIRECTING to profile | reason: chat_unlocked=false for receiverId:', receiverId, '| games_completed:', prog.games_completed)
         navigate('profile')
         return
       }
-      console.log('CHAT ACCESS VERIFIED')
       setChatAccessVerified(true)
     })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [receiverId])
+  }, [receiverId, screen])
 
   // Poll partner presence every 20s
   useEffect(() => {
