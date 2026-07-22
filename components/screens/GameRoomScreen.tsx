@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentSession, setOpponentName, clearCurrentSession, setChatOrigin } from '@/lib/gameInvites'
+import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
@@ -42,6 +43,24 @@ export default function GameRoomScreen() {
         const oppId = user.id === s0.player_one_id ? s0.player_two_id : s0.player_one_id
         fetchGamePlayerPhotoAccess(user.id, oppId).then(setPhotoAccess)
         getPairProgress(oppId).then(prog => setChatUnlocked(prog.chat_unlocked))
+
+        // Ensures the opponent is always known before Chat can be opened
+        // from here — GameRoomScreen previously never set this itself,
+        // relying entirely on whatever setCurrentMatch() call happened to
+        // have run earlier (or hadn't, e.g. after a session was restored
+        // on refresh, which only restores the session, not the match).
+        // Same UserProfile shape enterAcceptedGame() already builds
+        // elsewhere, so Chat resolves the identical opponent/conversation.
+        const { data: opp } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
+        if (opp) {
+          const profile: UserProfile = {
+            id: opp.id, name: opp.name || 'Player', age: opp.age || 0,
+            photo: opp.photo || '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)',
+            location: { en: opp.location || '', gr: opp.location || '' },
+            online: true, interests: [], bio: { en: opp.bio || '', gr: opp.bio || '' },
+          }
+          setCurrentMatch(profile)
+        }
       }
     }
     init()
