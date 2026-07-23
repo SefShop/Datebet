@@ -24,7 +24,7 @@ function checkWin(b: string[]): string | null {
 interface GameState { board: string[]; currentTurn: string; winner: string | null; status: string; moves: number; progressCounted?: boolean }
 
 export default function Connect4Screen() {
-  const { navigate, lang } = useApp()
+  const { navigate, lang, openChat } = useApp()
   // Reactive — mirrors the fix already proven for Tic Tac Toe and Mystery
   // Choice. All game screens stay permanently mounted (hidden via CSS), so
   // reading getCurrentSession() only at render time meant this screen
@@ -360,7 +360,7 @@ export default function Connect4Screen() {
         <div className="c4-finished-actions px-6 mt-5 flex flex-col gap-2.5">
           <button onClick={playAgain} className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>{lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}</button>
           {pairCount >= 10 ? (
-            <button onClick={() => { setChatOrigin(null); navigate('chat') }} className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 cursor-pointer" style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}</button>
+            <button onClick={() => { setChatOrigin(null); openChat() }} className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 cursor-pointer" style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}</button>
           ) : (
             <div className="text-center text-[12px] px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.55)' }}>
               🔒 {lang === 'gr' ? `Το chat ξεκλειδώνει μετά από 10 νίκες μαζί (${pairCount}/10)` : `Chat unlocks after 10 wins together (${pairCount}/10)`}

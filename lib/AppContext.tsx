@@ -24,6 +24,7 @@ interface AppContextType {
   bet: BetState; setBetAmount: (n: number) => void; commitBet: () => void; lockBet: () => void
   session: SessionProfile; personalization: PersonalizationSnapshot
   returnState: ReturnState | null; dismissReturn: () => void
+  chatOpen: boolean; openChat: () => void; closeChat: () => void
 }
 
 const Ctx = createContext<AppContextType | null>(null)
@@ -59,6 +60,9 @@ function pickFreshQuestion(usedIds: string[], lastId?: string): BiQuestion {
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [screen,    setScreen]   = useState<Screen>('splash')
+  const [chatOpen,  setChatOpen] = useState(false)
+  const openChat  = () => setChatOpen(true)
+  const closeChat = () => setChatOpen(false)
 
   // ── Active top-level screen restoration — DISABLED ────────────────
   // This effect used to independently call supabase.auth.getSession() and
@@ -114,6 +118,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // removed
     setScreen(s)
     try { localStorage.setItem('dateduel_active_screen', s) } catch {}
+    // The chat overlay is tied to staying on the current game screen —
+    // any explicit navigation away is a signal to close it. Single,
+    // centralized fix here covers every existing navigate() call in the
+    // app (including every game's own back button) without needing
+    // individual cleanup logic added anywhere else.
+    setChatOpen(false)
   }
 
   const dismissReturn = () => {}  // no-op
@@ -170,6 +180,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       bet, setBetAmount, commitBet, lockBet,
       session, personalization,
       returnState, dismissReturn,
+      chatOpen, openChat, closeChat,
     }}>
       {children}
     </Ctx.Provider>

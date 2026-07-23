@@ -385,6 +385,26 @@ export async function restorePersistedActiveSession(currentUserId: string): Prom
       clearPersistedActiveSessionId()
       return null
     }
+
+    // Restoring the session alone left the current-match (opponent)
+    // unresolved — refreshing while directly inside an active game
+    // (bypassing Game Room, which independently already sets this) meant
+    // ChatPanel had no opponent to resolve, showing "No player selected".
+    // Same UserProfile shape enterAcceptedGame() already builds, so this
+    // reuses the existing current-match architecture rather than adding a
+    // second one.
+    const opponentId = currentUserId === session.player_one_id ? session.player_two_id : session.player_one_id
+    const { data: opp } = await supabase.from('profiles').select('*').eq('id', opponentId).maybeSingle()
+    if (opp) {
+      const profile: UserProfile = {
+        id: opp.id, name: opp.name || 'Player', age: opp.age || 0,
+        photo: opp.photo || '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)',
+        location: { en: opp.location || '', gr: opp.location || '' },
+        online: true, interests: [], bio: { en: opp.bio || '', gr: opp.bio || '' },
+      }
+      setCurrentMatch(profile)
+    }
+
     return { session, screen: gameScreenFor(session.game_type) }
   } catch {
     return null

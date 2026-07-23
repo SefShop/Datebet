@@ -164,7 +164,7 @@ function buildFreshMysteryState(): MysteryChoiceState {
 }
 
 export default function MysteryChoiceGame() {
-  const { navigate, lang } = useApp()
+  const { navigate, lang, openChat } = useApp()
   // Reactive — was previously `const session = getCurrentSession()`, only
   // re-read whenever this always-mounted-but-hidden screen happened to
   // re-render for some unrelated reason. Now subscribed directly so a new
@@ -980,7 +980,7 @@ export default function MysteryChoiceGame() {
                       const oppName = isPlayerOne ? names.two : names.one
                       setCurrentMatch({ id: oppId, name: oppName, age: 0, photo: '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)', location: { en: '', gr: '' }, online: false, interests: [], bio: { en: '', gr: '' } })
                       setChatOrigin(null)
-                      navigate('chat')
+                      openChat()
                     }}
                     className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
                     style={{ background: 'linear-gradient(135deg,#7c72ff,#d84dd8)', color: '#fff', boxShadow: '0 8px 24px rgba(108,99,255,0.4)' }}>

@@ -34,7 +34,7 @@ interface GameState {
 }
 
 export default function TicTacToeScreen() {
-  const { navigate, lang } = useApp()
+  const { navigate, lang, openChat } = useApp()
 
   // Diagnostic only — proves whether this component mounts fresh (a real
   // remount) or was already mounted the whole time (the always-mounted
@@ -613,7 +613,7 @@ export default function TicTacToeScreen() {
             </button>
           )}
           {pairCount >= 10 ? (
-            <button onClick={() => { setChatOrigin(null); navigate('chat') }}
+            <button onClick={() => { setChatOrigin(null); openChat() }}
               className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
               style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>
               💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}

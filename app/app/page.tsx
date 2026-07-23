@@ -14,6 +14,7 @@ import ProfileScreen    from '@/components/screens/ProfileScreen'
 import MatchScreen      from '@/components/screens/MatchScreen'
 import PostGameScreen   from '@/components/screens/PostGameScreen'
 import ChatScreen       from '@/components/screens/ChatScreen'
+import GameChatOverlay  from '@/components/chat/GameChatOverlay'
 import LockDateScreen   from '@/components/screens/LockDateScreen'
 import EditProfileScreen from '@/components/screens/EditProfileScreen'
 import SettingsScreen from '@/components/screens/SettingsScreen'
@@ -365,6 +366,11 @@ function AppShell() {
             )}
           </>
         })()}
+
+        {/* Game chat overlay — sibling of the screens map, not part of
+            navigation. Renders nothing until chatOpen is true (nothing
+            sets it yet). */}
+        <GameChatOverlay />
 
         {/* Return overlay — sits on top, slides in from below */}
         { /* ReturnScreen removed */ }
