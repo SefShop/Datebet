@@ -200,9 +200,18 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
   if (!match) return <div className="flex items-center justify-center h-full" style={{background:"#0a0a10"}}><div className="text-center"><div className="text-[14px] text-white/40">No player selected</div></div></div>
 
   async function send() {
-    if (!input.trim() || !userId || !receiverId) return
+    console.log('[CHAT DEBUG] send() entered')
+    console.log('[CHAT DEBUG] input.trim():', JSON.stringify(input.trim()))
+    console.log('[CHAT DEBUG] userId:', userId)
+    console.log('[CHAT DEBUG] receiverId:', receiverId)
+    if (!input.trim() || !userId || !receiverId) {
+      console.log('[CHAT DEBUG] early-return TRIGGERED — one of input/userId/receiverId is falsy')
+      return
+    }
+    console.log('[CHAT DEBUG] early-return NOT triggered — proceeding')
     const text = input.trim()
     setInput('')
+    console.log('[CHAT DEBUG] setInput(\'\') reached')
 
     // Optimistic update — show immediately
     const tempMsg: Message = {
@@ -214,11 +223,13 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     }
     setMsgs(prev => [...prev, tempMsg])
 
-    const { error: e } = await supabase.from('messages').insert({
+    console.log('[CHAT DEBUG] about to call supabase.from(\'messages\').insert()', { sender_id: userId, receiver_id: receiverId })
+    const { data, error: e } = await supabase.from('messages').insert({
       sender_id: userId,
       receiver_id: receiverId,
       text,
     })
+    console.log('[CHAT DEBUG] insert result — data:', data, 'error:', e)
 
     if (e) { console.error('CHAT send error:', e); setError(e.message) }
     else { console.log('MESSAGE SENT REFRESH CALLED'); refreshMessagesState() }
