@@ -51,6 +51,15 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
   const [msgs, setMsgs]       = useState<Message[]>([])
   const [input, setInput]     = useState('')
   const [userId, setUserId]   = useState<string | null>(null)
+  // Typing indicator — reuses the same realtime channel the message
+  // subscription already opens (via broadcast, not a new channel or a
+  // new postgres_changes subscription), so this never duplicates the
+  // existing message subscription.
+  const [otherTyping, setOtherTyping] = useState(false)
+  const channelRef = useRef<any>(null)
+  const otherTypingTimeoutRef = useRef<any>(null)
+  const iAmTypingRef = useRef(false)
+  const lastTypingSentRef = useRef(0)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
   const [partnerOnline, setPartnerOnline] = useState(false)
@@ -178,7 +187,22 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
             })
           }
         })
+        .on('broadcast', { event: 'typing' }, (msg: any) => {
+          // Broadcasts on this channel are received by every subscriber,
+          // including ourselves — only ever show the OTHER user's typing,
+          // never our own.
+          if (msg.payload?.userId !== user.id) {
+            if (otherTypingTimeoutRef.current) clearTimeout(otherTypingTimeoutRef.current)
+            if (msg.payload?.stopped) {
+              setOtherTyping(false)
+            } else {
+              setOtherTyping(true)
+              otherTypingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 3000)
+            }
+          }
+        })
         .subscribe((status: string) => { if (status === 'SUBSCRIBED') console.log('CHAT REALTIME CONNECTED') })
+      channelRef.current = channel
 
       // Polling fallback (every 3s while chat is open)
       console.log('CHAT POLLING ACTIVE')
@@ -187,6 +211,11 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
 
     init()
     return () => {
+      if (channel && iAmTypingRef.current && userId) {
+        channel.send({ type: 'broadcast', event: 'typing', payload: { userId, stopped: true } })
+        iAmTypingRef.current = false
+      }
+      if (otherTypingTimeoutRef.current) clearTimeout(otherTypingTimeoutRef.current)
       if (channel) supabase.removeChannel(channel)
       if (poll) clearInterval(poll)
     }
@@ -198,6 +227,31 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
   }, [msgs])
 
   if (!match) return <div className="flex items-center justify-center h-full" style={{background:"#0a0a10"}}><div className="text-center"><div className="text-[14px] text-white/40">No player selected</div></div></div>
+
+  // Sends a lightweight "typing" broadcast on the same existing channel —
+  // throttled to at most once every 2 seconds so rapid keystrokes don't
+  // flood the channel. Only ever called from the input's onChange below;
+  // send() itself is untouched.
+  function notifyTyping() {
+    if (!channelRef.current || !userId) return
+    const now = Date.now()
+    if (now - lastTypingSentRef.current < 2000) return
+    lastTypingSentRef.current = now
+    iAmTypingRef.current = true
+    channelRef.current.send({ type: 'broadcast', event: 'typing', payload: { userId } })
+  }
+
+  // Covers "clear immediately after sending a message" without touching
+  // send() at all: send() already does setInput('') on success, so input
+  // becoming empty after having had content is used as that same signal.
+  const prevInputRef = useRef('')
+  useEffect(() => {
+    if (prevInputRef.current !== '' && input === '' && iAmTypingRef.current && channelRef.current && userId) {
+      channelRef.current.send({ type: 'broadcast', event: 'typing', payload: { userId, stopped: true } })
+      iAmTypingRef.current = false
+    }
+    prevInputRef.current = input
+  }, [input, userId])
 
   async function send() {
     console.log('[CHAT DEBUG] send() entered')
@@ -340,6 +394,13 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
         })}
       </div>
 
+      {/* Typing indicator — compact, only takes space while active */}
+      {otherTyping && (
+        <div className="px-4 pb-1 text-[12px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          {lang === 'gr' ? 'γράφει...' : 'typing...'}
+        </div>
+      )}
+
       {/* Quick pills */}
       {receiverId && (
         <div className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto"
@@ -357,7 +418,7 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       {/* Input */}
       {receiverId && (
         <div className="flex items-center gap-2 px-3 pb-6 pt-1.5">
-          <input value={input} onChange={e => setInput(e.target.value)}
+          <input value={input} onChange={e => { setInput(e.target.value); notifyTyping() }}
             onKeyDown={e => { if (e.key === 'Enter') send() }}
             placeholder={lang === 'gr' ? 'πες κάτι...' : 'say something...'}
             className="flex-1 rounded-full px-4 py-3 text-[14px] outline-none"
