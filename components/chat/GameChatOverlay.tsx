@@ -6,6 +6,14 @@ import { supabase } from '@/lib/supabase'
 import { notifyGamePresence, markGamePresenceLeft, wasGamePresenceLeft } from '@/lib/gamePresence'
 import ChatPanel from '@/components/chat/ChatPanel'
 
+// Module-level (not a ref) — resets only on a full page reload, unlike a
+// component ref which this singleton, always-mounted component would
+// never actually remount anyway, but being explicit about "since this JS
+// module loaded" makes the one-time intent clear. Used below so the
+// persisted left-flag is only ever consulted once per page load, not on
+// every join attempt for the rest of the session.
+let hasCheckedInitialGamePresenceRestore = false
+
 export default function GameChatOverlay() {
   const { chatOpen, closeChat, screen } = useApp()
 
@@ -36,8 +44,13 @@ export default function GameChatOverlay() {
         // be mistaken for a genuine re-entry if the user had deliberately
         // left before that refresh — this persisted flag (unlike the
         // refs above, which reset on reload) is what makes that
-        // distinction possible.
-        if (wasGamePresenceLeft(session!.id)) {
+        // distinction possible. Only checked once, on the first run
+        // since this page loaded — every subsequent join within the same
+        // session (e.g. pressing "Continue Game" after Back) is always a
+        // live, user-initiated action and must proceed normally.
+        const isFirstCheck = !hasCheckedInitialGamePresenceRestore
+        hasCheckedInitialGamePresenceRestore = true
+        if (isFirstCheck && wasGamePresenceLeft(session!.id)) {
           gamePresenceSessionIdRef.current = session!.id
           return
         }
