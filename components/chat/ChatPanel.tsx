@@ -70,6 +70,7 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
   // so a brief gap in either source can't cause the displayed status to
   // flicker: whichever source currently says "online" wins.
   const [opponentInChannel, setOpponentInChannel] = useState(false)
+  const opponentOfflineTimeoutRef = useRef<any>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const receiverId = match && match.id !== 'none' ? match.id : null
@@ -182,7 +183,7 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
         // driven by the database, not by matching another client's
         // channel name — that's why messages worked while typing never
         // did.
-        .channel(`chat-${[user.id, receiverId].sort().join('-')}`)
+        .channel(`chat-${[user.id, receiverId].sort().join('-')}`, { config: { presence: { key: user.id } } })
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -218,17 +219,31 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
           }
         })
         .on('presence', { event: 'sync' }, () => {
-          // Instant, conversation-scoped signal: is the opponent actively
-          // tracked as present on this exact channel right now? Combined
-          // below with the existing 20s poll (which stays the baseline
-          // "are they using the app at all" source) — never used alone,
-          // so a momentary presence-sync gap can't cause a flicker: the
-          // poll-based partnerOnline still holds steady in between.
+          // Sole source of truth for online/offline display — real,
+          // conversation-scoped Realtime Presence, not the global
+          // app-wide poll (which was the actual bug: it stayed true as
+          // long as the opponent was logged in anywhere, e.g. still
+          // playing the game after closing chat, permanently masking
+          // this signal). Detected by user ID only, never display name.
           const state = channel.presenceState()
           const present = Object.values(state).some((entries: any) =>
             entries.some((e: any) => e.userId === receiverId)
           )
-          setOpponentInChannel(present)
+          if (present) {
+            // Coming online is shown immediately — no reason to delay
+            // good news, and no risk of a stale "online" value here.
+            if (opponentOfflineTimeoutRef.current) { clearTimeout(opponentOfflineTimeoutRef.current); opponentOfflineTimeoutRef.current = null }
+            setOpponentInChannel(true)
+          } else if (opponentOfflineTimeoutRef.current === null) {
+            // Short grace period before flipping to offline, so a
+            // momentary presence-sync gap (e.g. a brief network blip)
+            // doesn't flicker the status — but never so long that a
+            // genuine close/navigate-away/unmount goes undetected.
+            opponentOfflineTimeoutRef.current = setTimeout(() => {
+              setOpponentInChannel(false)
+              opponentOfflineTimeoutRef.current = null
+            }, 2500)
+          }
         })
         .subscribe(async (status: string) => {
           if (status === 'SUBSCRIBED') {
@@ -255,7 +270,11 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
         iAmTypingRef.current = false
       }
       if (otherTypingTimeoutRef.current) clearTimeout(otherTypingTimeoutRef.current)
-      if (channel) supabase.removeChannel(channel)
+      if (opponentOfflineTimeoutRef.current) { clearTimeout(opponentOfflineTimeoutRef.current); opponentOfflineTimeoutRef.current = null }
+      if (channel) {
+        channel.untrack()  // explicit — lets the other client detect our absence promptly, on close/unmount/navigation alike
+        supabase.removeChannel(channel)
+      }
       if (poll) clearInterval(poll)
       setOpponentInChannel(false)
     }
@@ -338,7 +357,14 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
   // otherwise falls back to the existing 20s-poll baseline. Simple OR,
   // not a source toggle, so a brief gap in either can't flicker the
   // displayed status.
-  const effectiveOnline = opponentInChannel || partnerOnline
+  // Sole source of truth for online/offline — real, conversation-scoped
+  // Realtime Presence. The global app-wide poll (partnerOnline) is no
+  // longer used here for the online/offline determination itself — that
+  // was the actual bug, since it stayed true as long as the opponent was
+  // logged in anywhere in the app, not specifically in this chat. It's
+  // still used below only for its richer "last seen Nm ago" text in the
+  // offline case.
+  const effectiveOnline = opponentInChannel
   // Keeps the text label consistent with the dot above — reuses the
   // exact same localized "online" string presenceLabel() already
   // returns for its own online case, rather than showing a stale
