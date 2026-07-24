@@ -370,7 +370,7 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
   // returns for its own online case, rather than showing a stale
   // "last seen Nm ago" text next to a green dot if the instant signal
   // arrives before the next poll catches up.
-  const displayedPresence = effectiveOnline ? (lang === 'gr' ? 'σε σύνδεση' : 'online') : partnerPresence
+  const displayedPresence = effectiveOnline ? (lang === 'gr' ? 'σε σύνδεση' : 'online') : (lang === 'gr' ? 'εκτός σύνδεσης' : 'offline')
 
   return (
     !chatAccessVerified ? (
