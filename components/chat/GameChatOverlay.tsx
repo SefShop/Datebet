@@ -1,9 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { getCurrentSession, subscribeCurrentSession } from '@/lib/gameInvites'
+import { getCurrentSession, subscribeCurrentSession, gameScreenFor } from '@/lib/gameInvites'
 import { supabase } from '@/lib/supabase'
-import { notifyGamePresence } from '@/lib/gamePresence'
+import { notifyGamePresence, markGamePresenceLeft, wasGamePresenceLeft } from '@/lib/gamePresence'
 import ChatPanel from '@/components/chat/ChatPanel'
 
 export default function GameChatOverlay() {
@@ -23,17 +23,24 @@ export default function GameChatOverlay() {
     async function syncGamePresence() {
       const session = getCurrentSession()
       const { data: { user } } = await supabase.auth.getUser()
-      // Tracks based on whether there's still an active session at all —
-      // not specifically whether `screen` equals the exact game board
-      // screen name. Mid-game, pressing the game's own back arrow goes
-      // to 'game_room' without clearing the session (existing, unchanged
-      // behavior) — the user is still meaningfully "in" that game, just
-      // viewing a different screen, so this must not count as having
-      // left. Only an actual session clear (Back to Discover, or the
-      // finished-game exit) represents genuinely leaving.
-      const onGameScreen = !!(session && user)
+      // Present specifically while on the exact game board screen — not
+      // Game Room, not anywhere else. Pressing the game's own back arrow
+      // (mid-game, to Game Room) is a deliberate "left the game" action,
+      // even though the session itself stays active so the user can
+      // still return.
+      const onGameScreen = !!(session && user && screen === gameScreenFor(session.game_type))
 
       if (onGameScreen && gamePresenceSessionIdRef.current !== session!.id) {
+        // A page refresh that lands back on the game screen (existing,
+        // unrelated behavior of restorePersistedActiveSession) must not
+        // be mistaken for a genuine re-entry if the user had deliberately
+        // left before that refresh — this persisted flag (unlike the
+        // refs above, which reset on reload) is what makes that
+        // distinction possible.
+        if (wasGamePresenceLeft(session!.id)) {
+          gamePresenceSessionIdRef.current = session!.id
+          return
+        }
         // Switched games (or first entry) — leave any previous channel first
         if (gamePresenceChannelRef.current) {
           gamePresenceChannelRef.current.untrack()
@@ -54,6 +61,7 @@ export default function GameChatOverlay() {
         gamePresenceChannelRef.current.untrack()
         supabase.removeChannel(gamePresenceChannelRef.current)
         gamePresenceChannelRef.current = null
+        if (gamePresenceSessionIdRef.current) markGamePresenceLeft(gamePresenceSessionIdRef.current)
         gamePresenceSessionIdRef.current = null
         notifyGamePresence(null, new Set())
       }
@@ -63,14 +71,17 @@ export default function GameChatOverlay() {
 
   useEffect(() => {
     // Also re-check on session changes themselves (e.g. Play Again
-    // creating a new session while already on the same game screen).
+    // creating a new session while already on the same game screen, or
+    // the session being cleared entirely via Back to Discover).
     const unsubscribe = subscribeCurrentSession(() => {
       const session = getCurrentSession()
       if (!session && gamePresenceChannelRef.current) {
+        const leftSessionId = gamePresenceSessionIdRef.current
         gamePresenceChannelRef.current.untrack()
         supabase.removeChannel(gamePresenceChannelRef.current)
         gamePresenceChannelRef.current = null
         gamePresenceSessionIdRef.current = null
+        if (leftSessionId) markGamePresenceLeft(leftSessionId)
         notifyGamePresence(null, new Set())
       }
     })

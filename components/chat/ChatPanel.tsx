@@ -143,8 +143,19 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     if (!isThisPair) return
 
     gamePresenceKnownRef.current = null
+    const myUserId = userId
+    const opponentId = receiverId
+    function showLeft() {
+      gamePresenceKnownRef.current = false
+      gamePresenceLeaveTimeoutRef.current = null
+      setMsgs(prev => [...prev, {
+        id: 'sys-' + Date.now(), created_at: new Date().toISOString(),
+        sender_id: opponentId, receiver_id: myUserId, isSystem: true,
+        text: lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} έφυγε από το παιχνίδι.` : `${match?.name || 'Player'} left the game.`,
+      }])
+    }
     const unsubscribe = subscribeGamePresence((sessionId, presentUserIds) => {
-      if (sessionId !== session.id) return  // a different game's presence update — not this conversation's
+      if (sessionId !== null && sessionId !== session.id) return  // an update for a different, unrelated game session — not this conversation's
       const present = presentUserIds.has(receiverId)
 
       if (present) {
@@ -154,24 +165,24 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
           // case that shows the "returned" notice.
           setMsgs(prev => [...prev, {
             id: 'sys-' + Date.now(), created_at: new Date().toISOString(),
-            sender_id: receiverId, receiver_id: userId, isSystem: true,
+            sender_id: opponentId, receiver_id: myUserId, isSystem: true,
             text: lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} επέστρεψε στο παιχνίδι.` : `${match?.name || 'Player'} returned to the game.`,
           }])
         }
         gamePresenceKnownRef.current = true
+      } else if (sessionId === null) {
+        // Explicit, deliberate leave (Back / Back to Discover) — shown
+        // immediately, no grace period. This is a definitive signal, not
+        // an ambiguous disconnect that needs time to confirm.
+        if (gamePresenceLeaveTimeoutRef.current) { clearTimeout(gamePresenceLeaveTimeoutRef.current); gamePresenceLeaveTimeoutRef.current = null }
+        if (gamePresenceKnownRef.current === true) showLeft()
+        else gamePresenceKnownRef.current = false
       } else if (gamePresenceKnownRef.current === true && gamePresenceLeaveTimeoutRef.current === null) {
-        // Short grace period before declaring "left" — absorbs a brief
-        // reconnect gap without a spurious event; still detects a
-        // genuine, sustained departure.
-        gamePresenceLeaveTimeoutRef.current = setTimeout(() => {
-          gamePresenceKnownRef.current = false
-          gamePresenceLeaveTimeoutRef.current = null
-          setMsgs(prev => [...prev, {
-            id: 'sys-' + Date.now(), created_at: new Date().toISOString(),
-            sender_id: receiverId, receiver_id: userId, isSystem: true,
-            text: lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} έφυγε από το παιχνίδι.` : `${match?.name || 'Player'} left the game.`,
-          }])
-        }, 2500)
+        // Implicit absence via the sync event (opponent simply missing
+        // from presentUserIds) — could be a brief, ambiguous disconnect
+        // (e.g. their own page reloading), so this gets a short grace
+        // period before declaring "left", unlike the explicit case above.
+        gamePresenceLeaveTimeoutRef.current = setTimeout(showLeft, 2500)
       } else if (gamePresenceKnownRef.current === null) {
         // First sync — establishes the baseline silently, no message.
         gamePresenceKnownRef.current = false
