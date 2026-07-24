@@ -64,6 +64,12 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
   const [error, setError]     = useState<string | null>(null)
   const [partnerOnline, setPartnerOnline] = useState(false)
   const [partnerPresence, setPartnerPresence] = useState('')
+  // Instant, conversation-scoped presence (Realtime Presence on the same
+  // channel as messages/typing) — combined with the existing 20s-poll
+  // partnerOnline below only as an OR, never a toggle between the two,
+  // so a brief gap in either source can't cause the displayed status to
+  // flicker: whichever source currently says "online" wins.
+  const [opponentInChannel, setOpponentInChannel] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const receiverId = match && match.id !== 'none' ? match.id : null
@@ -211,7 +217,30 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
             }
           }
         })
-        .subscribe((status: string) => { if (status === 'SUBSCRIBED') console.log('CHAT REALTIME CONNECTED') })
+        .on('presence', { event: 'sync' }, () => {
+          // Instant, conversation-scoped signal: is the opponent actively
+          // tracked as present on this exact channel right now? Combined
+          // below with the existing 20s poll (which stays the baseline
+          // "are they using the app at all" source) — never used alone,
+          // so a momentary presence-sync gap can't cause a flicker: the
+          // poll-based partnerOnline still holds steady in between.
+          const state = channel.presenceState()
+          const present = Object.values(state).some((entries: any) =>
+            entries.some((e: any) => e.userId === receiverId)
+          )
+          setOpponentInChannel(present)
+        })
+        .subscribe(async (status: string) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('CHAT REALTIME CONNECTED')
+            // Announces "I'm actively in this conversation" — scoped
+            // entirely to this channel/component lifetime. Automatically
+            // removed when the channel is unsubscribed (existing cleanup
+            // below via supabase.removeChannel), no separate untrack call
+            // needed for that path.
+            await channel.track({ userId: user.id })
+          }
+        })
       channelRef.current = channel
 
       // Polling fallback (every 3s while chat is open)
@@ -228,6 +257,7 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       if (otherTypingTimeoutRef.current) clearTimeout(otherTypingTimeoutRef.current)
       if (channel) supabase.removeChannel(channel)
       if (poll) clearInterval(poll)
+      setOpponentInChannel(false)
     }
   }, [receiverId])
 
@@ -304,6 +334,18 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     ? ['σειρά σου 😏','ρεβάνς;','τύχη ήταν','τι κερδίζω;']
     : ['your move 😏','rematch?','you got lucky','what\'s the prize?']
 
+  // Instant conversation-scoped signal wins immediately when present;
+  // otherwise falls back to the existing 20s-poll baseline. Simple OR,
+  // not a source toggle, so a brief gap in either can't flicker the
+  // displayed status.
+  const effectiveOnline = opponentInChannel || partnerOnline
+  // Keeps the text label consistent with the dot above — reuses the
+  // exact same localized "online" string presenceLabel() already
+  // returns for its own online case, rather than showing a stale
+  // "last seen Nm ago" text next to a green dot if the instant signal
+  // arrives before the next poll catches up.
+  const displayedPresence = effectiveOnline ? (lang === 'gr' ? 'σε σύνδεση' : 'online') : partnerPresence
+
   return (
     !chatAccessVerified ? (
       <div className="flex items-center justify-center h-full" style={{background:"#0a0a10"}}><div className="text-center"><div className="text-[14px] text-white/40">{lang === 'gr' ? 'Φόρτωση...' : 'Loading...'}</div></div></div>
@@ -327,9 +369,9 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[15px] font-bold text-white truncate">{match.name}</div>
-              <div className="text-[11px] flex items-center gap-1.5" style={{ color: partnerOnline ? '#4ade80' : 'rgba(255,255,255,0.472)' }}>
-                {partnerOnline && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#4ade80', boxShadow: '0 0 4px #4ade80' }} />}
-                {partnerPresence}
+              <div className="text-[11px] flex items-center gap-1.5" style={{ color: effectiveOnline ? '#4ade80' : 'rgba(255,255,255,0.472)' }}>
+                {effectiveOnline && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#4ade80', boxShadow: '0 0 4px #4ade80' }} />}
+                {displayedPresence}
               </div>
             </div>
           </>
