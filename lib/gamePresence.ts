@@ -21,22 +21,3 @@ export function subscribeGamePresence(fn: GamePresenceListener): () => void {
 export function notifyGamePresence(sessionId: string | null, presentUserIds: Set<string>) {
   _listeners.forEach(fn => { try { fn(sessionId, presentUserIds) } catch (e) { console.error('game presence listener error:', e) } })
 }
-
-// Persisted (survives a page refresh, unlike in-memory refs) marker for
-// "the user deliberately left this game's presence tracking" — set on a
-// genuine leave (Back to Game Room, Back to Discover, session clear),
-// cleared only by a genuine re-entry through the normal UI flow
-// (enterAcceptedGame — used by every real entry path). Without this, a
-// refresh that happens to land back on the game screen (an existing,
-// unrelated behavior of restorePersistedActiveSession) would look
-// identical to a real re-entry, incorrectly firing a "returned" event.
-function key(sessionId: string) { return `dateduel_game_presence_left_${sessionId}` }
-export function markGamePresenceLeft(sessionId: string) {
-  try { localStorage.setItem(key(sessionId), '1') } catch {}
-}
-export function clearGamePresenceLeft(sessionId: string) {
-  try { localStorage.removeItem(key(sessionId)) } catch {}
-}
-export function wasGamePresenceLeft(sessionId: string): boolean {
-  try { return localStorage.getItem(key(sessionId)) === '1' } catch { return false }
-}

@@ -1,7 +1,6 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { generateMysteryQuestions, toRoundData } from '@/lib/mysteryChoiceQuestions'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
-import { clearGamePresenceLeft } from '@/lib/gamePresence'
 
 export interface GameInvite {
   id: string
@@ -638,7 +637,6 @@ export async function enterAcceptedGame(
     }
 
     setCurrentSession(session)
-    clearGamePresenceLeft(session.id)
     // IMPORTANT: do NOT clear _enteringGame here (or in a finally block
     // below). setCurrentSession() synchronously notifies the session
     // subscription in app/app/page.tsx, which calls navigate() — but React

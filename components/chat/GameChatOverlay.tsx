@@ -3,16 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { getCurrentSession, subscribeCurrentSession, gameScreenFor } from '@/lib/gameInvites'
 import { supabase } from '@/lib/supabase'
-import { notifyGamePresence, markGamePresenceLeft, wasGamePresenceLeft } from '@/lib/gamePresence'
+import { notifyGamePresence } from '@/lib/gamePresence'
 import ChatPanel from '@/components/chat/ChatPanel'
-
-// Module-level (not a ref) — resets only on a full page reload, unlike a
-// component ref which this singleton, always-mounted component would
-// never actually remount anyway, but being explicit about "since this JS
-// module loaded" makes the one-time intent clear. Used below so the
-// persisted left-flag is only ever consulted once per page load, not on
-// every join attempt for the rest of the session.
-let hasCheckedInitialGamePresenceRestore = false
 
 export default function GameChatOverlay() {
   const { chatOpen, closeChat, screen } = useApp()
@@ -39,21 +31,6 @@ export default function GameChatOverlay() {
       const onGameScreen = !!(session && user && screen === gameScreenFor(session.game_type))
 
       if (onGameScreen && gamePresenceSessionIdRef.current !== session!.id) {
-        // A page refresh that lands back on the game screen (existing,
-        // unrelated behavior of restorePersistedActiveSession) must not
-        // be mistaken for a genuine re-entry if the user had deliberately
-        // left before that refresh — this persisted flag (unlike the
-        // refs above, which reset on reload) is what makes that
-        // distinction possible. Only checked once, on the first run
-        // since this page loaded — every subsequent join within the same
-        // session (e.g. pressing "Continue Game" after Back) is always a
-        // live, user-initiated action and must proceed normally.
-        const isFirstCheck = !hasCheckedInitialGamePresenceRestore
-        hasCheckedInitialGamePresenceRestore = true
-        if (isFirstCheck && wasGamePresenceLeft(session!.id)) {
-          gamePresenceSessionIdRef.current = session!.id
-          return
-        }
         // Switched games (or first entry) — leave any previous channel first
         if (gamePresenceChannelRef.current) {
           gamePresenceChannelRef.current.untrack()
@@ -74,7 +51,6 @@ export default function GameChatOverlay() {
         gamePresenceChannelRef.current.untrack()
         supabase.removeChannel(gamePresenceChannelRef.current)
         gamePresenceChannelRef.current = null
-        if (gamePresenceSessionIdRef.current) markGamePresenceLeft(gamePresenceSessionIdRef.current)
         gamePresenceSessionIdRef.current = null
         notifyGamePresence(null, new Set())
       }
@@ -89,12 +65,10 @@ export default function GameChatOverlay() {
     const unsubscribe = subscribeCurrentSession(() => {
       const session = getCurrentSession()
       if (!session && gamePresenceChannelRef.current) {
-        const leftSessionId = gamePresenceSessionIdRef.current
         gamePresenceChannelRef.current.untrack()
         supabase.removeChannel(gamePresenceChannelRef.current)
         gamePresenceChannelRef.current = null
         gamePresenceSessionIdRef.current = null
-        if (leftSessionId) markGamePresenceLeft(leftSessionId)
         notifyGamePresence(null, new Set())
       }
     })
