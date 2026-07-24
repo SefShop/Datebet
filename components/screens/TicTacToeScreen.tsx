@@ -7,6 +7,7 @@ import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
+import GameChatBadge from '@/components/chat/GameChatBadge'
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
@@ -615,8 +616,9 @@ export default function TicTacToeScreen() {
           {pairCount >= 10 ? (
             <button onClick={() => { setChatOrigin(null); openChat() }}
               className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-              style={{ background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>
+              style={{ position: 'relative', background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>
               💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}
+              <GameChatBadge />
             </button>
           ) : (
             <div className="w-full rounded-2xl py-3 text-[13px] font-medium text-center"

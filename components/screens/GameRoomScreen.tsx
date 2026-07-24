@@ -7,6 +7,7 @@ import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
+import GameChatBadge from '@/components/chat/GameChatBadge'
 import { getPairProgress } from '@/lib/pairProgress'
 
 export default function GameRoomScreen() {
@@ -157,8 +158,9 @@ export default function GameRoomScreen() {
         )}
         <button onClick={() => { if (!chatUnlocked) return; setChatOrigin('game_room'); openChat() }} disabled={!chatUnlocked}
           className="w-full max-w-[300px] mt-3 rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-          style={{ background: chatUnlocked ? 'rgba(108,99,255,0.142)' : 'rgba(255,255,255,0.05)', color: chatUnlocked ? '#b79cfc' : 'rgba(255,255,255,0.4)', border: chatUnlocked ? '1px solid rgba(108,99,255,0.236)' : '1px solid rgba(255,255,255,0.094)', opacity: chatUnlocked ? 1 : 0.6 }}>
+          style={{ position: 'relative', background: chatUnlocked ? 'rgba(108,99,255,0.142)' : 'rgba(255,255,255,0.05)', color: chatUnlocked ? '#b79cfc' : 'rgba(255,255,255,0.4)', border: chatUnlocked ? '1px solid rgba(108,99,255,0.236)' : '1px solid rgba(255,255,255,0.094)', opacity: chatUnlocked ? 1 : 0.6 }}>
           {chatUnlocked ? '💬 ' + (lang === 'gr' ? 'Κουβέντα πρώτα' : 'Chat first') : '🔒 ' + (lang === 'gr' ? 'Chat (10)' : 'Chat (10)')}
+          <GameChatBadge />
         </button>
         <button onClick={() => {
           // Intentional exit — clears only the local refresh-restoration

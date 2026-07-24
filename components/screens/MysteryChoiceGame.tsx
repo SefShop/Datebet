@@ -9,6 +9,7 @@ import { setCurrentMatch } from '@/lib/profiles'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
+import GameChatBadge from '@/components/chat/GameChatBadge'
 import { getAnswerEmoji } from '@/lib/answerEmoji'
 import { getResultPool, selectRandomResult, getResultById } from '@/lib/mysteryResultLibrary'
 import {
@@ -983,8 +984,9 @@ export default function MysteryChoiceGame() {
                       openChat()
                     }}
                     className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-                    style={{ background: 'linear-gradient(135deg,#7c72ff,#d84dd8)', color: '#fff', boxShadow: '0 8px 24px rgba(108,99,255,0.4)' }}>
+                    style={{ position: 'relative', background: 'linear-gradient(135deg,#7c72ff,#d84dd8)', color: '#fff', boxShadow: '0 8px 24px rgba(108,99,255,0.4)' }}>
                     💬 {lang === 'gr' ? 'Άνοιγμα Chat' : 'Open Chat'}
+                    <GameChatBadge />
                   </button>
                 ) : (
                   <div className="text-center rounded-2xl py-3 px-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
