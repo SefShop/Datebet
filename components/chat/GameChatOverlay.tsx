@@ -62,10 +62,18 @@ export default function GameChatOverlay() {
 
   // Bottom sheet — ~75% of viewport height, slides up/down via a
   // transform transition instead of appearing/disappearing instantly.
+  // The backdrop shares the exact same mount lifecycle (mobileMounted)
+  // and fades with the same mobileSlidIn flag, so it always appears and
+  // disappears together with the sheet. Positioned at a lower z-index
+  // than the sheet, so it never sits on top of (or intercepts clicks
+  // meant for) the chat content itself.
   if (!mobileMounted) return null
   return (
-    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, height: '75vh', background: '#0a0a10', borderTop: '1px solid rgba(255,255,255,0.1)', borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 300, overflow: 'hidden', transform: mobileSlidIn ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.3s ease' }}>
-      <ChatPanel onClose={closeChat} isOverlay />
-    </div>
+    <>
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 299, opacity: mobileSlidIn ? 1 : 0, transition: 'opacity 0.3s ease' }} />
+      <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, height: '75vh', background: '#0a0a10', borderTop: '1px solid rgba(255,255,255,0.1)', borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 300, overflow: 'hidden', transform: mobileSlidIn ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.3s ease' }}>
+        <ChatPanel onClose={closeChat} isOverlay />
+      </div>
+    </>
   )
 }
