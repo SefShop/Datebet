@@ -166,7 +166,17 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
 
       // Subscribe to realtime
       channel = supabase
-        .channel(`chat-${user.id}-${receiverId}`)
+        // Sorted so both participants compute the identical channel name
+        // regardless of who's "me" vs "them" — required for broadcast
+        // (used by the typing indicator below) to actually reach the
+        // other user. The previous chat-${user.id}-${receiverId} name was
+        // asymmetric: each side computed a different string, so neither
+        // ever received the other's broadcasts. postgres_changes (the
+        // message subscription) was unaffected by this, since it's
+        // driven by the database, not by matching another client's
+        // channel name — that's why messages worked while typing never
+        // did.
+        .channel(`chat-${[user.id, receiverId].sort().join('-')}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
