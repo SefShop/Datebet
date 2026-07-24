@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { getCurrentSession, subscribeCurrentSession, gameScreenFor } from '@/lib/gameInvites'
+import { getCurrentSession, subscribeCurrentSession } from '@/lib/gameInvites'
 import { supabase } from '@/lib/supabase'
 import { notifyGamePresence } from '@/lib/gamePresence'
 import ChatPanel from '@/components/chat/ChatPanel'
@@ -23,7 +23,15 @@ export default function GameChatOverlay() {
     async function syncGamePresence() {
       const session = getCurrentSession()
       const { data: { user } } = await supabase.auth.getUser()
-      const onGameScreen = !!(session && user && screen === gameScreenFor(session.game_type))
+      // Tracks based on whether there's still an active session at all —
+      // not specifically whether `screen` equals the exact game board
+      // screen name. Mid-game, pressing the game's own back arrow goes
+      // to 'game_room' without clearing the session (existing, unchanged
+      // behavior) — the user is still meaningfully "in" that game, just
+      // viewing a different screen, so this must not count as having
+      // left. Only an actual session clear (Back to Discover, or the
+      // finished-game exit) represents genuinely leaving.
+      const onGameScreen = !!(session && user)
 
       if (onGameScreen && gamePresenceSessionIdRef.current !== session!.id) {
         // Switched games (or first entry) — leave any previous channel first
