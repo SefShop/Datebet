@@ -8,6 +8,7 @@ import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
 import { getPairProgress } from '@/lib/pairProgress'
 import { markAsRead } from '@/lib/unread'
 import { getCurrentSession } from '@/lib/gameInvites'
+import { subscribeGamePresence } from '@/lib/gamePresence'
 import BackControl from '@/components/ui/BackControl'
 
 interface Message {
@@ -123,13 +124,14 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receiverId, lang])
 
-  // Game-scoped presence system messages — read-only subscription to the
-  // same channel GameChatOverlay tracks presence on (separate from both
-  // app-wide and chat-conversation presence, per the scope of this
-  // feature). Only relevant when the currently active game session is
-  // actually the one shared with this exact opponent; otherwise (e.g.
-  // full-screen chat opened from Profiles, no active game at all) this
-  // does nothing.
+  // Game-scoped presence system messages — reads GameChatOverlay's own
+  // tracking channel via its exported pub/sub, rather than creating a
+  // second RealtimeChannel object subscribed to the identical topic name
+  // (that duplicate-channel pattern is exactly what broke this the first
+  // time — see subscribeGamePresence's own comment for why). Only
+  // relevant when the currently active game session is actually the one
+  // shared with this exact opponent; otherwise (e.g. full-screen chat
+  // opened from Profiles, no active game at all) this does nothing.
   const gamePresenceKnownRef = useRef<boolean | null>(null)  // null = baseline not yet established
   const gamePresenceLeaveTimeoutRef = useRef<any>(null)
   useEffect(() => {
@@ -141,10 +143,9 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     if (!isThisPair) return
 
     gamePresenceKnownRef.current = null
-    const ch = supabase.channel(`game-presence-${session.id}`)
-    ch.on('presence', { event: 'sync' }, () => {
-      const state = ch.presenceState()
-      const present = Object.values(state).some((entries: any) => entries.some((e: any) => e.userId === receiverId))
+    const unsubscribe = subscribeGamePresence((sessionId, presentUserIds) => {
+      if (sessionId !== session.id) return  // a different game's presence update — not this conversation's
+      const present = presentUserIds.has(receiverId)
 
       if (present) {
         if (gamePresenceLeaveTimeoutRef.current) { clearTimeout(gamePresenceLeaveTimeoutRef.current); gamePresenceLeaveTimeoutRef.current = null }
@@ -176,11 +177,10 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
         gamePresenceKnownRef.current = false
       }
     })
-    ch.subscribe()
 
     return () => {
       if (gamePresenceLeaveTimeoutRef.current) clearTimeout(gamePresenceLeaveTimeoutRef.current)
-      supabase.removeChannel(ch)
+      unsubscribe()
     }
   }, [receiverId, userId, lang, match?.name])
 

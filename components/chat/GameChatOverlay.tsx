@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { getCurrentSession, subscribeCurrentSession, gameScreenFor } from '@/lib/gameInvites'
 import { supabase } from '@/lib/supabase'
+import { notifyGamePresence } from '@/lib/gamePresence'
 import ChatPanel from '@/components/chat/ChatPanel'
 
 export default function GameChatOverlay() {
@@ -31,6 +32,12 @@ export default function GameChatOverlay() {
           supabase.removeChannel(gamePresenceChannelRef.current)
         }
         const ch = supabase.channel(`game-presence-${session!.id}`, { config: { presence: { key: user!.id } } })
+        ch.on('presence', { event: 'sync' }, () => {
+          const state = ch.presenceState()
+          const presentUserIds = new Set<string>()
+          Object.values(state).forEach((entries: any) => entries.forEach((e: any) => { if (e.userId) presentUserIds.add(e.userId) }))
+          notifyGamePresence(session!.id, presentUserIds)
+        })
         ch.subscribe(async (status: string) => { if (status === 'SUBSCRIBED') await ch.track({ userId: user!.id }) })
         gamePresenceChannelRef.current = ch
         gamePresenceSessionIdRef.current = session!.id
@@ -40,6 +47,7 @@ export default function GameChatOverlay() {
         supabase.removeChannel(gamePresenceChannelRef.current)
         gamePresenceChannelRef.current = null
         gamePresenceSessionIdRef.current = null
+        notifyGamePresence(null, new Set())
       }
     }
     syncGamePresence()
