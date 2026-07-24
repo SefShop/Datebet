@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentSession, setOpponentName, clearCurrentSession, setChatOrigin } from '@/lib/gameInvites'
@@ -13,6 +13,7 @@ import { getPairProgress } from '@/lib/pairProgress'
 export default function GameRoomScreen() {
   const { navigate, lang, openChat } = useApp()
   const session = getCurrentSession()
+  const isExitingRef = useRef(false)
   const [bothNames, setBothNames] = useState<{ one: string; two: string }>({ one: 'Player 1', two: 'Player 2' })
   const [photoAccess, setPhotoAccess] = useState<{ photoUnlocked: boolean; myPhoto: string | null; opponentPhoto: string | null }>({ photoUnlocked: false, myPhoto: null, opponentPhoto: null })
   const [myId, setMyId] = useState<string | null>(null)
@@ -21,6 +22,7 @@ export default function GameRoomScreen() {
   useEffect(() => {
     if (!session) { console.log('GAME ROOM MOUNT: no session'); return }
     const s0 = session
+    isExitingRef.current = false
     console.log('GAME ROOM MOUNT: session present', { id: s0.id, game_type: s0.game_type })
     console.log('ENTERING GAME ROOM:', s0.id)
     console.log('GAME TYPE:', s0.game_type)
@@ -68,6 +70,13 @@ export default function GameRoomScreen() {
   }, [session])
 
   if (!session) {
+    if (isExitingRef.current) {
+      // Intentional exit via Back to Discover — not a real error. Render
+      // nothing (a neutral background) instead of the error message
+      // while this component fades out and 'profile' fades in — same
+      // pattern already proven in the game screens.
+      return <div className="flex flex-col h-full" style={{ background: '#0a0a10' }} />
+    }
     return (
       <div className="flex flex-col h-full items-center justify-center px-8" style={{ background: '#0a0a10' }}>
         <div className="text-[40px] mb-3">⚠️</div>
@@ -170,8 +179,13 @@ export default function GameRoomScreen() {
           // state, and all progress are completely untouched — re-entry
           // via the existing Challenges/Enter flow re-fetches the session
           // fresh via the invite ID, independent of this reference.
-          clearCurrentSession()
+          // Navigate FIRST, then clear — same ordering already proven in
+          // the game screens' own back-button fix, so that by the instant
+          // the session actually becomes null, `screen` has already moved
+          // to 'profile' and this component is already hidden.
           navigate('profile')
+          isExitingRef.current = true
+          clearCurrentSession()
         }}
           className="w-full max-w-[300px] mt-3 rounded-2xl py-3 text-[13px] font-semibold active:scale-95 transition-transform cursor-pointer"
           style={{ background: 'transparent', color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.08)' }}>

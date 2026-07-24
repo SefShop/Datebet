@@ -71,6 +71,7 @@ export default function GameChatOverlay() {
         supabase.removeChannel(gamePresenceChannelRef.current)
         gamePresenceChannelRef.current = null
         gamePresenceSessionIdRef.current = null
+        notifyGamePresence(null, new Set())
       }
     })
     return () => {
