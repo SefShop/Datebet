@@ -1,10 +1,71 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
+import { getCurrentSession, subscribeCurrentSession, gameScreenFor } from '@/lib/gameInvites'
+import { supabase } from '@/lib/supabase'
 import ChatPanel from '@/components/chat/ChatPanel'
 
 export default function GameChatOverlay() {
-  const { chatOpen, closeChat } = useApp()
+  const { chatOpen, closeChat, screen } = useApp()
+
+  // Game-scoped presence — a third, separate presence layer from both
+  // app-wide (lib/presence.ts) and chat-conversation presence
+  // (ChatPanel's own Realtime Presence). Tracked here because this
+  // component is already globally mounted (its hooks run regardless of
+  // chatOpen — only the JSX return is conditional), so it can track
+  // "am I actively on the game screen" independent of whether chat is
+  // open at all, which is what ChatPanel needs to detect the OPPONENT's
+  // leave/return regardless of when they happen to have chat open.
+  const gamePresenceChannelRef = useRef<any>(null)
+  const gamePresenceSessionIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    async function syncGamePresence() {
+      const session = getCurrentSession()
+      const { data: { user } } = await supabase.auth.getUser()
+      const onGameScreen = !!(session && user && screen === gameScreenFor(session.game_type))
+
+      if (onGameScreen && gamePresenceSessionIdRef.current !== session!.id) {
+        // Switched games (or first entry) — leave any previous channel first
+        if (gamePresenceChannelRef.current) {
+          gamePresenceChannelRef.current.untrack()
+          supabase.removeChannel(gamePresenceChannelRef.current)
+        }
+        const ch = supabase.channel(`game-presence-${session!.id}`, { config: { presence: { key: user!.id } } })
+        ch.subscribe(async (status: string) => { if (status === 'SUBSCRIBED') await ch.track({ userId: user!.id }) })
+        gamePresenceChannelRef.current = ch
+        gamePresenceSessionIdRef.current = session!.id
+      } else if (!onGameScreen && gamePresenceChannelRef.current) {
+        // Left the game screen (back button, navigated away, etc.)
+        gamePresenceChannelRef.current.untrack()
+        supabase.removeChannel(gamePresenceChannelRef.current)
+        gamePresenceChannelRef.current = null
+        gamePresenceSessionIdRef.current = null
+      }
+    }
+    syncGamePresence()
+  }, [screen])
+
+  useEffect(() => {
+    // Also re-check on session changes themselves (e.g. Play Again
+    // creating a new session while already on the same game screen).
+    const unsubscribe = subscribeCurrentSession(() => {
+      const session = getCurrentSession()
+      if (!session && gamePresenceChannelRef.current) {
+        gamePresenceChannelRef.current.untrack()
+        supabase.removeChannel(gamePresenceChannelRef.current)
+        gamePresenceChannelRef.current = null
+        gamePresenceSessionIdRef.current = null
+      }
+    })
+    return () => {
+      unsubscribe()
+      if (gamePresenceChannelRef.current) {
+        gamePresenceChannelRef.current.untrack()
+        supabase.removeChannel(gamePresenceChannelRef.current)
+      }
+    }
+  }, [])
+
 
   // Same detection pattern already used in ProfileScreenNew.tsx — reused
   // exactly, not a second mechanism.

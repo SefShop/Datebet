@@ -7,6 +7,7 @@ import { getCurrentMatch, subscribeCurrentMatch } from '@/lib/profiles'
 import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
 import { getPairProgress } from '@/lib/pairProgress'
 import { markAsRead } from '@/lib/unread'
+import { getCurrentSession } from '@/lib/gameInvites'
 import BackControl from '@/components/ui/BackControl'
 
 interface Message {
@@ -15,6 +16,7 @@ interface Message {
   sender_id: string
   receiver_id: string
   text: string
+  isSystem?: boolean  // local-only, never inserted into the database — used for ephemeral game-presence notices
 }
 
 interface Props {
@@ -121,6 +123,67 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receiverId, lang])
 
+  // Game-scoped presence system messages — read-only subscription to the
+  // same channel GameChatOverlay tracks presence on (separate from both
+  // app-wide and chat-conversation presence, per the scope of this
+  // feature). Only relevant when the currently active game session is
+  // actually the one shared with this exact opponent; otherwise (e.g.
+  // full-screen chat opened from Profiles, no active game at all) this
+  // does nothing.
+  const gamePresenceKnownRef = useRef<boolean | null>(null)  // null = baseline not yet established
+  const gamePresenceLeaveTimeoutRef = useRef<any>(null)
+  useEffect(() => {
+    if (!receiverId || !userId) return
+    const session = getCurrentSession()
+    if (!session) return
+    const isThisPair = (session.player_one_id === userId && session.player_two_id === receiverId) ||
+                        (session.player_one_id === receiverId && session.player_two_id === userId)
+    if (!isThisPair) return
+
+    gamePresenceKnownRef.current = null
+    const ch = supabase.channel(`game-presence-${session.id}`)
+    ch.on('presence', { event: 'sync' }, () => {
+      const state = ch.presenceState()
+      const present = Object.values(state).some((entries: any) => entries.some((e: any) => e.userId === receiverId))
+
+      if (present) {
+        if (gamePresenceLeaveTimeoutRef.current) { clearTimeout(gamePresenceLeaveTimeoutRef.current); gamePresenceLeaveTimeoutRef.current = null }
+        if (gamePresenceKnownRef.current === false) {
+          // A genuine transition from "left" back to "present" — the only
+          // case that shows the "returned" notice.
+          setMsgs(prev => [...prev, {
+            id: 'sys-' + Date.now(), created_at: new Date().toISOString(),
+            sender_id: receiverId, receiver_id: userId, isSystem: true,
+            text: lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} επέστρεψε στο παιχνίδι.` : `${match?.name || 'Player'} returned to the game.`,
+          }])
+        }
+        gamePresenceKnownRef.current = true
+      } else if (gamePresenceKnownRef.current === true && gamePresenceLeaveTimeoutRef.current === null) {
+        // Short grace period before declaring "left" — absorbs a brief
+        // reconnect gap without a spurious event; still detects a
+        // genuine, sustained departure.
+        gamePresenceLeaveTimeoutRef.current = setTimeout(() => {
+          gamePresenceKnownRef.current = false
+          gamePresenceLeaveTimeoutRef.current = null
+          setMsgs(prev => [...prev, {
+            id: 'sys-' + Date.now(), created_at: new Date().toISOString(),
+            sender_id: receiverId, receiver_id: userId, isSystem: true,
+            text: lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} έφυγε από το παιχνίδι.` : `${match?.name || 'Player'} left the game.`,
+          }])
+        }, 2500)
+      } else if (gamePresenceKnownRef.current === null) {
+        // First sync — establishes the baseline silently, no message.
+        gamePresenceKnownRef.current = false
+      }
+    })
+    ch.subscribe()
+
+    return () => {
+      if (gamePresenceLeaveTimeoutRef.current) clearTimeout(gamePresenceLeaveTimeoutRef.current)
+      supabase.removeChannel(ch)
+    }
+  }, [receiverId, userId, lang, match?.name])
+
   // Get current user + load messages
   useEffect(() => {
     let channel: any = null
@@ -137,9 +200,12 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       if (data) {
         console.log('CHAT OPEN POLL RESULT:', data.length, 'messages')
         setMsgs(prev => {
-          if (prev.length === data.length && prev.every((m, i) => m.id === data[i].id)) return prev
+          const systemMsgs = prev.filter(m => m.isSystem)
+          if (prev.length - systemMsgs.length === data.length && prev.filter(m => !m.isSystem).every((m, i) => m.id === data[i].id)) return prev
           console.log('CHAT UPDATED:', data.length, 'messages')
-          return data
+          const merged = [...data, ...systemMsgs]
+          merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          return merged
         })
         if (receiverId) markAsRead(receiverId)
       }
@@ -443,6 +509,15 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
         )}
 
         {msgs.map(m => {
+          if (m.isSystem) {
+            return (
+              <div key={m.id} className="flex justify-center" style={{ animation: 'msgSlide 0.3s ease both' }}>
+                <div className="text-[11px] px-3 py-1 rounded-full text-center" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.04)' }}>
+                  {m.text}
+                </div>
+              </div>
+            )
+          }
           const isMine = m.sender_id === userId
           return (
             <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
