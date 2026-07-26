@@ -155,15 +155,15 @@ export default function ActivityScreen() {
 
   const pendingCount = incoming.filter(i => i.status === 'pending').length
 
-  // Display-only filtering for this screen: notifications older than 5
-  // minutes are hidden, and at most 6 are shown, newest first. This never
-  // touches the database or the underlying `incoming` data — an accepted
-  // invite (an active, resumable game) is exempt from the age limit
-  // entirely, so re-entry via Enter Game Room is never affected by this.
-  const FIVE_MIN_MS = 5 * 60 * 1000
-  const now = Date.now()
+  // Display-only filtering for this screen: only pending (not yet acted
+  // on) and accepted (an active, resumable game via Enter) challenges are
+  // shown — declined ones are excluded entirely so they disappear
+  // immediately rather than lingering. Real expiry for pending is already
+  // handled upstream by getIncomingInvites (24h), so no separate, shorter
+  // age window is needed here. This never touches the database or the
+  // underlying `incoming` data.
   const visibleChallenges = incoming
-    .filter(c => c.status === 'accepted' || (now - new Date(c.created_at).getTime()) < FIVE_MIN_MS)
+    .filter(c => c.status === 'pending' || c.status === 'accepted')
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 6)
 

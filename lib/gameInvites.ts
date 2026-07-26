@@ -29,7 +29,30 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
       ? `${senderName} invited you to play Mystery Choice`
       : `${senderName} invited you to play`
 
-    // ALWAYS insert a brand-new invite. No history checks, no dedup.
+    // If a pending invite already exists for this exact sender+receiver+
+    // game combination, refresh it instead of creating a duplicate —
+    // updating created_at both "moves it to the top" (lists already sort
+    // by created_at desc) and keeps expiry counting from the latest
+    // attempt, not the original one.
+    const { data: existing } = await supabase
+      .from('game_invites')
+      .select('id, created_at')
+      .eq('sender_id', user.id)
+      .eq('receiver_id', receiverId)
+      .eq('game_type', gameType)
+      .eq('status', 'pending')
+      .maybeSingle()
+
+    if (existing && !isExpiredPending({ status: 'pending', created_at: existing.created_at })) {
+      const { error: updErr } = await supabase
+        .from('game_invites')
+        .update({ created_at: new Date().toISOString(), message })
+        .eq('id', existing.id)
+      if (updErr) { console.error('GAME INVITE refresh error:', updErr); return { ok: false, error: updErr.message } }
+      console.log('EXISTING PENDING INVITE REFRESHED:', existing.id)
+      return { ok: true, inviteId: existing.id }
+    }
+
     console.log('PLAY AGAIN PRESSED / sending invite')
     const { data, error } = await supabase.from('game_invites').insert({
       sender_id: user.id,
@@ -48,12 +71,12 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
   } catch (e: any) { return { ok: false, error: e.message } }
 }
 
-// Pending invites (not yet responded to) expire 15 minutes after creation —
+// Pending invites (not yet responded to) expire 24 hours after creation —
 // they simply stop appearing in either list, can no longer be accepted, and
 // there is no age display for them at all. This does NOT apply to accepted
 // invites: those represent an active game, which must stay resumable via
 // "Enter" regardless of how long it's been running (see enterExistingGame).
-const PENDING_INVITE_EXPIRY_MS = 15 * 60 * 1000
+const PENDING_INVITE_EXPIRY_MS = 24 * 60 * 60 * 1000
 function isExpiredPending(invite: { status: string; created_at: string }): boolean {
   if (invite.status !== 'pending') return false
   return Date.now() - new Date(invite.created_at).getTime() > PENDING_INVITE_EXPIRY_MS
@@ -74,7 +97,20 @@ export async function getIncomingInvites(): Promise<GameInvite[]> {
 
     if (error || !data) { console.error('INCOMING INVITES error:', error); return [] }
 
-    const active = data.filter(i => !isExpiredPending(i))
+    const notExpired = data.filter(i => !isExpiredPending(i))
+
+    // Cleanup: if duplicate pending rows exist for the same sender+game
+    // (e.g. left over from before duplicates were prevented at send time),
+    // keep only the newest pending one per group — data is already
+    // ordered newest-first, so the first pending row seen per key wins.
+    const seenPendingKeys = new Set<string>()
+    const active = notExpired.filter(i => {
+      if (i.status !== 'pending') return true
+      const key = `${i.sender_id}:${i.game_type}`
+      if (seenPendingKeys.has(key)) return false
+      seenPendingKeys.add(key)
+      return true
+    })
 
     const ids = active.map(i => i.sender_id)
     const { data: profiles } = await supabase.from('profiles').select('id, name, photo').in('id', ids)
@@ -144,11 +180,13 @@ export async function getInviteCount(): Promise<number> {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return 0
+    const cutoff = new Date(Date.now() - PENDING_INVITE_EXPIRY_MS).toISOString()
     const { count } = await supabase
       .from('game_invites')
       .select('*', { count: 'exact', head: true })
       .eq('receiver_id', user.id)
       .eq('status', 'pending')
+      .gte('created_at', cutoff)
     return count ?? 0
   } catch { return 0 }
 }
