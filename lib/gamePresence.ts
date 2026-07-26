@@ -1,21 +1,11 @@
-// Local, per-client pub/sub bridging GameChatOverlay's single realtime
-// channel subscription for game-presence events to any component that
-// needs to react to them (currently only ChatPanel) — without that
-// component creating its own, colliding channel object for the same
-// topic. This is not itself the transport: the transport is a Realtime
-// Broadcast channel (same proven mechanism already used for the typing
-// indicator), owned exclusively by GameChatOverlay. This module only
-// relays what that channel receives to whoever's listening locally.
-type GamePresenceEvent = 'left_game' | 'returned_game'
-type GamePresenceListener = (event: GamePresenceEvent, sessionId: string, userId: string) => void
-
-const _listeners = new Set<GamePresenceListener>()
-
-export function subscribeGamePresence(fn: GamePresenceListener): () => void {
-  _listeners.add(fn)
-  return () => { _listeners.delete(fn) }
-}
-
-export function emitGamePresence(event: GamePresenceEvent, sessionId: string, userId: string) {
-  _listeners.forEach(fn => { try { fn(event, sessionId, userId) } catch (e) { console.error('game presence listener error:', e) } })
-}
+// A left-game system notice is now a real row in the messages table
+// (inserted by GameChatOverlay when a player deliberately exits the
+// active game flow), so it flows through the existing message
+// send/load/realtime/unread pipeline entirely unchanged — no separate
+// channel or pub/sub is needed. This marker is the only thing that
+// distinguishes it from a normal user message: prefixed onto the stored
+// text with a null control character, which is not something a real
+// user can type through the chat input, so it can never collide with
+// genuine message content. ChatPanel checks for this prefix at render
+// time to display the notice differently and strips it from what's shown.
+export const LEFT_GAME_MARKER = '\u0000LEFT_GAME\u0000'

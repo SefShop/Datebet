@@ -7,7 +7,7 @@ import { getCurrentMatch, subscribeCurrentMatch } from '@/lib/profiles'
 import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
 import { getPairProgress } from '@/lib/pairProgress'
 import { markAsRead } from '@/lib/unread'
-import { subscribeGamePresence } from '@/lib/gamePresence'
+import { LEFT_GAME_MARKER } from '@/lib/gamePresence'
 import BackControl from '@/components/ui/BackControl'
 
 interface Message {
@@ -16,7 +16,6 @@ interface Message {
   sender_id: string
   receiver_id: string
   text: string
-  isSystem?: boolean  // local-only, never inserted into the database — used for ephemeral game-presence notices
 }
 
 interface Props {
@@ -123,28 +122,6 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receiverId, lang])
 
-  // Game-scoped presence system messages — reads GameChatOverlay's own
-  // broadcast channel via its exported pub/sub, rather than creating a
-  // second RealtimeChannel object subscribed to the identical topic name
-  // (a duplicate-channel pattern that has broken this before). Each
-  // event received here is already a definitive, one-time occurrence —
-  // GameChatOverlay only ever sends one at a genuine state transition —
-  // so no grace period, baseline, or dedup logic is needed on this side.
-  useEffect(() => {
-    if (!receiverId || !userId) return
-    const unsubscribe = subscribeGamePresence((event, sessionId, eventUserId) => {
-      if (eventUserId !== receiverId) return  // not about this opponent
-      setMsgs(prev => [...prev, {
-        id: 'sys-' + Date.now(), created_at: new Date().toISOString(),
-        sender_id: receiverId, receiver_id: userId, isSystem: true,
-        text: event === 'left_game'
-          ? (lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} έφυγε από το παιχνίδι.` : `${match?.name || 'Player'} left the game.`)
-          : (lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} επέστρεψε στο παιχνίδι.` : `${match?.name || 'Player'} returned to the game.`),
-      }])
-    })
-    return unsubscribe
-  }, [receiverId, userId, lang, match?.name])
-
   // Get current user + load messages
   useEffect(() => {
     let channel: any = null
@@ -161,12 +138,9 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       if (data) {
         console.log('CHAT OPEN POLL RESULT:', data.length, 'messages')
         setMsgs(prev => {
-          const systemMsgs = prev.filter(m => m.isSystem)
-          if (prev.length - systemMsgs.length === data.length && prev.filter(m => !m.isSystem).every((m, i) => m.id === data[i].id)) return prev
+          if (prev.length === data.length && prev.every((m, i) => m.id === data[i].id)) return prev
           console.log('CHAT UPDATED:', data.length, 'messages')
-          const merged = [...data, ...systemMsgs]
-          merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-          return merged
+          return data
         })
         if (receiverId) markAsRead(receiverId)
       }
@@ -470,11 +444,12 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
         )}
 
         {msgs.map(m => {
-          if (m.isSystem) {
+          if (m.text === LEFT_GAME_MARKER) {
+            const leftText = lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} έφυγε από το παιχνίδι.` : `${match?.name || 'Player'} left the game.`
             return (
               <div key={m.id} className="flex justify-center" style={{ animation: 'msgSlide 0.3s ease both' }}>
                 <div className="text-[11px] px-3 py-1 rounded-full text-center" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.04)' }}>
-                  {m.text}
+                  {leftText}
                 </div>
               </div>
             )
