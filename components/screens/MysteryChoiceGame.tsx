@@ -11,6 +11,7 @@ import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
 import GameChatBadge from '@/components/chat/GameChatBadge'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
+import FloatingChatButton from '@/components/chat/FloatingChatButton'
 import { getAnswerEmoji } from '@/lib/answerEmoji'
 import { getResultPool, selectRandomResult, getResultById } from '@/lib/mysteryResultLibrary'
 import {
@@ -1057,6 +1058,7 @@ export default function MysteryChoiceGame() {
 
   return (
     <div className="desktop-scroll-inner relative flex flex-col h-full overflow-hidden" style={{ background: '#0a0a10' }}>
+      <FloatingChatButton openChat={openChat} />
       {/* Animated gradient background */}
       <div className="absolute inset-0" style={{
         background: 'radial-gradient(ellipse at 20% 15%, rgba(253,41,123,0.14) 0%, transparent 50%), radial-gradient(ellipse at 80% 85%, rgba(108,99,255,0.14) 0%, transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(216,77,216,0.06) 0%, transparent 60%)',

@@ -7,6 +7,7 @@ import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import BackControl from '@/components/ui/BackControl'
 import GameChatBadge from '@/components/chat/GameChatBadge'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
+import FloatingChatButton from '@/components/chat/FloatingChatButton'
 
 const COLS = 7, ROWS = 6
 
@@ -309,6 +310,7 @@ export default function Connect4Screen() {
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(253,41,123,0.094) 0%, transparent 55%), #0a0a10' }}>
+      <FloatingChatButton openChat={openChat} />
       <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
         <BackControl lang={lang} onClick={() => {
           if (state?.status === 'finished') {
