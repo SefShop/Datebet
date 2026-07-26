@@ -1,85 +1,95 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { getCurrentSession, subscribeCurrentSession, gameScreenFor } from '@/lib/gameInvites'
+import { getCurrentSession, gameScreenFor } from '@/lib/gameInvites'
 import { supabase } from '@/lib/supabase'
-import { notifyGamePresence } from '@/lib/gamePresence'
+import { emitGamePresence } from '@/lib/gamePresence'
 import ChatPanel from '@/components/chat/ChatPanel'
 
 export default function GameChatOverlay() {
   const { chatOpen, closeChat, screen } = useApp()
 
-  // Game-scoped presence — a third, separate presence layer from both
-  // app-wide (lib/presence.ts) and chat-conversation presence
-  // (ChatPanel's own Realtime Presence). Tracked here because this
-  // component is already globally mounted (its hooks run regardless of
-  // chatOpen — only the JSX return is conditional), so it can track
-  // "am I actively on the game screen" independent of whether chat is
-  // open at all, which is what ChatPanel needs to detect the OPPONENT's
-  // leave/return regardless of when they happen to have chat open.
+  // Game-scoped presence — a separate layer from both app-wide
+  // (lib/presence.ts) and chat-conversation presence (ChatPanel's own
+  // Realtime Presence). Tracked here because this component is already
+  // globally mounted (its hooks run regardless of chatOpen — only the
+  // JSX return is conditional), so it can track "am I on the game
+  // screen" independent of whether chat happens to be open.
+  //
+  // Deterministic by construction: the only thing that can trigger a
+  // send() call is a genuine change between two explicitly-observed
+  // states (onGameScreenRef going true→false or false→true). The very
+  // first observation after this channel is (re)created never emits —
+  // there's nothing to compare it against yet — which is what makes
+  // mount, refresh, reconnect, and subscription recreation all
+  // naturally silent without needing any special-case guard or
+  // persisted flag for any of them.
   const gamePresenceChannelRef = useRef<any>(null)
   const gamePresenceSessionIdRef = useRef<string | null>(null)
+  const onGameScreenRef = useRef<boolean | null>(null)  // null = not yet observed since the channel was (re)created
+
   useEffect(() => {
-    async function syncGamePresence() {
-      const session = getCurrentSession()
+    async function sync() {
       const { data: { user } } = await supabase.auth.getUser()
-      // Present specifically while on the exact game board screen — not
-      // Game Room, not anywhere else. Pressing the game's own back arrow
-      // (mid-game, to Game Room) is a deliberate "left the game" action,
-      // even though the session itself stays active so the user can
-      // still return.
-      const onGameScreen = !!(session && user && screen === gameScreenFor(session.game_type))
-
-      if (onGameScreen && gamePresenceSessionIdRef.current !== session!.id) {
-        // Switched games (or first entry) — leave any previous channel first
-        if (gamePresenceChannelRef.current) {
-          gamePresenceChannelRef.current.untrack()
-          supabase.removeChannel(gamePresenceChannelRef.current)
-        }
-        const ch = supabase.channel(`game-presence-${session!.id}`, { config: { presence: { key: user!.id } } })
-        ch.on('presence', { event: 'sync' }, () => {
-          const state = ch.presenceState()
-          const presentUserIds = new Set<string>()
-          Object.values(state).forEach((entries: any) => entries.forEach((e: any) => { if (e.userId) presentUserIds.add(e.userId) }))
-          notifyGamePresence(session!.id, presentUserIds)
-        })
-        ch.subscribe(async (status: string) => { if (status === 'SUBSCRIBED') await ch.track({ userId: user!.id }) })
-        gamePresenceChannelRef.current = ch
-        gamePresenceSessionIdRef.current = session!.id
-      } else if (!onGameScreen && gamePresenceChannelRef.current) {
-        // Left the game screen (back button, navigated away, etc.)
-        gamePresenceChannelRef.current.untrack()
-        supabase.removeChannel(gamePresenceChannelRef.current)
-        gamePresenceChannelRef.current = null
-        gamePresenceSessionIdRef.current = null
-        notifyGamePresence(null, new Set())
-      }
-    }
-    syncGamePresence()
-  }, [screen])
-
-  useEffect(() => {
-    // Also re-check on session changes themselves (e.g. Play Again
-    // creating a new session while already on the same game screen, or
-    // the session being cleared entirely via Back to Discover).
-    const unsubscribe = subscribeCurrentSession(() => {
+      if (!user) return
       const session = getCurrentSession()
-      if (!session && gamePresenceChannelRef.current) {
-        gamePresenceChannelRef.current.untrack()
-        supabase.removeChannel(gamePresenceChannelRef.current)
-        gamePresenceChannelRef.current = null
+
+      if (!session) {
+        // Session ended (Back to Discover, finished-game exit). If we
+        // were on the game screen at the moment it ended, that's a
+        // genuine leave — emit it before tearing down the channel.
+        if (gamePresenceChannelRef.current) {
+          if (onGameScreenRef.current === true) {
+            gamePresenceChannelRef.current.send({ type: 'broadcast', event: 'left_game', payload: { userId: user.id } })
+          }
+          supabase.removeChannel(gamePresenceChannelRef.current)
+          gamePresenceChannelRef.current = null
+        }
         gamePresenceSessionIdRef.current = null
-        notifyGamePresence(null, new Set())
+        onGameScreenRef.current = null
+        return
       }
-    })
-    return () => {
-      unsubscribe()
-      if (gamePresenceChannelRef.current) {
-        gamePresenceChannelRef.current.untrack()
-        supabase.removeChannel(gamePresenceChannelRef.current)
+
+      if (gamePresenceSessionIdRef.current !== session.id) {
+        // New (or first) session — open its channel. Broadcast only
+        // (not Presence): a fire-and-forget event message, never sent
+        // implicitly on connect/disconnect/reconnect the way Presence
+        // sync is, which is what made the previous implementation
+        // unreliable. Symmetric by construction (session id is shared
+        // by both players), reusing the same broadcast mechanism
+        // already proven for the typing indicator.
+        if (gamePresenceChannelRef.current) supabase.removeChannel(gamePresenceChannelRef.current)
+        const ch = supabase.channel(`game-presence-${session.id}`)
+        ch.on('broadcast', { event: 'left_game' }, (msg: any) => {
+          if (msg.payload?.userId && msg.payload.userId !== user.id) emitGamePresence('left_game', session.id, msg.payload.userId)
+        })
+        ch.on('broadcast', { event: 'returned_game' }, (msg: any) => {
+          if (msg.payload?.userId && msg.payload.userId !== user.id) emitGamePresence('returned_game', session.id, msg.payload.userId)
+        })
+        ch.subscribe()
+        gamePresenceChannelRef.current = ch
+        gamePresenceSessionIdRef.current = session.id
+        onGameScreenRef.current = null
       }
+
+      const onGameScreen = screen === gameScreenFor(session.game_type)
+      const prev = onGameScreenRef.current
+      if (prev === null) {
+        // First observation since this channel was (re)created — never
+        // emits. Covers initial entry, and post-refresh restoration,
+        // uniformly and without any persisted state.
+        onGameScreenRef.current = onGameScreen
+        return
+      }
+      if (prev === true && onGameScreen === false) {
+        gamePresenceChannelRef.current?.send({ type: 'broadcast', event: 'left_game', payload: { userId: user.id } })
+      } else if (prev === false && onGameScreen === true) {
+        gamePresenceChannelRef.current?.send({ type: 'broadcast', event: 'returned_game', payload: { userId: user.id } })
+      }
+      onGameScreenRef.current = onGameScreen
     }
-  }, [])
+    sync()
+  }, [screen])
 
 
   // Same detection pattern already used in ProfileScreenNew.tsx — reused

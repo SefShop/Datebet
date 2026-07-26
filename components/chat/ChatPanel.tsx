@@ -7,7 +7,6 @@ import { getCurrentMatch, subscribeCurrentMatch } from '@/lib/profiles'
 import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
 import { getPairProgress } from '@/lib/pairProgress'
 import { markAsRead } from '@/lib/unread'
-import { getCurrentSession } from '@/lib/gameInvites'
 import { subscribeGamePresence } from '@/lib/gamePresence'
 import BackControl from '@/components/ui/BackControl'
 
@@ -125,74 +124,25 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
   }, [receiverId, lang])
 
   // Game-scoped presence system messages — reads GameChatOverlay's own
-  // tracking channel via its exported pub/sub, rather than creating a
+  // broadcast channel via its exported pub/sub, rather than creating a
   // second RealtimeChannel object subscribed to the identical topic name
-  // (that duplicate-channel pattern is exactly what broke this the first
-  // time — see subscribeGamePresence's own comment for why). Only
-  // relevant when the currently active game session is actually the one
-  // shared with this exact opponent; otherwise (e.g. full-screen chat
-  // opened from Profiles, no active game at all) this does nothing.
-  const gamePresenceKnownRef = useRef<boolean | null>(null)  // null = baseline not yet established
-  const gamePresenceLeaveTimeoutRef = useRef<any>(null)
+  // (a duplicate-channel pattern that has broken this before). Each
+  // event received here is already a definitive, one-time occurrence —
+  // GameChatOverlay only ever sends one at a genuine state transition —
+  // so no grace period, baseline, or dedup logic is needed on this side.
   useEffect(() => {
     if (!receiverId || !userId) return
-    const session = getCurrentSession()
-    if (!session) return
-    const isThisPair = (session.player_one_id === userId && session.player_two_id === receiverId) ||
-                        (session.player_one_id === receiverId && session.player_two_id === userId)
-    if (!isThisPair) return
-
-    gamePresenceKnownRef.current = null
-    const myUserId = userId
-    const opponentId = receiverId
-    function showLeft() {
-      gamePresenceKnownRef.current = false
-      gamePresenceLeaveTimeoutRef.current = null
+    const unsubscribe = subscribeGamePresence((event, sessionId, eventUserId) => {
+      if (eventUserId !== receiverId) return  // not about this opponent
       setMsgs(prev => [...prev, {
         id: 'sys-' + Date.now(), created_at: new Date().toISOString(),
-        sender_id: opponentId, receiver_id: myUserId, isSystem: true,
-        text: lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} έφυγε από το παιχνίδι.` : `${match?.name || 'Player'} left the game.`,
+        sender_id: receiverId, receiver_id: userId, isSystem: true,
+        text: event === 'left_game'
+          ? (lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} έφυγε από το παιχνίδι.` : `${match?.name || 'Player'} left the game.`)
+          : (lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} επέστρεψε στο παιχνίδι.` : `${match?.name || 'Player'} returned to the game.`),
       }])
-    }
-    const unsubscribe = subscribeGamePresence((sessionId, presentUserIds) => {
-      if (sessionId !== null && sessionId !== session.id) return  // an update for a different, unrelated game session — not this conversation's
-      const present = presentUserIds.has(receiverId)
-
-      if (present) {
-        if (gamePresenceLeaveTimeoutRef.current) { clearTimeout(gamePresenceLeaveTimeoutRef.current); gamePresenceLeaveTimeoutRef.current = null }
-        if (gamePresenceKnownRef.current === false) {
-          // A genuine transition from "left" back to "present" — the only
-          // case that shows the "returned" notice.
-          setMsgs(prev => [...prev, {
-            id: 'sys-' + Date.now(), created_at: new Date().toISOString(),
-            sender_id: opponentId, receiver_id: myUserId, isSystem: true,
-            text: lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} επέστρεψε στο παιχνίδι.` : `${match?.name || 'Player'} returned to the game.`,
-          }])
-        }
-        gamePresenceKnownRef.current = true
-      } else if (sessionId === null) {
-        // Explicit, deliberate leave (Back / Back to Discover) — shown
-        // immediately, no grace period. This is a definitive signal, not
-        // an ambiguous disconnect that needs time to confirm.
-        if (gamePresenceLeaveTimeoutRef.current) { clearTimeout(gamePresenceLeaveTimeoutRef.current); gamePresenceLeaveTimeoutRef.current = null }
-        if (gamePresenceKnownRef.current === true) showLeft()
-        else gamePresenceKnownRef.current = false
-      } else if (gamePresenceKnownRef.current === true && gamePresenceLeaveTimeoutRef.current === null) {
-        // Implicit absence via the sync event (opponent simply missing
-        // from presentUserIds) — could be a brief, ambiguous disconnect
-        // (e.g. their own page reloading), so this gets a short grace
-        // period before declaring "left", unlike the explicit case above.
-        gamePresenceLeaveTimeoutRef.current = setTimeout(showLeft, 2500)
-      } else if (gamePresenceKnownRef.current === null) {
-        // First sync — establishes the baseline silently, no message.
-        gamePresenceKnownRef.current = false
-      }
     })
-
-    return () => {
-      if (gamePresenceLeaveTimeoutRef.current) clearTimeout(gamePresenceLeaveTimeoutRef.current)
-      unsubscribe()
-    }
+    return unsubscribe
   }, [receiverId, userId, lang, match?.name])
 
   // Get current user + load messages
