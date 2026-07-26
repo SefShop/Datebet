@@ -197,7 +197,11 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
             (newMsg.sender_id === receiverId && newMsg.receiver_id === user.id)
           ) {
             console.log('NEW MESSAGE RECEIVED:', newMsg.sender_id)
-            if (newMsg.sender_id === receiverId) markAsRead(receiverId)
+            if (newMsg.sender_id === receiverId) {
+              supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('id', newMsg.id).then(({ error }) => {
+                if (error) console.error('MARK READ (targeted) error:', error.message)
+              })
+            }
             setMsgs(prev => {
               if (prev.some(m => m.id === newMsg.id)) return prev
               console.log('CHAT UPDATED:', prev.length + 1, 'messages')
