@@ -138,7 +138,7 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       if (data) {
         console.log('CHAT OPEN POLL RESULT:', data.length, 'messages')
         setMsgs(prev => {
-          if (prev.length === data.length && prev.every((m, i) => m.id === data[i].id)) return prev
+          if (prev.length === data.length && prev.every((m, i) => m.id === data[i].id && m.read_at === data[i].read_at)) return prev
           console.log('CHAT UPDATED:', data.length, 'messages')
           return data
         })
