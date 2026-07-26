@@ -6,7 +6,6 @@ import { getCurrentSession, setOpponentName, clearCurrentSession, setChatOrigin 
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
-import BackControl from '@/components/ui/BackControl'
 import GameChatBadge from '@/components/chat/GameChatBadge'
 import { getPairProgress } from '@/lib/pairProgress'
 
@@ -104,7 +103,6 @@ export default function GameRoomScreen() {
     <div className="flex flex-col h-full desktop-game-room-shell" style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(253,41,123,0.094) 0%, transparent 60%), #0a0a10' }}>
       <div className="desktop-game-room-card flex flex-col h-full">
       <div className="flex items-center gap-3 px-5 pt-14 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
-        <BackControl lang={lang} onClick={() => navigate('profile')} />
         <h1 className="text-[16px] font-extrabold text-white flex-1">🎮 {lang === 'gr' ? 'Δωμάτιο Παιχνιδιού' : 'Game Room'}</h1>
       </div>
 
@@ -168,7 +166,7 @@ export default function GameRoomScreen() {
         <button onClick={() => { if (!chatUnlocked) return; setChatOrigin('game_room'); openChat() }} disabled={!chatUnlocked}
           className="w-full max-w-[300px] mt-3 rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
           style={{ position: 'relative', background: chatUnlocked ? 'rgba(108,99,255,0.142)' : 'rgba(255,255,255,0.05)', color: chatUnlocked ? '#b79cfc' : 'rgba(255,255,255,0.4)', border: chatUnlocked ? '1px solid rgba(108,99,255,0.236)' : '1px solid rgba(255,255,255,0.094)', opacity: chatUnlocked ? 1 : 0.6 }}>
-          {chatUnlocked ? '💬 ' + (lang === 'gr' ? 'Κουβέντα πρώτα' : 'Chat first') : '🔒 ' + (lang === 'gr' ? 'Chat (10)' : 'Chat (10)')}
+          {chatUnlocked ? '💬 ' + (lang === 'gr' ? 'Συνομιλία' : 'Chat') : '🔒 ' + (lang === 'gr' ? 'Chat (10)' : 'Chat (10)')}
           <GameChatBadge />
         </button>
         <button onClick={() => {
