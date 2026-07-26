@@ -10,6 +10,7 @@ import BackControl from '@/components/ui/BackControl'
 import GameChatBadge from '@/components/chat/GameChatBadge'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
 import FloatingChatButton from '@/components/chat/FloatingChatButton'
+import FloatingRematchNotification from '@/components/game/FloatingRematchNotification'
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
@@ -486,6 +487,7 @@ export default function TicTacToeScreen() {
   return (
     <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(253,41,123,0.094) 0%, transparent 55%), #0a0a10' }}>
       <FloatingChatButton openChat={openChat} isChatUnlocked={pairCount >= 10} />
+      <FloatingRematchNotification session={session} myId={myId || ''} opponentName={oppName} />
 
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
