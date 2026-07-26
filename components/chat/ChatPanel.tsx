@@ -15,6 +15,7 @@ interface Message {
   sender_id: string
   receiver_id: string
   text: string
+  read_at: string | null
 }
 
 interface Props {
@@ -204,6 +205,22 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
             })
           }
         })
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+        }, (payload: any) => {
+          const updated = payload.new as Message
+          // Read receipts — reflects read_at changes live (e.g. the
+          // recipient just opened this chat and marked messages read),
+          // so the sender's ✓ becomes ✓✓ without needing to refresh.
+          if (
+            (updated.sender_id === user.id && updated.receiver_id === receiverId) ||
+            (updated.sender_id === receiverId && updated.receiver_id === user.id)
+          ) {
+            setMsgs(prev => prev.map(m => m.id === updated.id ? { ...m, read_at: updated.read_at } : m))
+          }
+        })
         .on('broadcast', { event: 'typing' }, (msg: any) => {
           // Broadcasts on this channel are received by every subscriber,
           // including ourselves — only ever show the OTHER user's typing,
@@ -333,6 +350,7 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       sender_id: userId,
       receiver_id: receiverId,
       text,
+      read_at: null,
     }
     setMsgs(prev => [...prev, tempMsg])
 
@@ -466,6 +484,11 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
                   fontSize: 14, lineHeight: '1.45',
                 }}>
                 {m.text}
+                {isMine && (
+                  <span className="ml-1.5 text-[11px] align-middle" style={{ opacity: 0.75 }}>
+                    {m.read_at ? '✓✓' : '✓'}
+                  </span>
+                )}
               </div>
             </div>
           )
