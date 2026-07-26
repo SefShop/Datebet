@@ -370,6 +370,13 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     else { console.log('MESSAGE SENT REFRESH CALLED'); refreshMessagesState() }
   }
 
+  // Message timestamp — local time, hours:minutes only, from the
+  // existing created_at field (no new database field).
+  function formatMsgTime(createdAt: string): string {
+    const d = new Date(createdAt)
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+  }
+
   // Quick replies
   const quicks = lang === 'gr'
     ? ['σειρά σου 😏','ρεβάνς;','τύχη ήταν','τι κερδίζω;']
@@ -488,11 +495,11 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
                   fontSize: 14, lineHeight: '1.45',
                 }}>
                 {m.text}
-                {isMine && (
-                  <span className="ml-1.5 text-[11px] align-middle" style={{ opacity: 0.75 }}>
-                    {m.read_at ? '✓✓' : '✓'}
-                  </span>
-                )}
+                <div className={`flex items-center gap-1 mt-0.5 ${isMine ? 'justify-end' : 'justify-start'}`}
+                  style={{ fontSize: 10, opacity: 0.6 }}>
+                  <span>{formatMsgTime(m.created_at)}</span>
+                  {isMine && <span>{m.read_at ? '✓✓' : '✓'}</span>}
+                </div>
               </div>
             </div>
           )
