@@ -43,7 +43,7 @@ export default function GamePresenceBanner() {
 
   const name = opponent?.name || 'Player'
   const text = leftVisible
-    ? (lang === 'gr' ? `Ο/Η ${name} έφυγε από το παιχνίδι.` : `${name} left the game.`)
+    ? (lang === 'gr' ? `Ο/Η ${name} αποχώρησε από το παιχνίδι.` : `${name} left the game.`)
     : (lang === 'gr' ? `Ο/Η ${name} επέστρεψε στο παιχνίδι.` : `${name} returned to the game.`)
 
   return (
