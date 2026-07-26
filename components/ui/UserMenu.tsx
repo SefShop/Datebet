@@ -9,7 +9,7 @@ import { getNotificationsState, subscribeNotifications, refreshNotifications } f
 interface Props { onLogout: () => void }
 
 export default function UserMenu({ onLogout }: Props) {
-  const { navigate, lang } = useApp()
+  const { navigate, lang, screen } = useApp()
   const [open, setOpen] = useState(false)
   const [unread, setUnread] = useState(getNotificationsState().unreadMessages)
   const [invites, setInvites] = useState(getNotificationsState().pendingInvites)
@@ -72,21 +72,24 @@ export default function UserMenu({ onLogout }: Props) {
 
   return (
     <>
-      {/* Trigger — small floating avatar, same top-right position */}
-      <button onClick={() => setOpen(true)}
-        className="relative w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer"
-        style={{
-          background: 'linear-gradient(135deg, rgba(255,51,132,0.25), rgba(216,77,216,0.25))',
-          border: '1.5px solid rgba(255,255,255,0.16)',
-          backdropFilter: 'blur(12px)',
-          boxShadow: open ? '0 0 0 3px rgba(255,51,132,0.25)' : 'none',
-        }}>
-        <span className="text-[14px]">👤</span>
-        {totalBadge > 0 && (
-          <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full"
-            style={{ background:'#ff3384', boxShadow:'0 0 8px #ff3384', border:'2px solid #08080f' }} />
-        )}
-      </button>
+      {/* Trigger — small floating avatar, same top-right position.
+          Only shown on the Profile screen. */}
+      {screen === 'profile' && (
+        <button onClick={() => setOpen(true)}
+          className="relative w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,51,132,0.25), rgba(216,77,216,0.25))',
+            border: '1.5px solid rgba(255,255,255,0.16)',
+            backdropFilter: 'blur(12px)',
+            boxShadow: open ? '0 0 0 3px rgba(255,51,132,0.25)' : 'none',
+          }}>
+          <span className="text-[14px]">👤</span>
+          {totalBadge > 0 && (
+            <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full"
+              style={{ background:'#ff3384', boxShadow:'0 0 8px #ff3384', border:'2px solid #08080f' }} />
+          )}
+        </button>
+      )}
 
       {/* Backdrop */}
       <div
