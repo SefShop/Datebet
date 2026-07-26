@@ -8,6 +8,7 @@ import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
 import GameChatBadge from '@/components/chat/GameChatBadge'
+import GamePresenceBanner from '@/components/game/GamePresenceBanner'
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
@@ -559,6 +560,8 @@ export default function TicTacToeScreen() {
           {statusMsg}
         </span>
       </div>
+
+      <GamePresenceBanner />
 
       {/* Board */}
       <div className="flex items-center justify-center px-6">

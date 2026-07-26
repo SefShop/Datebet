@@ -10,6 +10,7 @@ import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
 import GameChatBadge from '@/components/chat/GameChatBadge'
+import GamePresenceBanner from '@/components/game/GamePresenceBanner'
 import { getAnswerEmoji } from '@/lib/answerEmoji'
 import { getResultPool, selectRandomResult, getResultById } from '@/lib/mysteryResultLibrary'
 import {
@@ -1100,6 +1101,8 @@ export default function MysteryChoiceGame() {
           }} />
         </div>
       </div>
+
+      <GamePresenceBanner />
 
       {/* Premium player header */}
       <div className="mc-player-header relative z-10 flex items-center justify-center gap-3 px-6 pb-4">

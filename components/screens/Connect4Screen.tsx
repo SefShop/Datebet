@@ -6,6 +6,7 @@ import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCur
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import BackControl from '@/components/ui/BackControl'
 import GameChatBadge from '@/components/chat/GameChatBadge'
+import GamePresenceBanner from '@/components/game/GamePresenceBanner'
 
 const COLS = 7, ROWS = 6
 
@@ -335,6 +336,8 @@ export default function Connect4Screen() {
       <div className="text-center mb-3">
         <span className="text-[14px] font-bold px-4 py-2 rounded-full" style={{ background: isMyTurn ? 'rgba(253,41,123,0.142)' : 'rgba(255,255,255,0.047)', color: isMyTurn ? '#ff3384' : 'rgba(255,255,255,0.708)' }}>{statusMsg}</span>
       </div>
+
+      <GamePresenceBanner />
 
       {/* Board */}
       <div className="flex items-center justify-center px-3">

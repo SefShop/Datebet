@@ -7,7 +7,6 @@ import { getCurrentMatch, subscribeCurrentMatch } from '@/lib/profiles'
 import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
 import { getPairProgress } from '@/lib/pairProgress'
 import { markAsRead } from '@/lib/unread'
-import { LEFT_GAME_MARKER } from '@/lib/gamePresence'
 import BackControl from '@/components/ui/BackControl'
 
 interface Message {
@@ -444,16 +443,6 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
         )}
 
         {msgs.map(m => {
-          if (m.text === LEFT_GAME_MARKER) {
-            const leftText = lang === 'gr' ? `Ο/Η ${match?.name || 'Player'} έφυγε από το παιχνίδι.` : `${match?.name || 'Player'} left the game.`
-            return (
-              <div key={m.id} className="flex justify-center" style={{ animation: 'msgSlide 0.3s ease both' }}>
-                <div className="text-[11px] px-3 py-1 rounded-full text-center" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.04)' }}>
-                  {leftText}
-                </div>
-              </div>
-            )
-          }
           const isMine = m.sender_id === userId
           return (
             <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}

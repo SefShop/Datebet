@@ -2,22 +2,30 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { getCurrentSession } from '@/lib/gameInvites'
-import { getCurrentMatch } from '@/lib/profiles'
 import { supabase } from '@/lib/supabase'
-import { LEFT_GAME_MARKER } from '@/lib/gamePresence'
+import { emitGamePresence } from '@/lib/gamePresence'
 import ChatPanel from '@/components/chat/ChatPanel'
 
 export default function GameChatOverlay() {
   const { chatOpen, closeChat, screen } = useApp()
 
-  // Game-exit notice — deterministic by construction: the only thing
-  // that can trigger the insert below is a genuine change from "had an
-  // active session" to "no active session at all" (hadSessionRef going
-  // true→false). The very first observation after mount (or after a
-  // refresh, which resets this ref) never fires — there's nothing to
-  // compare it against yet. Screen changes within an active session
-  // (Back to Game Room, Continue Game) never touch this ref at all, so
-  // they can never trigger it either.
+  // Game-scoped presence, delivered via Realtime Broadcast (a
+  // fire-and-forget event message, never sent implicitly on
+  // connect/disconnect/reconnect the way Presence sync is — reusing the
+  // same mechanism already proven for the typing indicator). Tracked
+  // here because this component is already globally mounted (its hooks
+  // run regardless of chatOpen — only the JSX return is conditional).
+  //
+  // Deterministic by construction: the only thing that can trigger a
+  // send() is a genuine change between two explicitly-observed states —
+  // hadSessionRef going true→false (left) or false→true (returned).
+  // Screen changes within an active session (Back to Game Room, Continue
+  // Game) never touch this ref at all, so they can never trigger
+  // anything. The very first observation after mount (or after a
+  // refresh, which resets this ref) never emits either — there's
+  // nothing to compare it against yet.
+  const gamePresenceChannelRef = useRef<any>(null)
+  const gamePresenceSessionIdRef = useRef<string | null>(null)
   const hadSessionRef = useRef<boolean | null>(null)  // null = not yet observed since mount
 
   useEffect(() => {
@@ -26,25 +34,45 @@ export default function GameChatOverlay() {
       if (!user) return
       const session = getCurrentSession()
 
-      if (session) {
-        hadSessionRef.current = true
+      if (!session) {
+        // No active session. If we genuinely had one moments ago in this
+        // same component lifetime, that's a real leave — emit it before
+        // tearing down the channel. Never fires on a fresh mount/refresh
+        // that finds no session from the start (hadSessionRef is null).
+        if (gamePresenceChannelRef.current) {
+          if (hadSessionRef.current === true) {
+            gamePresenceChannelRef.current.send({ type: 'broadcast', event: 'left_game', payload: { userId: user.id } })
+          }
+          supabase.removeChannel(gamePresenceChannelRef.current)
+          gamePresenceChannelRef.current = null
+        }
+        gamePresenceSessionIdRef.current = null
+        hadSessionRef.current = false
         return
       }
 
-      // No active session. Only insert the notice if we genuinely had
-      // one moments ago in this same component lifetime — never on a
-      // fresh mount/refresh that finds no session from the start.
-      if (hadSessionRef.current === true) {
-        const opponent = getCurrentMatch()
-        if (opponent && opponent.id !== 'none') {
-          await supabase.from('messages').insert({
-            sender_id: user.id,
-            receiver_id: opponent.id,
-            text: LEFT_GAME_MARKER,
-          })
-        }
+      if (gamePresenceSessionIdRef.current !== session.id) {
+        // New (or first) session for this component lifetime — open its
+        // channel. Broadcast only, never Presence.
+        if (gamePresenceChannelRef.current) supabase.removeChannel(gamePresenceChannelRef.current)
+        const ch = supabase.channel(`game-presence-${session.id}`)
+        ch.on('broadcast', { event: 'left_game' }, (msg: any) => {
+          if (msg.payload?.userId && msg.payload.userId !== user.id) emitGamePresence('left_game', session.id, msg.payload.userId)
+        })
+        ch.on('broadcast', { event: 'returned_game' }, (msg: any) => {
+          if (msg.payload?.userId && msg.payload.userId !== user.id) emitGamePresence('returned_game', session.id, msg.payload.userId)
+        })
+        ch.subscribe()
+        gamePresenceChannelRef.current = ch
+        gamePresenceSessionIdRef.current = session.id
       }
-      hadSessionRef.current = false
+
+      // Only a genuine transition from a previously-observed "left"
+      // state emits "returned" — never the first observation (null).
+      if (hadSessionRef.current === false) {
+        gamePresenceChannelRef.current?.send({ type: 'broadcast', event: 'returned_game', payload: { userId: user.id } })
+      }
+      hadSessionRef.current = true
     }
     sync()
   }, [screen])
