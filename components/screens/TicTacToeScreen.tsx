@@ -7,7 +7,6 @@ import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
-import GameChatBadge from '@/components/chat/GameChatBadge'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
 import FloatingChatButton from '@/components/chat/FloatingChatButton'
 import FloatingRematchNotification from '@/components/game/FloatingRematchNotification'
@@ -632,19 +631,6 @@ export default function TicTacToeScreen() {
               style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>
               🔁 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
             </button>
-          )}
-          {pairCount >= 10 ? (
-            <button onClick={() => { setChatOrigin(null); openChat() }}
-              className="w-full rounded-2xl py-3 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-              style={{ position: 'relative', background: 'rgba(108,99,255,0.142)', color: '#b79cfc', border: '1px solid rgba(108,99,255,0.236)' }}>
-              💬 {lang === 'gr' ? 'Κουβέντα' : 'Chat'}
-              <GameChatBadge />
-            </button>
-          ) : (
-            <div className="w-full rounded-2xl py-3 text-[13px] font-medium text-center"
-              style={{ background: 'rgba(255,255,255,0.035)', color: 'rgba(255,255,255,0.472)', border: '1px solid rgba(255,255,255,0.071)' }}>
-              🔒 {lang === 'gr' ? `Το chat ξεκλειδώνει μετά από 10 νίκες μαζί (${pairCount}/10)` : `Chat unlocks after 10 wins together (${pairCount}/10)`}
-            </div>
           )}
         </div>
       )}

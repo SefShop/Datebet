@@ -9,7 +9,6 @@ import { setCurrentMatch } from '@/lib/profiles'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
-import GameChatBadge from '@/components/chat/GameChatBadge'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
 import FloatingChatButton from '@/components/chat/FloatingChatButton'
 import FloatingRematchNotification from '@/components/game/FloatingRematchNotification'
@@ -973,41 +972,7 @@ export default function MysteryChoiceGame() {
                 </div>
               </div>
 
-              {/* Chat status + actions */}
               <div className="flex flex-col gap-2.5">
-                {pairProgressLoading ? (
-                  <div className="text-center text-[11px] font-bold py-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    {lang === 'gr' ? 'Έλεγχος προόδου ξεκλειδώματος...' : 'Checking unlock progress...'}
-                  </div>
-                ) : progressError ? (
-                  <div className="text-center text-[11px] font-bold py-2" style={{ color: '#f87171' }}>
-                    {lang === 'gr' ? 'Αδυναμία φόρτωσης προόδου' : 'Unable to load unlock progress'}
-                  </div>
-                ) : canChat ? (
-                  <button onClick={() => {
-                      if (!session) return
-                      const isPlayerOne = myId === session.player_one_id
-                      const oppId = isPlayerOne ? session.player_two_id : session.player_one_id
-                      const oppName = isPlayerOne ? names.two : names.one
-                      setCurrentMatch({ id: oppId, name: oppName, age: 0, photo: '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)', location: { en: '', gr: '' }, online: false, interests: [], bio: { en: '', gr: '' } })
-                      setChatOrigin(null)
-                      openChat()
-                    }}
-                    className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
-                    style={{ position: 'relative', background: 'linear-gradient(135deg,#7c72ff,#d84dd8)', color: '#fff', boxShadow: '0 8px 24px rgba(108,99,255,0.4)' }}>
-                    💬 {lang === 'gr' ? 'Άνοιγμα Chat' : 'Open Chat'}
-                    <GameChatBadge />
-                  </button>
-                ) : (
-                  <div className="text-center rounded-2xl py-3 px-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <div className="text-[12px] font-bold mb-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      💬 {lang === 'gr' ? `Chat ${pairCount}/10` : `Chat ${pairCount}/10`}
-                    </div>
-                    <div className="text-[10.5px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      {lang === 'gr' ? 'Συνεχίστε να παίζετε μαζί για να ξεκλειδώσετε το chat.' : 'Keep playing together to unlock chat.'}
-                    </div>
-                  </div>
-                )}
                 <button onClick={playAgain} className="rounded-2xl py-3.5 text-[14px] font-bold active:scale-95 transition-transform cursor-pointer"
                   style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 28px rgba(253,41,123,0.45)' }}>
                   🎮 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
