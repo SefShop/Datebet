@@ -69,8 +69,15 @@ export default function FloatingRematchNotification({ session, myId, opponentNam
     }
     check()
     const unsubscribe = subscribeNotifications(check)
-    return () => { cancelled = true; unsubscribe() }
-  }, [opponentId, myId, session.game_type])
+    // Realtime (via the existing global notifications trigger) is the
+    // primary, fast path. This poll is only a reliability backstop —
+    // the same proven pattern already used for chat messages and the
+    // Challenges list — so the button still reliably appears within a
+    // few seconds even if a realtime event is ever missed, without
+    // opening any second subscription.
+    const poll = setInterval(check, 3000)
+    return () => { cancelled = true; unsubscribe(); clearInterval(poll) }
+  }, [opponentId, myId, session.id, session.game_type])
 
   // One-shot pop animation only on a genuine new arrival — never on the
   // first observation after mount (nothing to compare against yet), so
