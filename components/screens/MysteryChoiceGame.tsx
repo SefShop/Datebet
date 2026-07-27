@@ -818,7 +818,7 @@ export default function MysteryChoiceGame() {
     if (!session || !myId) return
     console.log('MYSTERY CHOICE PLAY AGAIN CLICKED:', session.id)
     const opponentId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
-    const result = await sendGameInvite(opponentId, 'mystery_choice')
+    const result = await sendGameInvite(opponentId, 'mystery_choice', session.id)
     if (!result.ok || !result.inviteId) { console.error('Mystery Choice play again failed:', result.error); return }
     if (result.shouldAccept && result.invite) {
       console.log('PLAY AGAIN: ACCEPTING OPPONENT REQUEST INSTEAD OF WAITING:', result.inviteId)

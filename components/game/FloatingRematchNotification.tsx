@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { respondInvite, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
+import { respondInvite, enterAcceptedGame, extractRematchForSessionId, GameInvite } from '@/lib/gameInvites'
 import { subscribeNotifications } from '@/lib/notificationsState'
 
 interface SessionLike {
@@ -56,7 +56,16 @@ export default function FloatingRematchNotification({ session, myId, opponentNam
         .order('created_at', { ascending: false })
         .limit(1)
       if (cancelled) return
-      setInvite(data && data.length > 0 ? (data[0] as GameInvite) : null)
+      const row = data && data.length > 0 ? (data[0] as GameInvite) : null
+      // A pending invite existing between this pair for this game_type is
+      // not enough on its own — it must be explicitly scoped to THIS
+      // exact completed session. A brand-new challenge (sent via
+      // Discover, never through Play Again) never carries this marker at
+      // all, and a stale Play Again request from a different, older
+      // match carries a different session id — both correctly resolve
+      // to no notification here.
+      const isForThisSession = row && extractRematchForSessionId(row.message) === session.id
+      setInvite(isForThisSession ? row : null)
     }
     check()
     const unsubscribe = subscribeNotifications(check)

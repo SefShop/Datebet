@@ -2,6 +2,21 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { generateMysteryQuestions, toRoundData } from '@/lib/mysteryChoiceQuestions'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
+// Carries "this invite is a rematch specifically for original session X"
+// inside the existing message field, so a genuine Play Again request can
+// be distinguished from a brand-new, unrelated challenge between the
+// same two users for the same game_type — both are stored as ordinary
+// game_invites rows with no other way to tell them apart. Placed after a
+// null control character so it never collides with real message text and
+// stays invisible if displayed anywhere that doesn't know to strip it.
+const REMATCH_FOR_MARKER = '\u0000REMATCH_FOR:'
+export function extractRematchForSessionId(message: string | null | undefined): string | null {
+  if (!message) return null
+  const idx = message.indexOf(REMATCH_FOR_MARKER)
+  if (idx === -1) return null
+  return message.slice(idx + REMATCH_FOR_MARKER.length)
+}
+
 export interface GameInvite {
   id: string
   created_at: string
@@ -16,7 +31,7 @@ export interface GameInvite {
   receiver_name?: string
 }
 
-export async function sendGameInvite(receiverId: string, gameType = 'mystery'): Promise<{
+export async function sendGameInvite(receiverId: string, gameType = 'mystery', originalSessionId?: string): Promise<{
   ok: boolean
   error?: string
   inviteId?: string
@@ -36,9 +51,10 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
     // Get sender name for message
     const { data: myProfile } = await supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
     const senderName = myProfile?.name || 'Someone'
-    const message = gameType === 'mystery_choice'
+    const baseMessage = gameType === 'mystery_choice'
       ? `${senderName} invited you to play Mystery Choice`
       : `${senderName} invited you to play`
+    const message = originalSessionId ? `${baseMessage}${REMATCH_FOR_MARKER}${originalSessionId}` : baseMessage
 
     // Symmetric check — a pending invite for this pair+game can exist in
     // EITHER direction (whoever happened to press first), not just from

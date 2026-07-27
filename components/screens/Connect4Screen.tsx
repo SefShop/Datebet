@@ -270,7 +270,7 @@ export default function Connect4Screen() {
     setRematchInProgress(true)
     try {
       const opponentId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
-      const result = await sendGameInvite(opponentId, 'connect_4')
+      const result = await sendGameInvite(opponentId, 'connect_4', session.id)
       if (!result.ok || !result.inviteId) {
         console.error('Play again invite failed:', result.error)
         return

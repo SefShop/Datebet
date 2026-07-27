@@ -417,7 +417,7 @@ export default function TicTacToeScreen() {
     const opponentId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
     console.log('PLAY AGAIN OPPONENT:', opponentId)
 
-    const result = await sendGameInvite(opponentId, 'tic_tac_toe')
+    const result = await sendGameInvite(opponentId, 'tic_tac_toe', session.id)
     if (!result.ok || !result.inviteId) {
       console.error('Play again invite failed:', result.error)
       setIAmReady(false)
