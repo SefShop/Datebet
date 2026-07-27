@@ -16,7 +16,18 @@ export interface GameInvite {
   receiver_name?: string
 }
 
-export async function sendGameInvite(receiverId: string, gameType = 'mystery'): Promise<{ ok: boolean; error?: string; inviteId?: string }> {
+export async function sendGameInvite(receiverId: string, gameType = 'mystery'): Promise<{
+  ok: boolean
+  error?: string
+  inviteId?: string
+  invite?: GameInvite
+  // True when an existing pending invite from the OTHER user to me was
+  // found (or won a database-level race) — the caller must accept this
+  // one via the existing respondInvite/enterAcceptedGame flow instead of
+  // waiting on a request of their own, since only one canonical pending
+  // invite may exist per pair+game_type.
+  shouldAccept?: boolean
+}> {
   if (!isSupabaseConfigured()) return { ok: false, error: 'Not configured' }
   try {
     const { data: { user } } = await supabase.auth.getUser()
@@ -29,28 +40,28 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
       ? `${senderName} invited you to play Mystery Choice`
       : `${senderName} invited you to play`
 
-    // If a pending invite already exists for this exact sender+receiver+
-    // game combination, refresh it instead of creating a duplicate —
-    // updating created_at both "moves it to the top" (lists already sort
-    // by created_at desc) and keeps expiry counting from the latest
-    // attempt, not the original one.
-    const { data: existing } = await supabase
-      .from('game_invites')
-      .select('id, created_at')
-      .eq('sender_id', user.id)
-      .eq('receiver_id', receiverId)
-      .eq('game_type', gameType)
-      .eq('status', 'pending')
-      .maybeSingle()
-
-    if (existing && !isExpiredPending({ status: 'pending', created_at: existing.created_at })) {
-      const { error: updErr } = await supabase
-        .from('game_invites')
-        .update({ created_at: new Date().toISOString(), message })
-        .eq('id', existing.id)
-      if (updErr) { console.error('GAME INVITE refresh error:', updErr); return { ok: false, error: updErr.message } }
-      console.log('EXISTING PENDING INVITE REFRESHED:', existing.id)
-      return { ok: true, inviteId: existing.id }
+    // Symmetric check — a pending invite for this pair+game can exist in
+    // EITHER direction (whoever happened to press first), not just from
+    // me. This is the actual fix: the previous version only ever checked
+    // sender_id = me, so a near-simultaneous press from the other user
+    // (whose invite has sender/receiver swapped) was invisible to this
+    // check, and both clients would insert their own separate row.
+    const existingEither = await findPendingInviteEitherDirection(user.id, receiverId, gameType)
+    if (existingEither) {
+      if (existingEither.sender_id === user.id) {
+        // Mine — refresh it (existing behavior: moves it to the top,
+        // resets its expiry clock).
+        const { error: updErr } = await supabase
+          .from('game_invites')
+          .update({ created_at: new Date().toISOString(), message })
+          .eq('id', existingEither.id)
+        if (updErr) { console.error('GAME INVITE refresh error:', updErr); return { ok: false, error: updErr.message } }
+        console.log('EXISTING PENDING INVITE REFRESHED:', existingEither.id)
+        return { ok: true, inviteId: existingEither.id, invite: existingEither }
+      }
+      // Theirs — I must accept it instead of creating a competing one.
+      console.log('OPPONENT ALREADY HAS A PENDING INVITE — ACCEPTING INSTEAD OF SENDING:', existingEither.id)
+      return { ok: true, inviteId: existingEither.id, invite: existingEither, shouldAccept: true }
     }
 
     console.log('PLAY AGAIN PRESSED / sending invite')
@@ -62,13 +73,50 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery'): 
       message,
     }).select().single()
 
-    if (error) { console.error('GAME INVITE error:', error); return { ok: false, error: error.message } }
+    if (error) {
+      // Unique-conflict recovery: a database-level partial unique index
+      // (see the accompanying SQL migration) enforces at most one
+      // pending invite per unordered pair + game_type. If the other
+      // user's insert won a genuine simultaneous race, this insert fails
+      // with a unique violation (code 23505) rather than silently
+      // creating a second row — re-fetch the canonical row that won and
+      // continue the correct flow from its actual state, instead of
+      // surfacing this as a fatal error.
+      if (error.code === '23505') {
+        console.log('UNIQUE CONFLICT ON INVITE INSERT — fetching canonical row')
+        const canonical = await findPendingInviteEitherDirection(user.id, receiverId, gameType)
+        if (canonical) {
+          if (canonical.sender_id === user.id) return { ok: true, inviteId: canonical.id, invite: canonical }
+          return { ok: true, inviteId: canonical.id, invite: canonical, shouldAccept: true }
+        }
+      }
+      console.error('GAME INVITE error:', error)
+      return { ok: false, error: error.message }
+    }
     console.log('NEW INVITE CREATED')
     console.log('NEW INVITE ID:', data.id)
     console.log('GAME INVITE SENT:', receiverId, gameType)
     if (gameType === 'mystery_choice') console.log('MYSTERY CHOICE INVITE CREATED:', data.id)
-    return { ok: true, inviteId: data.id }
+    return { ok: true, inviteId: data.id, invite: data as GameInvite }
   } catch (e: any) { return { ok: false, error: e.message } }
+}
+
+// Shared by sendGameInvite's initial check and its unique-conflict
+// recovery path — looks for a pending invite between two users for a
+// game type, in either sender/receiver direction, returning the newest
+// non-expired one if more than one somehow exists.
+async function findPendingInviteEitherDirection(userA: string, userB: string, gameType: string): Promise<GameInvite | null> {
+  const { data } = await supabase
+    .from('game_invites')
+    .select('*')
+    .or(`and(sender_id.eq.${userA},receiver_id.eq.${userB}),and(sender_id.eq.${userB},receiver_id.eq.${userA})`)
+    .eq('game_type', gameType)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1)
+  const row = data && data.length > 0 ? (data[0] as GameInvite) : null
+  if (row && isExpiredPending(row)) return null
+  return row
 }
 
 // Pending invites (not yet responded to) expire 24 hours after creation —

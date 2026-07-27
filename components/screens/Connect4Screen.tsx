@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite, setRematchInProgress, setChatOrigin } from '@/lib/gameInvites'
+import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, respondInvite, enterAcceptedGame, setPendingInvite, setRematchInProgress, setChatOrigin } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import BackControl from '@/components/ui/BackControl'
 import GameChatBadge from '@/components/chat/GameChatBadge'
@@ -274,6 +274,13 @@ export default function Connect4Screen() {
       const result = await sendGameInvite(opponentId, 'connect_4')
       if (!result.ok || !result.inviteId) {
         console.error('Play again invite failed:', result.error)
+        return
+      }
+      if (result.shouldAccept && result.invite) {
+        console.log('PLAY AGAIN: ACCEPTING OPPONENT REQUEST INSTEAD OF WAITING:', result.inviteId)
+        const { ok } = await respondInvite(result.inviteId, true)
+        if (!ok) return
+        await enterAcceptedGame(result.invite, myId)
         return
       }
       const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()

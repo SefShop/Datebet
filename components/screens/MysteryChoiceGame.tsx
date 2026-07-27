@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, subscribeCurrentSession, sendGameInvite, setPendingInvite, clearCurrentSession, setChatOrigin } from '@/lib/gameInvites'
+import { getCurrentSession, subscribeCurrentSession, sendGameInvite, respondInvite, enterAcceptedGame, setPendingInvite, clearCurrentSession, setChatOrigin } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import { getPresence, isOnlineNow } from '@/lib/presence'
 import { setCurrentMatch } from '@/lib/profiles'
@@ -821,6 +821,13 @@ export default function MysteryChoiceGame() {
     const opponentId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
     const result = await sendGameInvite(opponentId, 'mystery_choice')
     if (!result.ok || !result.inviteId) { console.error('Mystery Choice play again failed:', result.error); return }
+    if (result.shouldAccept && result.invite) {
+      console.log('PLAY AGAIN: ACCEPTING OPPONENT REQUEST INSTEAD OF WAITING:', result.inviteId)
+      const { ok } = await respondInvite(result.inviteId, true)
+      if (!ok) return
+      await enterAcceptedGame(result.invite, myId)
+      return
+    }
     const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()
     setPendingInvite({ id: result.inviteId, receiverName: opp?.name || 'Player', gameType: 'mystery_choice' })
     navigate('waiting')

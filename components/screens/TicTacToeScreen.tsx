@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite, setChatOrigin } from '@/lib/gameInvites'
+import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, respondInvite, enterAcceptedGame, setPendingInvite, setChatOrigin } from '@/lib/gameInvites'
 import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
@@ -424,6 +424,19 @@ export default function TicTacToeScreen() {
       setIAmReady(false)
       return
     }
+
+    if (result.shouldAccept && result.invite) {
+      // Opponent already has a pending rematch request to me — accept it
+      // immediately instead of waiting on one of my own. enterAcceptedGame
+      // sets the session; the existing top-level session subscription
+      // performs the transition, same as every other accept path.
+      console.log('PLAY AGAIN: ACCEPTING OPPONENT REQUEST INSTEAD OF WAITING:', result.inviteId)
+      const { ok } = await respondInvite(result.inviteId, true)
+      if (!ok) { setIAmReady(false); return }
+      await enterAcceptedGame(result.invite, myId)
+      return
+    }
+
     console.log('NEW GAME SESSION CREATED (invite):', result.inviteId)
     console.log('PLAY AGAIN INVITE CREATED:', result.inviteId)
     console.log('NO LIMIT REACHED')
