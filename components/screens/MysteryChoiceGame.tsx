@@ -288,6 +288,14 @@ export default function MysteryChoiceGame() {
         if (user?.id) {
           const oppId = user.id === sess0.player_one_id ? sess0.player_two_id : sess0.player_one_id
           fetchGamePlayerPhotoAccess(user.id, oppId).then(setPhotoAccess)
+
+          // Same real pair-progress source of truth as TicTacToeScreen and
+          // Connect4Screen — fetched unconditionally on mount, exactly like
+          // theirs, so the FloatingChatButton's isChatUnlocked reflects the
+          // real, current value immediately instead of only being set later
+          // by flows that only run once the game is already finished.
+          const prog = await getPairProgress(oppId)
+          setPairCount(prog.games_completed)
         }
 
         // Both users load the SAME game_session by session_id — retry a few times
