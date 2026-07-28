@@ -682,7 +682,12 @@ export default function ProfileScreenNew() {
                 )}
 
                 {/* Reveal progress + unlock status — anchored to the bottom of the card;
-                    never moves regardless of bio/interests content */}
+                    never moves regardless of bio/interests content.
+                    Hidden entirely once chat is unlocked (reusing the same
+                    real chat_unlocked value FloatingChatButton's own logic
+                    is built on) or if progress has already reached/exceeded
+                    the 10-game threshold — never shown once unlocked. */}
+                {!(progress.chat_unlocked || progress.games_completed >= 10) && (
                 <div className="mc-reveal-zone rounded-2xl p-3 mt-auto flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg, rgba(253,41,123,0.1), rgba(108,99,255,0.075))', border: '1px solid rgba(253,41,123,0.18)' }}>
                   <div className="flex items-center justify-between mb-1.5">
@@ -693,11 +698,11 @@ export default function ProfileScreenNew() {
                       </span>
                     </div>
                     <span className="text-[11px] font-extrabold" style={{ color: '#ff3384' }}>
-                      {progress.games_completed} / 10
+                      {Math.min(Math.max(progress.games_completed, 0), 10)} / 10
                     </span>
                   </div>
                   <div className="w-full h-[4px] rounded-full overflow-hidden mb-2" style={{ background: 'rgba(255,255,255,0.07)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, progress.games_completed * 10)}%`, background: 'linear-gradient(90deg, #ff3384, #d84dd8)', boxShadow: '0 0 8px rgba(253,41,123,0.6)', transition: 'width 0.4s' }} />
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, progress.games_completed) * 10)}%`, background: 'linear-gradient(90deg, #ff3384, #d84dd8)', boxShadow: '0 0 8px rgba(253,41,123,0.6)', transition: 'width 0.4s' }} />
                   </div>
                   <div className="flex gap-1.5">
                     <div className="flex-1 text-center text-[9px] font-bold py-1.5 rounded-lg"
@@ -712,6 +717,7 @@ export default function ProfileScreenNew() {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
               </>
               )}
