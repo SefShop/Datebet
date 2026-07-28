@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { respondInvite, enterAcceptedGame, extractRematchForSessionId, GameInvite } from '@/lib/gameInvites'
+import { respondInvite, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
 import { subscribeNotifications } from '@/lib/notificationsState'
 
 interface SessionLike {
@@ -46,6 +46,14 @@ export default function FloatingRematchNotification({ session, myId, opponentNam
       // request, since it's filtered by sender_id = opponentId, not
       // myId. That's what prevents self-notifications structurally,
       // without any extra flag or check.
+      //
+      // original_session_id is the exact, dedicated link to this
+      // completed match — not the pair of users, not just the game
+      // type. A brand-new challenge (sent via Discover) always has this
+      // column null and never matches; a stale rematch request from a
+      // different, older match has a different id and never matches
+      // either — both are filtered directly by the database query
+      // itself, not by parsing anything after the fact.
       const { data } = await supabase
         .from('game_invites')
         .select('*')
@@ -53,19 +61,12 @@ export default function FloatingRematchNotification({ session, myId, opponentNam
         .eq('receiver_id', myId)
         .eq('game_type', session.game_type)
         .eq('status', 'pending')
+        .eq('original_session_id', session.id)
         .order('created_at', { ascending: false })
         .limit(1)
       if (cancelled) return
       const row = data && data.length > 0 ? (data[0] as GameInvite) : null
-      // A pending invite existing between this pair for this game_type is
-      // not enough on its own — it must be explicitly scoped to THIS
-      // exact completed session. A brand-new challenge (sent via
-      // Discover, never through Play Again) never carries this marker at
-      // all, and a stale Play Again request from a different, older
-      // match carries a different session id — both correctly resolve
-      // to no notification here.
-      const isForThisSession = row && extractRematchForSessionId(row.message) === session.id
-      setInvite(isForThisSession ? row : null)
+      setInvite(row)
     }
     check()
     const unsubscribe = subscribeNotifications(check)

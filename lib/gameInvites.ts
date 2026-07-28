@@ -2,21 +2,6 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { generateMysteryQuestions, toRoundData } from '@/lib/mysteryChoiceQuestions'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 
-// Carries "this invite is a rematch specifically for original session X"
-// inside the existing message field, so a genuine Play Again request can
-// be distinguished from a brand-new, unrelated challenge between the
-// same two users for the same game_type — both are stored as ordinary
-// game_invites rows with no other way to tell them apart. Placed after a
-// null control character so it never collides with real message text and
-// stays invisible if displayed anywhere that doesn't know to strip it.
-const REMATCH_FOR_MARKER = '\u0000REMATCH_FOR:'
-export function extractRematchForSessionId(message: string | null | undefined): string | null {
-  if (!message) return null
-  const idx = message.indexOf(REMATCH_FOR_MARKER)
-  if (idx === -1) return null
-  return message.slice(idx + REMATCH_FOR_MARKER.length)
-}
-
 export interface GameInvite {
   id: string
   created_at: string
@@ -25,6 +10,12 @@ export interface GameInvite {
   game_type: string
   status: 'pending' | 'accepted' | 'declined'
   message: string | null
+  // Set only for a Play Again / rematch request — the id of the
+  // completed game_sessions row it's a rematch for. Null for a normal,
+  // brand-new challenge (sent via Discover). This is the exact,
+  // dedicated link used to scope the floating rematch notification to
+  // the correct match — not the pair of users, not the game type alone.
+  original_session_id: string | null
   // joined
   sender_name?: string
   sender_photo?: string
@@ -51,10 +42,9 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
     // Get sender name for message
     const { data: myProfile } = await supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
     const senderName = myProfile?.name || 'Someone'
-    const baseMessage = gameType === 'mystery_choice'
+    const message = gameType === 'mystery_choice'
       ? `${senderName} invited you to play Mystery Choice`
       : `${senderName} invited you to play`
-    const message = originalSessionId ? `${baseMessage}${REMATCH_FOR_MARKER}${originalSessionId}` : baseMessage
 
     // Symmetric check — a pending invite for this pair+game can exist in
     // EITHER direction (whoever happened to press first), not just from
@@ -69,7 +59,7 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
         // resets its expiry clock).
         const { error: updErr } = await supabase
           .from('game_invites')
-          .update({ created_at: new Date().toISOString(), message })
+          .update({ created_at: new Date().toISOString(), message, original_session_id: originalSessionId ?? null })
           .eq('id', existingEither.id)
         if (updErr) { console.error('GAME INVITE refresh error:', updErr); return { ok: false, error: updErr.message } }
         console.log('EXISTING PENDING INVITE REFRESHED:', existingEither.id)
@@ -87,6 +77,7 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
       game_type: gameType,
       status: 'pending',
       message,
+      original_session_id: originalSessionId ?? null,
     }).select().single()
 
     if (error) {
