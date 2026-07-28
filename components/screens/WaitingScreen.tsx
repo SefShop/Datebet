@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getPendingInvite, subscribePendingInvite, markInviteReconciled, enterAcceptedGame, clearCurrentSession, GameInvite } from '@/lib/gameInvites'
+import { getPendingInvite, subscribePendingInvite, markInviteReconciled, enterAcceptedGame, clearCurrentSession, gameScreenFor, GameInvite } from '@/lib/gameInvites'
+import { emitRematchDeclined } from '@/lib/rematchDeclinedToast'
 
 const GAME_NAMES: Record<string, string> = { tic_tac_toe: '⭕ Tic Tac Toe', connect_4: '🔴 Connect 4', mystery: '🎮 Game' }
 
@@ -29,6 +30,19 @@ export default function WaitingScreen() {
 
     let poll: ReturnType<typeof setInterval> | null = null
 
+    function handleDeclined() {
+      if (pending!.originalSessionId) {
+        // Rematch decline: no full-screen takeover — just leave the
+        // waiting state and return to the completed game screen the
+        // rematch was for, with a small toast instead of a modal.
+        emitRematchDeclined(pending!.receiverName)
+        navigate(gameScreenFor(pending!.gameType) as any)
+      } else {
+        // Normal challenge decline — existing behavior, unchanged.
+        setStatus('declined')
+      }
+    }
+
     channelRef.current = supabase
       .channel(`waiting-${pending.id}`)
       .on('postgres_changes', {
@@ -43,7 +57,7 @@ export default function WaitingScreen() {
         } else if (inv.status === 'declined') {
           console.log('DECLINED:', inv.id)
           if (poll) { clearInterval(poll); poll = null }
-          setStatus('declined')
+          handleDeclined()
         }
       })
       .subscribe()
@@ -58,7 +72,7 @@ export default function WaitingScreen() {
         await enterRoom(data as GameInvite)
       } else if (data.status === 'declined') {
         if (poll) { clearInterval(poll); poll = null }
-        setStatus('declined')
+        handleDeclined()
       }
     }, 2000)
 

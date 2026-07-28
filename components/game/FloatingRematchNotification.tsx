@@ -116,11 +116,16 @@ export default function FloatingRematchNotification({ session, myId, opponentNam
     }
   }
 
-  function dismiss() {
-    // "Not now" only closes the popover — it does not alter or delete
-    // the existing pending request, so the notification button remains
-    // available afterward.
-    setOpen(false)
+  async function decline() {
+    if (!invite || processing) return
+    setProcessing(true)
+    try {
+      await respondInvite(invite.id, false)
+      setInvite(null)
+      setOpen(false)
+    } finally {
+      setProcessing(false)
+    }
   }
 
   if (!invite) return null
@@ -162,7 +167,7 @@ export default function FloatingRematchNotification({ session, myId, opponentNam
       {open && (
         <div className="flex items-center justify-center px-6"
           style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(5,4,10,0.55)', backdropFilter: 'blur(3px)' }}
-          onClick={dismiss}>
+          onClick={() => setOpen(false)}>
           <div onClick={e => e.stopPropagation()}
             className="w-full rounded-3xl p-6 text-center"
             style={{
@@ -183,10 +188,10 @@ export default function FloatingRematchNotification({ session, myId, opponentNam
                 style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', opacity: processing ? 0.7 : 1 }}>
                 {lang === 'gr' ? 'Αποδοχή' : 'Accept'}
               </button>
-              <button onClick={dismiss} disabled={processing}
+              <button onClick={decline} disabled={processing}
                 className="rounded-full py-3 text-[14px] font-semibold cursor-pointer active:scale-95 transition-transform"
                 style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.75)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                {lang === 'gr' ? 'Όχι τώρα' : 'Not now'}
+                {lang === 'gr' ? 'Όχι' : 'No'}
               </button>
             </div>
           </div>

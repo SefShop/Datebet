@@ -600,11 +600,11 @@ export function setOpponentName(n: string) { _opponentName = n; console.log('OPP
 export function getOpponentName(): string | null { return _opponentName }
 
 // ── Pending invite holder (for waiting screen) ──────────────────
-let _pendingInvite: { id: string; receiverName: string; gameType: string } | null = null
-type PendingInviteListener = (p: { id: string; receiverName: string; gameType: string } | null) => void
+let _pendingInvite: { id: string; receiverName: string; gameType: string; originalSessionId?: string } | null = null
+type PendingInviteListener = (p: { id: string; receiverName: string; gameType: string; originalSessionId?: string } | null) => void
 const _pendingInviteListeners = new Set<PendingInviteListener>()
 
-export function setPendingInvite(p: { id: string; receiverName: string; gameType: string }) {
+export function setPendingInvite(p: { id: string; receiverName: string; gameType: string; originalSessionId?: string }) {
   _pendingInvite = p
   _pendingInviteListeners.forEach(fn => { try { fn(p) } catch (e) { console.error('pending invite listener error:', e) } })
 }

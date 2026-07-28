@@ -11,6 +11,7 @@ import GamePresenceBanner from '@/components/game/GamePresenceBanner'
 import FloatingChatButton from '@/components/chat/FloatingChatButton'
 import FloatingRematchNotification from '@/components/game/FloatingRematchNotification'
 import ChatUnlockProgress from '@/components/game/ChatUnlockProgress'
+import RematchDeclinedToast from '@/components/game/RematchDeclinedToast'
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
@@ -443,7 +444,7 @@ export default function TicTacToeScreen() {
 
     // Opponent name for waiting screen
     const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()
-    setPendingInvite({ id: result.inviteId, receiverName: opp?.name || 'Player', gameType: 'tic_tac_toe' })
+    setPendingInvite({ id: result.inviteId, receiverName: opp?.name || 'Player', gameType: 'tic_tac_toe', originalSessionId: session.id })
     console.log('PLAY AGAIN WAITING SCREEN:', result.inviteId)
     navigate('waiting')
   }
@@ -501,6 +502,7 @@ export default function TicTacToeScreen() {
     <div className="flex flex-col h-full" style={{ background: 'radial-gradient(ellipse at 50% 20%, rgba(253,41,123,0.094) 0%, transparent 55%), #0a0a10' }}>
       <FloatingChatButton openChat={openChat} isChatUnlocked={pairCount >= 10} />
       <FloatingRematchNotification session={session} myId={myId || ''} opponentName={oppName} />
+      <RematchDeclinedToast lang={lang} />
 
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-14 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.071)' }}>
