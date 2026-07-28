@@ -104,6 +104,44 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
     console.log('NEW INVITE ID:', data.id)
     console.log('GAME INVITE SENT:', receiverId, gameType)
     if (gameType === 'mystery_choice') console.log('MYSTERY CHOICE INVITE CREATED:', data.id)
+
+    if (originalSessionId) {
+      // Rematch reconciliation: my own insert just succeeded, but the
+      // opponent may have independently inserted their own competing
+      // invite (opposite direction, same original session) at nearly
+      // the same moment — the database-level unique index should
+      // already prevent this, but checking here makes the outcome
+      // correct regardless. Both clients run this exact same check with
+      // the exact same comparison, so they always agree on one winner.
+      const { data: competing } = await supabase
+        .from('game_invites')
+        .select('*')
+        .eq('sender_id', receiverId)
+        .eq('receiver_id', user.id)
+        .eq('game_type', gameType)
+        .eq('status', 'pending')
+        .eq('original_session_id', originalSessionId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (competing) {
+        const mineWins = data.created_at < competing.created_at
+          || (data.created_at === competing.created_at && data.id < competing.id)
+        if (mineWins) {
+          // Mine is canonical — decline the other one (I'm its
+          // receiver, so this is a legitimate action) so it stops
+          // showing as a separate pending request.
+          await respondInvite(competing.id, false)
+        } else {
+          // Theirs is canonical — accept it directly instead of
+          // waiting on my own, exactly like the shouldAccept path.
+          console.log('REMATCH RECONCILIATION: OPPONENT REQUEST WINS — ACCEPTING:', competing.id)
+          return { ok: true, inviteId: competing.id, invite: competing as GameInvite, shouldAccept: true }
+        }
+      }
+    }
+
     return { ok: true, inviteId: data.id, invite: data as GameInvite }
   } catch (e: any) { return { ok: false, error: e.message } }
 }
