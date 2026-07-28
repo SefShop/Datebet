@@ -12,6 +12,7 @@ import BackControl from '@/components/ui/BackControl'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
 import FloatingChatButton from '@/components/chat/FloatingChatButton'
 import FloatingRematchNotification from '@/components/game/FloatingRematchNotification'
+import ChatUnlockProgress from '@/components/game/ChatUnlockProgress'
 import { getAnswerEmoji } from '@/lib/answerEmoji'
 import { getResultPool, selectRandomResult, getResultById } from '@/lib/mysteryResultLibrary'
 import {
@@ -977,6 +978,7 @@ export default function MysteryChoiceGame() {
                   style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', boxShadow: '0 8px 28px rgba(253,41,123,0.45)' }}>
                   🎮 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
                 </button>
+                <ChatUnlockProgress currentProgress={pairCount} isUnlocked={pairCount >= 10} lang={lang} />
                 <button onClick={() => {
                   // This is a separate button from the header BackControl,
                   // specific to the result screen — it must clear the

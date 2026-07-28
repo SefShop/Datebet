@@ -10,6 +10,7 @@ import BackControl from '@/components/ui/BackControl'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
 import FloatingChatButton from '@/components/chat/FloatingChatButton'
 import FloatingRematchNotification from '@/components/game/FloatingRematchNotification'
+import ChatUnlockProgress from '@/components/game/ChatUnlockProgress'
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
@@ -632,6 +633,7 @@ export default function TicTacToeScreen() {
               🔁 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
             </button>
           )}
+          <ChatUnlockProgress currentProgress={pairCount} isUnlocked={pairCount >= 10} lang={lang} />
         </div>
       )}
 

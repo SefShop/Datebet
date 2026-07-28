@@ -8,6 +8,7 @@ import BackControl from '@/components/ui/BackControl'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
 import FloatingChatButton from '@/components/chat/FloatingChatButton'
 import FloatingRematchNotification from '@/components/game/FloatingRematchNotification'
+import ChatUnlockProgress from '@/components/game/ChatUnlockProgress'
 
 const COLS = 7, ROWS = 6
 
@@ -373,6 +374,7 @@ export default function Connect4Screen() {
       {state.status === 'finished' && (
         <div className="c4-finished-actions px-6 mt-5 flex flex-col gap-2.5">
           <button onClick={playAgain} className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>{lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}</button>
+          <ChatUnlockProgress currentProgress={pairCount} isUnlocked={pairCount >= 10} lang={lang} />
         </div>
       )}
       <style>{`
