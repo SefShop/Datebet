@@ -20,3 +20,10 @@ ADD COLUMN IF NOT EXISTS original_session_id uuid NULL;
 CREATE INDEX IF NOT EXISTS idx_game_invites_original_session
 ON game_invites (original_session_id)
 WHERE original_session_id IS NOT NULL;
+
+-- Required after adding a column: PostgREST (the API layer Supabase
+-- client calls go through) caches the table schema and won't see a new
+-- column until this cache is reloaded. This is very likely the direct
+-- cause of the "Could not find the 'original_session_id' column ... in
+-- the schema cache" error even after the ALTER TABLE above has run.
+NOTIFY pgrst, 'reload schema';
