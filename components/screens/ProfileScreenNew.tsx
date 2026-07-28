@@ -982,7 +982,7 @@ export default function ProfileScreenNew() {
             overflow-x: hidden !important;
           }
           .discover-card-area-v2 {
-            padding: 24px 16px 8px !important;
+            padding: 16px 16px 6px !important;
             display: flex !important;
             align-items: flex-start !important;
             justify-content: center !important;
@@ -991,9 +991,9 @@ export default function ProfileScreenNew() {
           .desktop-profile-card {
             width: clamp(420px, 34vw, 500px) !important;
             max-width: 500px !important;
-            height: clamp(540px, 65vh, 650px) !important;
-            min-height: 540px !important;
-            max-height: 650px !important;
+            height: clamp(480px, 58vh, 600px) !important;
+            min-height: 480px !important;
+            max-height: 600px !important;
             margin: 0 auto !important;
             overflow: hidden !important;
             position: relative !important;
@@ -1008,7 +1008,7 @@ export default function ProfileScreenNew() {
           .desktop-profile-card.desktop-card-front-active {
             height: auto !important;
             min-height: 0 !important;
-            max-height: clamp(540px, 65vh, 650px) !important;
+            max-height: clamp(480px, 58vh, 600px) !important;
           }
           /* Was flex:0 0 70% of the card's own height — with the card now
              content-sized (auto) in front-view mode, that had no stable
@@ -1018,7 +1018,7 @@ export default function ProfileScreenNew() {
              only decoupled from a fixed card height. */
           .mc-photo-zone {
             flex: 0 0 auto !important;
-            height: clamp(378px, 46vh, 455px) !important;
+            height: clamp(336px, 41vh, 420px) !important;
           }
           .desktop-profile-details-toggle {
             display: flex !important;
@@ -1048,7 +1048,7 @@ export default function ProfileScreenNew() {
             margin-top: 0 !important;
           }
 
-          .discover-actions-v2 { padding-top: 8px !important; padding-bottom: 28px !important; max-width: 500px; margin: 0 auto; width: 100%; }
+          .discover-actions-v2 { padding-top: 6px !important; padding-bottom: 18px !important; max-width: 500px; margin: 0 auto; width: 100%; }
         }
 
         @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
