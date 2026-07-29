@@ -378,7 +378,29 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
       .select()
       .single()
 
-    if (error) { console.error('GAME SESSION error:', error); return { error: error.message } }
+    if (error) {
+      // Unique-conflict recovery: the other participant's client won a
+      // genuine simultaneous race to create this invite's session (see
+      // the accompanying SQL migration's unique index on invite_id) —
+      // re-fetch and return that canonical row instead of surfacing this
+      // as an error or (worse) silently returning a duplicate. This is
+      // what makes both participants converge on the exact same session
+      // even when their enterAcceptedGame() calls land within moments of
+      // each other, which is the normal case for a rematch.
+      if (error.code === '23505') {
+        console.log('UNIQUE CONFLICT ON SESSION INSERT — fetching canonical row for invite:', invite.id)
+        const { data: canonical } = await supabase
+          .from('game_sessions')
+          .select('*')
+          .eq('invite_id', invite.id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        if (canonical) return { session: canonical }
+      }
+      console.error('GAME SESSION error:', error)
+      return { error: error.message }
+    }
     console.log('NEW GAME SESSION CREATED:', data.id)
     if (invite.game_type === 'mystery_choice') {
       console.log('MYSTERY CHOICE SESSION CREATED:', data.id)
