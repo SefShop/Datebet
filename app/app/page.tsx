@@ -426,7 +426,7 @@ function AppShell() {
              height while still trimming the excess. Every other screen
              keeps the exact same 844px/48px values above, untouched. */
           .desktop-scroll-shell.profile-desktop-fit {
-            min-height: 740px !important;
+            min-height: 630px !important;
             padding-bottom: 16px !important;
           }
         }
