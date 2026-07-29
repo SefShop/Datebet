@@ -307,9 +307,9 @@ function AppShell() {
   return (
     <main className="min-h-screen bg-[#111] flex items-center justify-center">
       <div
-        className="desktop-scroll-shell w-[390px] h-[844px] overflow-hidden relative
+        className={`desktop-scroll-shell${screen === 'profile' ? ' profile-desktop-fit' : ''} w-[390px] h-[844px] overflow-hidden relative
           shadow-[0_50px_150px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.06)]
-          rounded-[52px] max-sm:w-full max-sm:h-dvh max-sm:rounded-none max-sm:shadow-none"
+          rounded-[52px] max-sm:w-full max-sm:h-dvh max-sm:rounded-none max-sm:shadow-none`}
         style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", background:'#08080f' }}
       >
         {/* Account menu — language switch now lives only inside Settings.
@@ -410,6 +410,24 @@ function AppShell() {
             overflow-y: auto !important;
             overflow-x: hidden !important;
             padding-bottom: 48px !important;
+          }
+          /* Profile only: the 844px floor and 48px bottom padding above are
+             leftovers sized for the original fixed mobile-frame height —
+             fine for screens whose content still reaches roughly that
+             height, but Profile's own card was already shrunk shorter
+             (~600px max) by an earlier fix, so this shell was still being
+             forced 844px+48px tall regardless, leaving empty scrollable
+             space below the action buttons. Reduced rather than removed
+             entirely — every screen inside this shell is itself
+             position:absolute/inset:0, so an auto-height shell has no
+             other content to size against; min-height must stay a real,
+             positive value or the shell (and everything in it) would
+             collapse. This value comfortably covers Profile's own content
+             height while still trimming the excess. Every other screen
+             keeps the exact same 844px/48px values above, untouched. */
+          .desktop-scroll-shell.profile-desktop-fit {
+            min-height: 740px !important;
+            padding-bottom: 16px !important;
           }
         }
       `}</style>
