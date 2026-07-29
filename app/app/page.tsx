@@ -307,9 +307,9 @@ function AppShell() {
   return (
     <main className="min-h-screen bg-[#111] flex items-center justify-center">
       <div
-        className={`desktop-scroll-shell${screen === 'profile' ? ' profile-desktop-wide' : ''} w-[390px] h-[844px] overflow-hidden relative
+        className="desktop-scroll-shell w-[390px] h-[844px] overflow-hidden relative
           shadow-[0_50px_150px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.06)]
-          rounded-[52px] max-sm:w-full max-sm:h-dvh max-sm:rounded-none max-sm:shadow-none`}
+          rounded-[52px] max-sm:w-full max-sm:h-dvh max-sm:rounded-none max-sm:shadow-none"
         style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", background:'#08080f' }}
       >
         {/* Account menu — language switch now lives only inside Settings.
@@ -410,16 +410,6 @@ function AppShell() {
             overflow-y: auto !important;
             overflow-x: hidden !important;
             padding-bottom: 48px !important;
-          }
-          /* Profile only: the shell itself was still capped at the mobile
-             390px width even at this breakpoint — only its height behavior
-             was previously widened. The profile card's own desktop width
-             rule (clamp(420px,34vw,500px)) is wider than that 390px shell,
-             so it was being squeezed into a mobile-width frame with a large
-             unused area beside it. Every other screen keeps the exact same
-             390px shell — this only ever applies when Profile is active. */
-          .desktop-scroll-shell.profile-desktop-wide {
-            width: clamp(560px, 45vw, 700px) !important;
           }
         }
       `}</style>
