@@ -1000,9 +1000,9 @@ export default function ProfileScreenNew() {
           .desktop-profile-card {
             width: clamp(420px, 34vw, 500px) !important;
             max-width: 500px !important;
-            height: clamp(480px, 58vh, 600px) !important;
-            min-height: 480px !important;
-            max-height: 600px !important;
+            height: clamp(440px, 54vh, 560px) !important;
+            min-height: 440px !important;
+            max-height: 560px !important;
             margin: 0 auto !important;
             overflow: hidden !important;
             position: relative !important;
@@ -1017,17 +1017,20 @@ export default function ProfileScreenNew() {
           .desktop-profile-card.desktop-card-front-active {
             height: auto !important;
             min-height: 0 !important;
-            max-height: clamp(480px, 58vh, 600px) !important;
+            max-height: clamp(440px, 54vh, 560px) !important;
           }
           /* Was flex:0 0 70% of the card's own height — with the card now
              content-sized (auto) in front-view mode, that had no stable
              basis to resolve against, so the photo gets the exact same
              visual height as an explicit value instead: 70% of the same
              clamp() the card used to have. Photo size/crop is unchanged —
-             only decoupled from a fixed card height. */
+             only decoupled from a fixed card height. Slightly reduced
+             again here (was 336-420px) — same object-fit display, so the
+             photo itself isn't stretched or distorted, only its container
+             is a bit shorter, trimming the remaining unnecessary space. */
           .mc-photo-zone {
             flex: 0 0 auto !important;
-            height: clamp(336px, 41vh, 420px) !important;
+            height: clamp(300px, 37vh, 380px) !important;
           }
           .desktop-profile-details-toggle {
             display: flex !important;
