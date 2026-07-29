@@ -977,9 +977,18 @@ export default function ProfileScreenNew() {
           }
           .mc-profile-shell {
             height: auto !important;
-            min-height: 100% !important;
+            min-height: 0 !important;
             overflow-y: visible !important;
             overflow-x: hidden !important;
+          }
+          /* .mc-info-zone wraps interests/bio (hidden above) and Reveal
+             Progress. Its flex:1 1 auto (mobile) makes it greedily claim
+             any leftover vertical space in the flex column — with its
+             visible content now just the progress panel, that leftover
+             space rendered as empty area below it. Sized to its own
+             content instead. */
+          .mc-info-zone {
+            flex: 0 0 auto !important;
           }
           .discover-card-area-v2 {
             padding: 16px 16px 6px !important;
