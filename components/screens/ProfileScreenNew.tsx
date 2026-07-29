@@ -1031,7 +1031,7 @@ export default function ProfileScreenNew() {
              is a bit shorter, trimming the remaining unnecessary space. */
           .mc-photo-zone {
             flex: 0 0 auto !important;
-            height: clamp(324px, 39vh, 404px) !important;
+            height: clamp(312px, 37vh, 392px) !important;
           }
           .desktop-profile-details-toggle {
             display: flex !important;
@@ -1061,7 +1061,7 @@ export default function ProfileScreenNew() {
             margin-top: 0 !important;
           }
 
-          .discover-actions-v2 { padding-top: 23px !important; padding-bottom: 18px !important; max-width: 500px; margin: 0 auto; width: 100%; }
+          .discover-actions-v2 { padding-top: 15px !important; padding-bottom: 18px !important; max-width: 500px; margin: 0 auto; width: 100%; }
         }
 
         @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
