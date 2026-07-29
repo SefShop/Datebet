@@ -989,6 +989,7 @@ export default function ProfileScreenNew() {
              content instead. */
           .mc-info-zone {
             flex: 0 0 auto !important;
+            padding-bottom: 22px !important;
           }
           .discover-card-area-v2 {
             padding: 16px 16px 6px !important;
