@@ -427,7 +427,7 @@ function AppShell() {
              keeps the exact same 844px/48px values above, untouched. */
           .desktop-scroll-shell.profile-desktop-fit {
             min-height: 616px !important;
-            padding-bottom: 28px !important;
+            padding-bottom: 18px !important;
           }
         }
       `}</style>

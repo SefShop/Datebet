@@ -1061,7 +1061,7 @@ export default function ProfileScreenNew() {
             margin-top: 0 !important;
           }
 
-          .discover-actions-v2 { padding-top: 15px !important; padding-bottom: 18px !important; max-width: 500px; margin: 0 auto; width: 100%; }
+          .discover-actions-v2 { padding-top: 25px !important; padding-bottom: 18px !important; max-width: 500px; margin: 0 auto; width: 100%; }
         }
 
         @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
