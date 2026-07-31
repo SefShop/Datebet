@@ -22,7 +22,7 @@ export function deriveUnlockState(games_completed: number): { photo_unlocked: bo
 }
 
 // Normalize pair ids — identical ordering for both users
-function sortPair(a: string, b: string): [string, string] {
+export function sortPair(a: string, b: string): [string, string] {
   const sorted = [a, b].sort()
   return [sorted[0], sorted[1]]
 }

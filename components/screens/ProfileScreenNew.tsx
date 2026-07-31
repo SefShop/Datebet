@@ -6,7 +6,7 @@ import { setCurrentMatch, fetchProfiles, subscribeToNewProfiles, UserProfile } f
 import { appLangToIso } from '@/lib/langDetect'
 import DesktopProfileDetails from '@/components/ui/DesktopProfileDetails'
 import { sendGameInvite, setPendingInvite, setChatOrigin } from '@/lib/gameInvites'
-import { getPairProgress, PairProgress } from '@/lib/pairProgress'
+import { getPairProgress, PairProgress, sortPair, deriveUnlockState } from '@/lib/pairProgress'
 import { isOnlineNow } from '@/lib/presence'
 import { supabase } from '@/lib/supabase'
 
@@ -198,6 +198,53 @@ export default function ProfileScreenNew() {
       })
     }
     return () => { cancelled = true }
+  }, [p?.id])
+
+  // Live Reveal Progress sync — the fetch effect above only runs once per
+  // card change, so without this, a game completing after that fetch left
+  // Profile showing a stale count until a manual refresh re-ran it. This
+  // subscribes to realtime updates on the pair_progress row for exactly
+  // the currently-viewed pair, so both the user who completed the game
+  // (their own write also triggers their own subscription) and the other
+  // user (who receives the same database change independent of who wrote
+  // it) see the update immediately, without relying on any single client.
+  useEffect(() => {
+    if (!p?.id) return
+    const cardId = p.id
+    let channel: any = null
+    let cancelled = false
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled || !user?.id || p?.id !== cardId) return
+      const myId = user.id
+      const [one, two] = sortPair(myId, cardId)
+
+      function applyRow(row: any) {
+        if (cancelled || p?.id !== cardId) return
+        // Pair safety: a single realtime filter can only match one
+        // column, so user_two_id is re-checked here to guarantee this
+        // row is exactly this pair's row, never a different pair that
+        // happens to share the same (sorted) smaller id.
+        if (row.user_one_id !== one || row.user_two_id !== two) return
+        const gamesCompleted = typeof row.games_completed === 'number' ? row.games_completed : 0
+        setProgress(prev => {
+          // Monotonic guard: never let the displayed count move backwards
+          // if an older event is somehow processed after a newer one.
+          if (gamesCompleted < prev.games_completed) return prev
+          const derived = deriveUnlockState(gamesCompleted)
+          console.log('REVEAL PROGRESS LIVE UPDATE:', gamesCompleted)
+          return { games_completed: gamesCompleted, photo_unlocked: derived.photo_unlocked, chat_unlocked: derived.chat_unlocked }
+        })
+      }
+
+      channel = supabase
+        .channel(`pair-progress-${one}-${two}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pair_progress', filter: `user_one_id=eq.${one}` },
+          (payload: any) => { if (payload.new) applyRow(payload.new) })
+        .subscribe((status: string) => { if (status === 'SUBSCRIBED') console.log('REVEAL PROGRESS REALTIME SUBSCRIBED:', one, two) })
+    })
+
+    return () => { cancelled = true; if (channel) supabase.removeChannel(channel) }
   }, [p?.id])
 
   // Layout-only: collapse the bio detail sheet when the card changes.
