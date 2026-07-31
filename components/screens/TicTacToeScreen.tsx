@@ -462,6 +462,26 @@ export default function TicTacToeScreen() {
   }
 
 
+  // TEMPORARY DEV DIAGNOSTIC — remove after investigation.
+  // Must be here, before any conditional return below, so it's always
+  // called on every render (Rules of Hooks) — this is the exact fix for
+  // the app-wide crash the previous placement (after an early return)
+  // caused.
+  useEffect(() => {
+    console.log('[TTT_MOVE_DIAG]', JSON.stringify({
+      sessionId: session?.id,
+      currentTurn: state?.currentTurn,
+      playerOne: session?.player_one_id,
+      playerTwo: session?.player_two_id,
+      myUserId: myId,
+      myRole: myId === session?.player_one_id ? 'X (player_one)' : myId === session?.player_two_id ? 'O (player_two)' : 'UNKNOWN',
+      loading,
+      gameStatus: state?.status,
+      isMyTurn: !!state && state.currentTurn === myId && state.status === 'active',
+      subscriptionState: channelRef.current ? (channelRef.current.state ?? 'unknown') : 'no channel',
+    }))
+  }, [session?.id, state?.currentTurn, state?.status, myId, loading])
+
   // ── No session ──
   if (!session) {
     if (isExitingRef.current) {
@@ -495,22 +515,6 @@ export default function TicTacToeScreen() {
   }
 
   const isMyTurn = state.currentTurn === myId && state.status === 'active'
-
-  // TEMPORARY DEV DIAGNOSTIC — remove after investigation.
-  useEffect(() => {
-    console.log('[TTT_MOVE_DIAG]', JSON.stringify({
-      sessionId: session?.id,
-      currentTurn: state.currentTurn,
-      playerOne: session?.player_one_id,
-      playerTwo: session?.player_two_id,
-      myUserId: myId,
-      myRole: myId === session?.player_one_id ? 'X (player_one)' : myId === session?.player_two_id ? 'O (player_two)' : 'UNKNOWN',
-      loading,
-      gameStatus: state.status,
-      isMyTurn,
-      subscriptionState: channelRef.current ? (channelRef.current.state ?? 'unknown') : 'no channel',
-    }))
-  }, [session?.id, state.currentTurn, state.status, myId, loading, isMyTurn])
   const myName = myId === session.player_one_id ? names.one : names.two
   const oppName = myId === session.player_one_id ? names.two : names.one
 

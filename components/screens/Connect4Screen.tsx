@@ -307,6 +307,26 @@ export default function Connect4Screen() {
     }
   }
 
+  // TEMPORARY DEV DIAGNOSTIC — remove after investigation.
+  // Must be here, before any conditional return below, so it's always
+  // called on every render (Rules of Hooks) — this is the exact fix for
+  // the app-wide crash the previous placement (after an early return)
+  // caused.
+  useEffect(() => {
+    console.log('[C4_MOVE_DIAG]', JSON.stringify({
+      sessionId: session?.id,
+      currentTurn: state?.currentTurn,
+      playerOne: session?.player_one_id,
+      playerTwo: session?.player_two_id,
+      myUserId: myId,
+      myRole: myId === session?.player_one_id ? 'R (player_one)' : myId === session?.player_two_id ? 'Y (player_two)' : 'UNKNOWN',
+      loading,
+      gameStatus: state?.status,
+      isMyTurn: !!state && state.currentTurn === myId && state.status === 'active',
+      subscriptionState: channelRef.current ? (channelRef.current.state ?? 'unknown') : 'no channel',
+    }))
+  }, [session?.id, state?.currentTurn, state?.status, myId, loading])
+
   if (!session) {
     if (isExitingRef.current) {
       return <div className="flex flex-col h-full" style={{ background: '#0a0a10' }} />
@@ -322,22 +342,6 @@ export default function Connect4Screen() {
   if (loading || !state) return <div className="flex items-center justify-center h-full" style={{ background: '#0a0a10' }}><div className="text-[28px]" style={{ animation: 'pulse 1s infinite' }}>🔴</div></div>
 
   const isMyTurn = state.currentTurn === myId && state.status === 'active'
-
-  // TEMPORARY DEV DIAGNOSTIC — remove after investigation.
-  useEffect(() => {
-    console.log('[C4_MOVE_DIAG]', JSON.stringify({
-      sessionId: session?.id,
-      currentTurn: state.currentTurn,
-      playerOne: session?.player_one_id,
-      playerTwo: session?.player_two_id,
-      myUserId: myId,
-      myRole: myId === session?.player_one_id ? 'R (player_one)' : myId === session?.player_two_id ? 'Y (player_two)' : 'UNKNOWN',
-      loading,
-      gameStatus: state.status,
-      isMyTurn,
-      subscriptionState: channelRef.current ? (channelRef.current.state ?? 'unknown') : 'no channel',
-    }))
-  }, [session?.id, state.currentTurn, state.status, myId, loading, isMyTurn])
   const myName = myId === session.player_one_id ? names.one : names.two
   const oppName = myId === session.player_one_id ? names.two : names.one
 
