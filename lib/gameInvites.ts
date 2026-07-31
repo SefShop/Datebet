@@ -52,7 +52,7 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
     // sender_id = me, so a near-simultaneous press from the other user
     // (whose invite has sender/receiver swapped) was invisible to this
     // check, and both clients would insert their own separate row.
-    const existingEither = await findPendingInviteEitherDirection(user.id, receiverId, gameType)
+    const existingEither = await findPendingInviteEitherDirection(user.id, receiverId, gameType, originalSessionId)
     if (existingEither) {
       if (existingEither.sender_id === user.id) {
         // Mine — refresh it (existing behavior: moves it to the top,
@@ -135,8 +135,14 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
           await respondInvite(competing.id, false)
         } else {
           // Theirs is canonical — accept it directly instead of
-          // waiting on my own, exactly like the shouldAccept path.
+          // waiting on my own. Before doing so, decline my own
+          // just-inserted (now losing) invite — otherwise it stays
+          // pending forever, and a future, unrelated rematch attempt
+          // could later find this stale row and incorrectly treat it
+          // as an existing request to accept, skipping the normal
+          // waiting/confirmation flow entirely.
           console.log('REMATCH RECONCILIATION: OPPONENT REQUEST WINS — ACCEPTING:', competing.id)
+          await respondInvite(data.id, false)
           return { ok: true, inviteId: competing.id, invite: competing as GameInvite, shouldAccept: true }
         }
       }
@@ -150,13 +156,15 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
 // recovery path — looks for a pending invite between two users for a
 // game type, in either sender/receiver direction, returning the newest
 // non-expired one if more than one somehow exists.
-async function findPendingInviteEitherDirection(userA: string, userB: string, gameType: string): Promise<GameInvite | null> {
-  const { data } = await supabase
+async function findPendingInviteEitherDirection(userA: string, userB: string, gameType: string, scopeToOriginalSessionId?: string): Promise<GameInvite | null> {
+  let query = supabase
     .from('game_invites')
     .select('*')
     .or(`and(sender_id.eq.${userA},receiver_id.eq.${userB}),and(sender_id.eq.${userB},receiver_id.eq.${userA})`)
     .eq('game_type', gameType)
     .eq('status', 'pending')
+  if (scopeToOriginalSessionId) query = query.eq('original_session_id', scopeToOriginalSessionId)
+  const { data } = await query
     .order('created_at', { ascending: false })
     .limit(1)
   const row = data && data.length > 0 ? (data[0] as GameInvite) : null
