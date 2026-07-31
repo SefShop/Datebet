@@ -179,6 +179,7 @@ export default function Connect4Screen() {
             }
           })
         .subscribe(async (status: string) => {
+          console.log('[C4_SUBSCRIPTION_STATUS]', status, 'session:', s0.id)
           if (status !== 'SUBSCRIBED') return
           // Closes the gap between the initial SELECT and the moment this
           // channel actually goes live — re-fetch once in case a move
@@ -217,12 +218,13 @@ export default function Connect4Screen() {
   }, [])
 
   async function drop(col: number) {
-    if (!state || !session || !myId) return
-    if (state.status === 'finished' || state.currentTurn !== myId) return
+    if (!state || !session || !myId) { console.log('[C4_MOVE_BLOCKED]', 'no state/session/user') ; return }
+    if (state.status === 'finished') { console.log('[C4_MOVE_BLOCKED]', 'game finished') ; return }
+    if (state.currentTurn !== myId) { console.log('[C4_MOVE_BLOCKED]', 'not your turn (turn=' + state.currentTurn + ', me=' + myId + ')') ; return }
     // find lowest empty row in col
     let row = -1
     for (let r = ROWS - 1; r >= 0; r--) { if (!state.board[r * COLS + col]) { row = r; break } }
-    if (row < 0) return
+    if (row < 0) { console.log('[C4_MOVE_BLOCKED]', 'column full') ; return }
 
     const board = [...state.board]
     board[row * COLS + col] = myColor
@@ -320,6 +322,22 @@ export default function Connect4Screen() {
   if (loading || !state) return <div className="flex items-center justify-center h-full" style={{ background: '#0a0a10' }}><div className="text-[28px]" style={{ animation: 'pulse 1s infinite' }}>🔴</div></div>
 
   const isMyTurn = state.currentTurn === myId && state.status === 'active'
+
+  // TEMPORARY DEV DIAGNOSTIC — remove after investigation.
+  useEffect(() => {
+    console.log('[C4_MOVE_DIAG]', JSON.stringify({
+      sessionId: session?.id,
+      currentTurn: state.currentTurn,
+      playerOne: session?.player_one_id,
+      playerTwo: session?.player_two_id,
+      myUserId: myId,
+      myRole: myId === session?.player_one_id ? 'R (player_one)' : myId === session?.player_two_id ? 'Y (player_two)' : 'UNKNOWN',
+      loading,
+      gameStatus: state.status,
+      isMyTurn,
+      subscriptionState: channelRef.current ? (channelRef.current.state ?? 'unknown') : 'no channel',
+    }))
+  }, [session?.id, state.currentTurn, state.status, myId, loading, isMyTurn])
   const myName = myId === session.player_one_id ? names.one : names.two
   const oppName = myId === session.player_one_id ? names.two : names.one
 
