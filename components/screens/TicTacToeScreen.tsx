@@ -626,7 +626,7 @@ export default function TicTacToeScreen() {
 
       {/* Board */}
       <div className="flex items-center justify-center px-6">
-        <div className="ttt-board-grid" style={{
+        <div className={`ttt-board-grid${pairCount >= 10 ? ' ttt-board-unlocked' : ''}`} style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
           gridTemplateRows: 'repeat(3, 1fr)',
@@ -705,6 +705,9 @@ export default function TicTacToeScreen() {
           }
           .ttt-board-grid {
             max-width: 288px !important;
+          }
+          .ttt-board-grid.ttt-board-unlocked {
+            max-width: 360px !important;
           }
         }
       `}</style>
