@@ -100,6 +100,12 @@ function AppShell() {
   // ── Auth gate (skip if Supabase not configured) ──
   const [authed, setAuthed] = useState(!isSupabaseConfigured())
   const [authKey, setAuthKey] = useState(0)  // true = skip auth if no config
+  // Tracks the last user id this handler has already processed, so a
+  // routine background token refresh (which fires the same event names
+  // for the SAME user, typically triggered by the tab regaining focus)
+  // can be told apart from an actual sign-in/sign-out/account switch —
+  // see the onAuthStateChange handler below.
+  const lastAuthUserIdRef = useRef<string | null>(null)
   useEffect(() => {
     console.log('[TIC_TAC_TOE_REFRESH_TRACE] authKey changed to:', authKey, '— this forces a remount of all game screens')
   }, [authKey])
@@ -163,6 +169,19 @@ function AppShell() {
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('AUTH STATE CHANGE:', event, session?.user?.id)
+      const newUserId = session?.user?.id ?? null
+      const userIdChanged = newUserId !== lastAuthUserIdRef.current
+      if (!userIdChanged) {
+        // Same user as already known — this is Supabase's own routine
+        // background token revalidation (commonly triggered by the tab
+        // regaining focus/visibility), not an actual sign-in, sign-out,
+        // or account switch. Update auth state for consistency, but do
+        // NOT reset navigation, clear game/profile state, or force a
+        // full remount — that's the fix for this task.
+        setAuthed(!!session)
+        return
+      }
+      lastAuthUserIdRef.current = newUserId
       if (event === 'SIGNED_OUT' || !session) {
         console.log('AUTH: signed out, clearing profile state')
         clearProfileState()
@@ -214,7 +233,7 @@ function AppShell() {
         })
       }
       setAuthed(!!session)
-      setAuthKey(k => k + 1)  // force remount all screens
+      setAuthKey(k => k + 1)  // force remount all screens — only for an actual sign-in/sign-out/account switch now
     })
     return () => subscription.unsubscribe()
   }, [])
