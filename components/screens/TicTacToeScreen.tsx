@@ -130,7 +130,8 @@ export default function TicTacToeScreen() {
     setState(null)
     setLoading(true)
     setIAmReady(false)
-    if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
+    const oldChannel = channelRef.current
+    channelRef.current = null
 
     // Hard guard: mark the active session id
     activeSessionRef.current = sess0.id
@@ -143,6 +144,13 @@ export default function TicTacToeScreen() {
     let cancelled = false
 
     async function init() {
+      // Await the old channel's removal (server-acknowledged) before ever
+      // creating the new one, instead of firing removeChannel and moving
+      // on immediately — sequences the two rather than letting them race,
+      // so the old subscription is fully torn down first.
+      if (oldChannel) { await supabase.removeChannel(oldChannel) }
+      if (cancelled) return
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setError('Not logged in'); setLoading(false); return }
       setMyId(user.id)
