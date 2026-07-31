@@ -98,6 +98,8 @@ export default function Connect4Screen() {
     activeSessionRef.current = s0.id
     progressRefreshedRef.current = null
     isExitingRef.current = false
+    const oldChannel = channelRef.current
+    channelRef.current = null
 
     // Clear the previous game's transient state immediately, synchronously,
     // before any async work starts. Without this, the old `state` (still
@@ -116,6 +118,14 @@ export default function Connect4Screen() {
     let cancelled = false
 
     async function init() {
+      // Await the old channel's removal (server-acknowledged) before ever
+      // creating the new one, instead of only relying on React's cleanup
+      // function to fire-and-forget it — same fix already proven for Tic
+      // Tac Toe. Sequences the teardown rather than letting it race the
+      // new subscription's creation.
+      if (oldChannel) { await supabase.removeChannel(oldChannel) }
+      if (cancelled) return
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
       setMyId(user.id)
