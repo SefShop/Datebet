@@ -1105,16 +1105,21 @@ export default function ProfileScreenNew() {
             overflow: hidden !important;
             position: relative !important;
           }
-          /* Front view only: the card shrinks to fit its actual content
-             (photo + Reveal Progress, now that interests/bio are hidden)
-             instead of staying a fixed clamp(650px,80vh,780px) box with
-             empty reserved space below Reveal Progress. The details view
-             (.desktop-profile-card without this modifier) keeps the exact
-             original fixed height above, unchanged — it still needs a
-             stable height for its fixed-header/scrollable-body design. */
+          /* Front view: previously height:auto (content-shrunk) so a
+             VISIBLE Reveal Progress panel didn't leave empty reserved
+             space in a larger fixed box. That worked for the
+             Reveal-visible case, but meant the card's total height
+             depended on Reveal Progress's own presence — so when it
+             disappeared, the card (and everything below it, including
+             the action buttons) shifted. Fixed here at the exact same
+             value the max-height cap already used, so the card's outer
+             boundary is now identical in both states by construction —
+             the action buttons below it cannot move regardless of what
+             happens inside the card. The photo-growth rule below still
+             redistributes the reclaimed interior space into the photo. */
           .desktop-profile-card.desktop-card-front-active {
-            height: auto !important;
-            min-height: 0 !important;
+            height: clamp(440px, 54vh, 560px) !important;
+            min-height: 440px !important;
             max-height: clamp(440px, 54vh, 560px) !important;
           }
           /* Was flex:0 0 70% of the card's own height — with the card now
