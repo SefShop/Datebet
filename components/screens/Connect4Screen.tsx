@@ -127,9 +127,11 @@ export default function Connect4Screen() {
       if (cancelled) return
 
       const { data: { user } } = await supabase.auth.getUser()
+      if (cancelled) return
       if (!user) { setLoading(false); return }
       setMyId(user.id)
       const { data: profs } = await supabase.from('profiles').select('id, name').in('id', [s0.player_one_id, s0.player_two_id])
+      if (cancelled) return
       const nm = new Map(profs?.map(p => [p.id, p.name]) || [])
       setNames({ one: nm.get(s0.player_one_id) || 'P1', two: nm.get(s0.player_two_id) || 'P2' })
 
@@ -137,6 +139,7 @@ export default function Connect4Screen() {
       // truth already used by Tic Tac Toe and Mystery Choice.
       const otherId = user.id === s0.player_one_id ? s0.player_two_id : s0.player_one_id
       const prog = await getPairProgress(otherId)
+      if (cancelled) return
       setPairCount(prog.games_completed)
 
       const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', s0.id).maybeSingle()
