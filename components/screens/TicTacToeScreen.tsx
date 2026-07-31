@@ -626,7 +626,7 @@ export default function TicTacToeScreen() {
 
       {/* Board */}
       <div className="flex items-center justify-center px-6">
-        <div style={{
+        <div className="ttt-board-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
           gridTemplateRows: 'repeat(3, 1fr)',
@@ -682,9 +682,7 @@ export default function TicTacToeScreen() {
               🔁 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
             </button>
           )}
-          <div className="ttt-chat-unlock-wrap">
-            <ChatUnlockProgress currentProgress={pairCount} isUnlocked={pairCount >= 10} lang={lang} />
-          </div>
+          <ChatUnlockProgress currentProgress={pairCount} isUnlocked={pairCount >= 10} lang={lang} />
         </div>
       )}
 
@@ -705,9 +703,8 @@ export default function TicTacToeScreen() {
             margin-top: 8px !important;
             padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
           }
-          .ttt-chat-unlock-wrap {
-            margin-top: -10px !important;
-            margin-bottom: -14px !important;
+          .ttt-board-grid {
+            max-width: 320px !important;
           }
         }
       `}</style>
