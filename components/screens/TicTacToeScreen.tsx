@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, respondInvite, enterAcceptedGame, setPendingInvite, setChatOrigin } from '@/lib/gameInvites'
+import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite, setChatOrigin } from '@/lib/gameInvites'
 import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
@@ -105,6 +105,13 @@ export default function TicTacToeScreen() {
   const [pairCount, setPairCount] = useState<number>(0)
   const [photoAccess, setPhotoAccess] = useState<{ photoUnlocked: boolean; myPhoto: string | null; opponentPhoto: string | null }>({ photoUnlocked: false, myPhoto: null, opponentPhoto: null })
   const [iAmReady, setIAmReady] = useState(false)
+  // When both users press Play Again at nearly the same time, the loser
+  // of the reconciliation (whose own request wasn't canonical) stays on
+  // this completed-game screen with a disabled "waiting" button instead
+  // of auto-accepting and jumping into the new game — see playAgain().
+  // Kept separate from iAmReady, which is tied to the existing, unchanged
+  // normal one-user Play Again flow's own (differently worded) UI.
+  const [waitingForPlayer, setWaitingForPlayer] = useState(false)
 
   // My symbol: player_one = X, player_two = O
   const mySymbol = session && myId === session.player_one_id ? 'X' : 'O'
@@ -130,6 +137,7 @@ export default function TicTacToeScreen() {
     setState(null)
     setLoading(true)
     setIAmReady(false)
+    setWaitingForPlayer(false)
     const oldChannel = channelRef.current
     channelRef.current = null
 
@@ -424,6 +432,7 @@ export default function TicTacToeScreen() {
   // ── Play Again = new invite (uses working invite flow) ──────────
   async function playAgain() {
     if (!session || !myId) return
+    if (waitingForPlayer) return
     console.log('PLAY AGAIN REQUESTED')
     console.log('PLAY AGAIN CLICKED:', session.id)
     setIAmReady(true)
@@ -439,14 +448,15 @@ export default function TicTacToeScreen() {
     }
 
     if (result.shouldAccept && result.invite) {
-      // Opponent already has a pending rematch request to me — accept it
-      // immediately instead of waiting on one of my own. enterAcceptedGame
-      // sets the session; the existing top-level session subscription
-      // performs the transition, same as every other accept path.
-      console.log('PLAY AGAIN: ACCEPTING OPPONENT REQUEST INSTEAD OF WAITING:', result.inviteId)
-      const { ok } = await respondInvite(result.inviteId, true)
-      if (!ok) { setIAmReady(false); return }
-      await enterAcceptedGame(result.invite, myId)
+      // Simultaneous Play Again: the opponent's request was canonical,
+      // mine lost the reconciliation. Previously this auto-accepted and
+      // jumped straight into the new game. Now it stays on this
+      // completed screen with a disabled "waiting" button instead — the
+      // existing, unchanged floating rematch notification is still the
+      // one and only way this actually gets accepted, same as the
+      // normal one-sided flow. No navigation, no auto-accept here.
+      console.log('PLAY AGAIN: OPPONENT REQUEST IS CANONICAL — SHOWING WAITING STATE:', result.inviteId)
+      setWaitingForPlayer(true)
       return
     }
 
@@ -655,7 +665,12 @@ export default function TicTacToeScreen() {
       {/* Finished actions */}
       {state.status === 'finished' && (
         <div className="ttt-finished-actions px-6 mt-6 flex flex-col gap-2.5">
-          {iAmReady ? (
+          {waitingForPlayer ? (
+            <div className="w-full rounded-2xl py-3.5 text-[14px] font-bold text-center"
+              style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.59)', border: '1px solid rgba(255,255,255,0.094)' }}>
+              ⏳ {lang === 'gr' ? 'Περιμένουμε τον παίκτη...' : 'Waiting for a player...'}
+            </div>
+          ) : iAmReady ? (
             <div className="w-full rounded-2xl py-3.5 text-[14px] font-bold text-center"
               style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.59)', border: '1px solid rgba(255,255,255,0.094)' }}>
               ⏳ {lang === 'gr' ? 'Περιμένουμε τον παίκτη...' : 'Waiting for player...'}
