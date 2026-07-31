@@ -512,7 +512,7 @@ export default function ProfileScreenNew() {
       {state === 'ready' && p && (
         <>
           <div ref={cardAreaRef} className="discover-card-area-v2 mc-profile-card-area mobile-profile-card-area flex-1 min-h-0 flex items-center justify-center overflow-hidden" style={{ outline: DEBUG_MOBILE_PROFILE_LAYOUT ? '1px solid orange' : 'none' }}>
-            <div ref={cardRef} key={p.id + idx} className={`discover-card-v2 mc-profile-card mobile-profile-card desktop-profile-card rounded-[28px] overflow-hidden relative flex flex-col${(!isDesktop || !desktopDetailsOpen) ? ' desktop-card-front-active' : ''}`}
+            <div ref={cardRef} key={p.id + idx} className={`discover-card-v2 mc-profile-card mobile-profile-card desktop-profile-card rounded-[28px] overflow-hidden relative flex flex-col${(!isDesktop || !desktopDetailsOpen) ? ' desktop-card-front-active' : ''}${(progress.chat_unlocked || progress.games_completed >= 10) && ((p.photos && p.photos.length > 0) || p.photo) ? ' mobile-profile-card-enlarged' : ''}`}
               style={{
                 transform: `translateX(${tx}) rotate(${rot})`, opacity: op,
                 transition: anim === 'in' ? 'none' : 'all 0.28s ease',
@@ -896,6 +896,16 @@ export default function ProfileScreenNew() {
             display: grid !important;
             grid-template-rows: clamp(54%, 62dvh, 66%) minmax(0, 1fr) !important;
             position: relative !important;
+          }
+
+          /* Experimental: once Reveal Progress is no longer rendered (see
+             the enlarged class applied in JSX, using the exact same
+             completion condition), the photo row can grow into the space
+             it used to occupy — a 12% increase on each clamp bound,
+             within the suggested 10-15% range. Card width/position and
+             everything else stay identical; only the row split changes. */
+          .mobile-profile-card.mobile-profile-card-enlarged {
+            grid-template-rows: clamp(60%, 69dvh, 74%) minmax(0, 1fr) !important;
           }
 
           /* Photo dominates the card. It's a grid row now (not flex), so the
