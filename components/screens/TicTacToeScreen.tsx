@@ -704,7 +704,7 @@ export default function TicTacToeScreen() {
             padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
           }
           .ttt-board-grid {
-            max-width: 320px !important;
+            max-width: 288px !important;
           }
         }
       `}</style>
