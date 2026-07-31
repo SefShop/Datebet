@@ -43,6 +43,11 @@ export default function ProfileScreenNew() {
   const [showPicker, setShowPicker] = useState(false)
   const [progress, setProgress] = useState<PairProgress>({ games_completed: 0, photo_unlocked: false, chat_unlocked: false })
   const [progressLoaded, setProgressLoaded] = useState(false)
+  // Cache of already-fetched pair progress, keyed by the other user's id —
+  // see the fetch effect below for how this avoids the reset-then-refetch
+  // flash when switching back to (or pre-fetching) a profile whose unlock
+  // state is already known for this exact user pair.
+  const progressCacheRef = useRef<Map<string, PairProgress>>(new Map())
   const [pickerProfile, setPickerProfile] = useState<UserProfile|null>(null)
   const [showFullBio, setShowFullBio] = useState(false)  // layout-only: expands a bio detail sheet so the fixed card never grows
   const [translatedBio, setTranslatedBio] = useState<string | null>(null)
@@ -180,23 +185,38 @@ export default function ProfileScreenNew() {
   }, [refreshPresenceStatuses])
 
   useEffect(() => {
-    // PRIVACY: reset to LOCKED immediately on every card change (before any fetch)
-    console.log('CARD CHANGED - PHOTO LOCK RESET')
-    setProgressLoaded(false)
-    setProgress({ games_completed: 0, photo_unlocked: false, chat_unlocked: false })
+    if (!p?.id) {
+      setProgressLoaded(false)
+      setProgress({ games_completed: 0, photo_unlocked: false, chat_unlocked: false })
+      return
+    }
+    const cardId = p.id
+    const cached = progressCacheRef.current.get(cardId)
+    if (cached) {
+      // Already known for this exact pair — apply instantly, no reset,
+      // no visible flash. This is the fix for the blank/frozen switch:
+      // the unconditional reset-to-locked below only ever runs for a
+      // profile this user hasn't already fetched progress for.
+      console.log('PAIR PROGRESS CACHE HIT:', cardId)
+      setProgress(cached)
+      setProgressLoaded(true)
+    } else {
+      // PRIVACY: reset to LOCKED immediately on every card change (before any fetch)
+      console.log('CARD CHANGED - PHOTO LOCK RESET')
+      setProgressLoaded(false)
+      setProgress({ games_completed: 0, photo_unlocked: false, chat_unlocked: false })
+    }
 
     let cancelled = false
-    if (p?.id) {
-      console.log('PAIR PROGRESS LOADING')
-      const cardId = p.id
-      getPairProgress(cardId).then(prog => {
-        // Guard against stale response (user may have skipped to next card)
-        if (cancelled || p?.id !== cardId) return
-        setProgress(prog)
-        setProgressLoaded(true)
-        console.log('PHOTO LOCK CHECK:', prog.games_completed, '/10, unlocked:', prog.photo_unlocked)
-      })
-    }
+    console.log('PAIR PROGRESS LOADING')
+    getPairProgress(cardId).then(prog => {
+      // Guard against stale response (user may have skipped to next card)
+      if (cancelled || p?.id !== cardId) return
+      progressCacheRef.current.set(cardId, prog)
+      setProgress(prog)
+      setProgressLoaded(true)
+      console.log('PHOTO LOCK CHECK:', prog.games_completed, '/10, unlocked:', prog.photo_unlocked)
+    })
     return () => { cancelled = true }
   }, [p?.id])
 
@@ -335,7 +355,27 @@ export default function ProfileScreenNew() {
     setTimeout(() => { then(); setAnim('in'); setTimeout(() => setLocked(false), 350) }, 280)
   }
 
-  function pass() { transition('left', () => setIdx(i => i + 1)); refreshPresenceStatuses() }
+  function pass() {
+    // Pre-fetch the next card's pair progress now, in parallel with the
+    // existing out-animation, so it's very likely already cached by the
+    // time the user actually sees it — this is what avoids the visible
+    // reset-to-locked flash on normal forward swiping, not just on
+    // revisiting an already-seen card.
+    if (profiles.length > 0) {
+      const nextCard = profiles[(idx + 1) % profiles.length]
+      if (nextCard?.id && !progressCacheRef.current.has(nextCard.id)) {
+        getPairProgress(nextCard.id).then(prog => {
+          progressCacheRef.current.set(nextCard.id, prog)
+          const canShowNextPhoto = (prog.photo_unlocked || prog.games_completed >= 5) && !!nextCard.photo
+          if (canShowNextPhoto && nextCard.photo) {
+            const img = new window.Image()
+            img.src = nextCard.photo
+          }
+        })
+      }
+    }
+    transition('left', () => setIdx(i => i + 1)); refreshPresenceStatuses()
+  }
 
   function like() {
     if (!p) return
