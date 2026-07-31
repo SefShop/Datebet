@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, respondInvite, enterAcceptedGame, setPendingInvite, setRematchInProgress, setChatOrigin } from '@/lib/gameInvites'
+import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite, setRematchInProgress, setChatOrigin } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import BackControl from '@/components/ui/BackControl'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
@@ -50,6 +50,11 @@ export default function Connect4Screen() {
   const [names, setNames] = useState<{ one: string; two: string }>({ one: 'P1', two: 'P2' })
   const [loading, setLoading] = useState(true)
   const [pairCount, setPairCount] = useState<number>(0)
+  // When both users press Play Again at nearly the same time, the loser
+  // of the reconciliation (whose own request wasn't canonical) stays on
+  // this completed-game screen with a disabled "waiting" button instead
+  // of auto-accepting and jumping into the new game — see playAgain().
+  const [waitingForPlayer, setWaitingForPlayer] = useState(false)
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
   // Tracks the highest `moves` count ever applied to this session, kept in
@@ -112,6 +117,7 @@ export default function Connect4Screen() {
     setState(null)
     setLoading(true)
     latestMovesRef.current = -1
+    setWaitingForPlayer(false)
 
     // Guards the post-SUBSCRIBED refetch below against applying state
     // after this effect has been cleaned up (unmount, or session changed).
@@ -284,6 +290,7 @@ export default function Connect4Screen() {
   // "Rematch" presses would race to overwrite the same row.
   async function playAgain() {
     if (!session || !myId) return
+    if (waitingForPlayer) return
     setRematchInProgress(true)
     try {
       const opponentId = myId === session.player_one_id ? session.player_two_id : session.player_one_id
@@ -293,10 +300,15 @@ export default function Connect4Screen() {
         return
       }
       if (result.shouldAccept && result.invite) {
-        console.log('PLAY AGAIN: ACCEPTING OPPONENT REQUEST INSTEAD OF WAITING:', result.inviteId)
-        const { ok } = await respondInvite(result.inviteId, true)
-        if (!ok) return
-        await enterAcceptedGame(result.invite, myId)
+        // Simultaneous Play Again: the opponent's request was canonical,
+        // mine lost the reconciliation. Previously this auto-accepted and
+        // jumped straight into the new game. Now it stays on this
+        // completed screen with a disabled "waiting" button instead — the
+        // existing, unchanged floating rematch notification is still the
+        // one and only way this actually gets accepted, same as the
+        // normal one-sided flow. No navigation, no auto-accept here.
+        console.log('PLAY AGAIN: OPPONENT REQUEST IS CANONICAL — SHOWING WAITING STATE:', result.inviteId)
+        setWaitingForPlayer(true)
         return
       }
       const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()
@@ -410,7 +422,13 @@ export default function Connect4Screen() {
 
       {state.status === 'finished' && (
         <div className="c4-finished-actions px-6 mt-5 flex flex-col gap-2.5">
-          <button onClick={playAgain} className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>{lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}</button>
+          {waitingForPlayer ? (
+            <div className="w-full rounded-2xl py-3.5 text-[15px] font-bold text-center" style={{ background: 'rgba(255,255,255,0.047)', color: 'rgba(255,255,255,0.59)', border: '1px solid rgba(255,255,255,0.094)' }}>
+              ⏳ {lang === 'gr' ? 'Περιμένουμε τον παίκτη...' : 'Waiting for a player...'}
+            </div>
+          ) : (
+            <button onClick={playAgain} className="w-full rounded-2xl py-3.5 text-[15px] font-bold active:scale-95 cursor-pointer" style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff' }}>{lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}</button>
+          )}
           <ChatUnlockProgress currentProgress={pairCount} isUnlocked={pairCount >= 10} lang={lang} />
         </div>
       )}
