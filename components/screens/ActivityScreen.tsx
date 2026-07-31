@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getIncomingInvites, respondInvite, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
+import { getPairProgress } from '@/lib/pairProgress'
 import BackControl from '@/components/ui/BackControl'
 
 // Human-readable label for an invite's game_type
@@ -24,6 +25,11 @@ export default function ActivityScreen() {
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set())
   const [loading, setLoading]   = useState(true)
   const [myId, setMyId]         = useState<string | null>(null)
+  // Per-sender photo-unlock state, keyed by sender_id. Absence of a key
+  // means "not yet determined" and is always treated as locked by the
+  // render below — this is what prevents the real photo from ever
+  // flashing before the pair's actual unlock status is known.
+  const [photoUnlockMap, setPhotoUnlockMap] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     load()
@@ -65,6 +71,31 @@ export default function ActivityScreen() {
       console.log('INVITE POLLING STOPPED:')
     }
   }, [])
+
+  // Photo-unlock privacy: fetch the real, pair-specific unlock status for
+  // any sender not already in photoUnlockMap. Reuses getPairProgress —
+  // the same canonical source of truth already used by game screens
+  // (fetchGamePlayerPhotoAccess) and Profile's own photo-unlock gate —
+  // rather than any new or local-only unlock rule.
+  useEffect(() => {
+    if (!myId) return
+    const senderIds = Array.from(new Set(incoming.map(c => c.sender_id)))
+    const unknown = senderIds.filter(id => !(id in photoUnlockMap))
+    if (unknown.length === 0) return
+    let cancelled = false
+    Promise.all(unknown.map(async (id) => {
+      const prog = await getPairProgress(id)
+      return [id, !!prog.photo_unlocked] as const
+    })).then(results => {
+      if (cancelled) return
+      setPhotoUnlockMap(prev => {
+        const next = { ...prev }
+        for (const [id, unlocked] of results) next[id] = unlocked
+        return next
+      })
+    })
+    return () => { cancelled = true }
+  }, [incoming, myId])
 
   async function load() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -186,7 +217,7 @@ export default function ActivityScreen() {
         {visibleChallenges.map((c, i) => (
           <div key={c.id} className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.047)' }}>
             <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{ border: '2px solid rgba(253,41,123,0.354)' }}>
-              {c.sender_photo ? <img src={c.sender_photo} alt="" className="w-full h-full object-cover" />
+              {photoUnlockMap[c.sender_id] && c.sender_photo ? <img src={c.sender_photo} alt="" className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center text-[20px]" style={{ background: 'linear-gradient(135deg,#ff3384,#ff7a6e)' }}>👤</div>}
             </div>
             <div className="flex-1 min-w-0">
