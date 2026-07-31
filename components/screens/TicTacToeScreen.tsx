@@ -707,6 +707,7 @@ export default function TicTacToeScreen() {
           }
           .ttt-chat-unlock-wrap {
             margin-top: -10px !important;
+            margin-bottom: -14px !important;
           }
         }
       `}</style>
