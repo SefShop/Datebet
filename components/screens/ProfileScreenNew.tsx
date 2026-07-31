@@ -1130,6 +1130,16 @@ export default function ProfileScreenNew() {
             flex: 0 0 auto !important;
             height: clamp(312px, 37vh, 392px) !important;
           }
+          /* Experimental (desktop counterpart to the mobile version): once
+             Reveal Progress is no longer rendered, the card's auto-height
+             shrinks by exactly the space that panel used to occupy,
+             pulling the actions row below it upward. Growing the photo
+             zone by the same proportion reclaims that space for the
+             photo instead, keeping the actions row at its natural lower
+             position. */
+          .desktop-profile-card.mobile-profile-card-enlarged .mc-photo-zone {
+            height: clamp(350px, 41.5vh, 440px) !important;
+          }
           .desktop-profile-details-toggle {
             display: flex !important;
             bottom: 42px;
