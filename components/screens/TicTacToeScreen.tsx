@@ -682,7 +682,9 @@ export default function TicTacToeScreen() {
               🔁 {lang === 'gr' ? 'Παίξε Ξανά' : 'Play Again'}
             </button>
           )}
-          <ChatUnlockProgress currentProgress={pairCount} isUnlocked={pairCount >= 10} lang={lang} />
+          <div className="ttt-chat-unlock-wrap">
+            <ChatUnlockProgress currentProgress={pairCount} isUnlocked={pairCount >= 10} lang={lang} />
+          </div>
         </div>
       )}
 
@@ -702,6 +704,9 @@ export default function TicTacToeScreen() {
           .ttt-finished-actions {
             margin-top: 8px !important;
             padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+          }
+          .ttt-chat-unlock-wrap {
+            margin-top: -10px !important;
           }
         }
       `}</style>
