@@ -152,12 +152,14 @@ export default function TicTacToeScreen() {
       if (cancelled) return
 
       const { data: { user } } = await supabase.auth.getUser()
+      if (cancelled) return
       if (!user) { setError('Not logged in'); setLoading(false); return }
       setMyId(user.id)
 
       // Fetch player names
       const { data: profs } = await supabase.from('profiles').select('id, name')
         .in('id', [sess0.player_one_id, sess0.player_two_id])
+      if (cancelled) return
       const nm = new Map(profs?.map(p => [p.id, p.name]) || [])
       setNames({
         one: nm.get(sess0.player_one_id) || 'Player 1',
@@ -167,6 +169,7 @@ export default function TicTacToeScreen() {
       // Load pair progress (for chat unlock gate)
       const otherId = user.id === sess0.player_one_id ? sess0.player_two_id : sess0.player_one_id
       const prog = await getPairProgress(otherId)
+      if (cancelled) return
       setPairCount(prog.games_completed)
       console.log('CHAT LOCK CHECK:', prog.games_completed, '/10, unlocked:', prog.chat_unlocked)
 
