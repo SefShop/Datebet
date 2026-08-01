@@ -8,6 +8,7 @@ import DesktopProfileDetails from '@/components/ui/DesktopProfileDetails'
 import { sendGameInvite, setPendingInvite, setChatOrigin } from '@/lib/gameInvites'
 import { getPairProgress, PairProgress, sortPair, deriveUnlockState } from '@/lib/pairProgress'
 import { isOnlineNow } from '@/lib/presence'
+import PresenceStatusDot from '@/components/ui/PresenceStatusDot'
 import { supabase } from '@/lib/supabase'
 
 
@@ -652,12 +653,8 @@ export default function ProfileScreenNew() {
                   </button>
                 )}
 
-                {/* Online status */}
-                <div className="online-badge-v2 absolute flex items-center justify-center p-1.5 rounded-full z-20"
-                  style={{ top: 16, left: 16, background:'rgba(0,0,0,0.55)', backdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.1)' }}>
-                  <div className="w-2 h-2 rounded-full" style={{ background: p.online ? '#4ade80' : '#777',
-                    boxShadow: p.online ? '0 0 6px #4ade80' : 'none' }} />
-                </div>
+                {/* Presence status dot — read-only when viewing another user's profile */}
+                {p?.id && <PresenceStatusDot userId={p.id} interactive={false} lang={lang} />}
 
                 {/* Mystery Player badge — now lives on the photo overlay, next to the name */}
                 {!canShowPhoto && (

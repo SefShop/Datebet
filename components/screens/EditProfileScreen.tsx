@@ -4,6 +4,7 @@ import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { detectBioLanguage } from '@/lib/langDetect'
 import { compressImage } from '@/lib/photoCompress'
+import PresenceStatusDot from '@/components/ui/PresenceStatusDot'
 
 type State = 'loading' | 'ready' | 'saving' | 'error'
 type PhotoState = 'idle' | 'uploading' | 'done' | 'error'
@@ -265,15 +266,19 @@ export default function EditProfileScreen() {
 
           {/* Photo section — up to 9 photos, slot 0 is always primary */}
           <div className="flex flex-col items-center mb-6">
-            <div className="w-28 h-28 rounded-full overflow-hidden mb-3"
-              style={{ border:'3px solid rgba(253,41,123,0.354)', boxShadow:'0 0 24px rgba(253,41,123,0.177)' }}>
-              {(preview || photos[0]) ? (
-                <img src={preview || photos[0]} alt="Profile" className="w-full h-full object-cover"
-                  onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[48px]"
-                  style={{ background:'linear-gradient(135deg,#ff3384,#d84dd8)' }}>👤</div>
-              )}
+            <div className="relative w-28 h-28 mb-3">
+              <div className="w-28 h-28 rounded-full overflow-hidden"
+                style={{ border:'3px solid rgba(253,41,123,0.354)', boxShadow:'0 0 24px rgba(253,41,123,0.177)' }}>
+                {(preview || photos[0]) ? (
+                  <img src={preview || photos[0]} alt="Profile" className="w-full h-full object-cover"
+                    onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[48px]"
+                    style={{ background:'linear-gradient(135deg,#ff3384,#d84dd8)' }}>👤</div>
+                )}
+              </div>
+              {/* Presence status selector — this is the user's own profile */}
+              {userId && <PresenceStatusDot userId={userId} interactive lang={lang} top={6} left={6} />}
             </div>
 
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
