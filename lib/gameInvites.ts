@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { generateMysteryQuestions, toRoundData } from '@/lib/mysteryChoiceQuestions'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
+import { triggerChallengePush } from '@/lib/push'
 
 export interface GameInvite {
   id: string
@@ -146,6 +147,15 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
           return { ok: true, inviteId: competing.id, invite: competing as GameInvite, shouldAccept: true }
         }
       }
+    }
+
+    if (!originalSessionId) {
+      // Brand-new challenge only (never a rematch, which always has
+      // originalSessionId set) — fire-and-forget, never awaited, so a
+      // push failure can never affect challenge-sending UX or delay
+      // this return.
+      const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang') === 'gr') ? 'gr' : 'en'
+      triggerChallengePush(data.id, lang)
     }
 
     return { ok: true, inviteId: data.id, invite: data as GameInvite }

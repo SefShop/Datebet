@@ -45,19 +45,30 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  const target = (event.notification.data && event.notification.data.target) || '/app'
+  const data = event.notification.data || {}
+  const target = data.target || '/app'
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // Prefer an already-open DateDuel window if one exists, focusing
-      // it instead of opening a duplicate tab.
+      // it instead of opening a duplicate tab — and pass along the
+      // routing data via postMessage so the running app can navigate
+      // without a reload.
       for (const client of clientList) {
         if (client.url.includes('/app') && 'focus' in client) {
+          client.postMessage({ type: 'push-click', data })
           return client.focus()
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow(target)
+        // No existing window — postMessage isn't available before the
+        // page exists, so the routing signal travels as a one-time
+        // query parameter instead, read once on app load and then
+        // cleared (see app/app/page.tsx).
+        const url = new URL(target, self.location.origin)
+        if (data.type) url.searchParams.set('push_type', data.type)
+        if (data.inviteId) url.searchParams.set('push_invite', data.inviteId)
+        return self.clients.openWindow(url.pathname + url.search)
       }
     })
   )

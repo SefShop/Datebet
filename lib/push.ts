@@ -105,6 +105,28 @@ export async function enablePushForThisDevice(): Promise<{ ok: boolean; error?: 
   }
 }
 
+// Fire-and-forget trigger for a new-challenge push — deliberately never
+// throws and is meant to be called without awaiting its result, so a
+// push failure can never affect challenge-sending UX. lang is the only
+// content-related input; the server constructs the actual notification
+// text itself from fixed templates.
+export async function triggerChallengePush(inviteId: string, lang: 'en' | 'gr'): Promise<void> {
+  try {
+    if (!isSupabaseConfigured()) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return
+    await fetch('/api/push/challenge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ inviteId, lang }),
+    })
+  } catch (e: any) {
+    // Safe development warning only — never blocks or surfaces as a
+    // challenge failure, and never logs anything sensitive.
+    console.warn('triggerChallengePush: push notification failed (challenge itself is unaffected):', e?.message)
+  }
+}
+
 export async function sendTestNotification(lang: 'en' | 'gr'): Promise<{ ok: boolean; sent?: number; failed?: number; removed?: number }> {
   try {
     if (!isSupabaseConfigured()) return { ok: false }

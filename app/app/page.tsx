@@ -326,6 +326,48 @@ function AppShell() {
 
   // ReturnScreen handler removed
 
+  // Push notification click routing — the smallest bridge needed to get
+  // from a service-worker notificationclick back to the existing
+  // Challenges screen. Never automatically accepts a challenge or enters
+  // a game; it only navigates to the same screen the user would tap to
+  // reach manually.
+  useEffect(() => {
+    function routeFromPush(type: string | undefined) {
+      if (type === 'challenge') navigate('activity')
+    }
+
+    // App was already open — the service worker postMessages the
+    // focused client directly (see public/sw.js).
+    function onMessage(event: MessageEvent) {
+      if (event.data?.type === 'push-click') routeFromPush(event.data.data?.type)
+    }
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', onMessage)
+    }
+
+    // App had to be opened fresh — the signal travels as a one-time
+    // query parameter instead, only handled once the app is actually
+    // authenticated and ready. Cleared immediately via replaceState so
+    // it can never re-trigger on a later re-render or refresh.
+    if (authed && onboardingStatus === 'complete' && typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const pushType = params.get('push_type')
+      if (pushType) {
+        routeFromPush(pushType)
+        params.delete('push_type')
+        params.delete('push_invite')
+        const newUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
+        window.history.replaceState(null, '', newUrl)
+      }
+    }
+
+    return () => {
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', onMessage)
+      }
+    }
+  }, [authed, onboardingStatus])
+
   return (
     <main className="min-h-screen bg-[#111] flex items-center justify-center">
       <div
