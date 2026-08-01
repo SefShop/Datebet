@@ -4,6 +4,7 @@ import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
 import { getIncomingInvites, respondInvite, enterAcceptedGame, GameInvite } from '@/lib/gameInvites'
 import { getPairProgress } from '@/lib/pairProgress'
+import { triggerChallengeAcceptedPush } from '@/lib/push'
 import BackControl from '@/components/ui/BackControl'
 
 // Human-readable label for an invite's game_type
@@ -137,8 +138,18 @@ export default function ActivityScreen() {
         if (isTTT) console.log('[TIC_TAC_TOE_ENTRY] entry failed, no navigation will occur. reason:', result.error)
         alert(lang === 'gr' ? 'Δεν μπόρεσε να ξεκινήσει το παιχνίδι.' : 'Could not start the game.')
         load()
-      } else if (isTTT) {
-        console.log('[TIC_TAC_TOE_ENTRY] active session set, session id:', result.session?.id, 'game type: tic_tac_toe, navigation requested to:', result.screen)
+      } else {
+        if (isTTT) {
+          console.log('[TIC_TAC_TOE_ENTRY] active session set, session id:', result.session?.id, 'game type: tic_tac_toe, navigation requested to:', result.screen)
+        }
+        // Brand-new challenge only (never a rematch, which always has
+        // original_session_id set) — fire-and-forget, never awaited, so
+        // a push failure can never affect this already-successful
+        // acceptance/game-entry path.
+        if (!c.original_session_id) {
+          const pushLang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang') === 'gr') ? 'gr' : 'en'
+          triggerChallengeAcceptedPush(c.id, pushLang)
+        }
       }
     } catch (e: any) {
       console.error('ACCEPT FLOW ERROR:', e?.message)

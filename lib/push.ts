@@ -127,6 +127,24 @@ export async function triggerChallengePush(inviteId: string, lang: 'en' | 'gr'):
   }
 }
 
+// Fire-and-forget trigger for a challenge-accepted push — same pattern
+// as triggerChallengePush: never throws, meant to be called without
+// awaiting, so a push failure can never affect acceptance/game-entry UX.
+export async function triggerChallengeAcceptedPush(inviteId: string, lang: 'en' | 'gr'): Promise<void> {
+  try {
+    if (!isSupabaseConfigured()) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return
+    await fetch('/api/push/challenge-accepted', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ inviteId, lang }),
+    })
+  } catch (e: any) {
+    console.warn('triggerChallengeAcceptedPush: push notification failed (acceptance itself is unaffected):', e?.message)
+  }
+}
+
 export async function sendTestNotification(lang: 'en' | 'gr'): Promise<{ ok: boolean; sent?: number; failed?: number; removed?: number }> {
   try {
     if (!isSupabaseConfigured()) return { ok: false }

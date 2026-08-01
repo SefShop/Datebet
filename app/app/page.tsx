@@ -333,7 +333,16 @@ function AppShell() {
   // reach manually.
   useEffect(() => {
     function routeFromPush(type: string | undefined) {
-      if (type === 'challenge') navigate('activity')
+      // Both route to the same, safe destination. Directly entering the
+      // accepted game from here isn't safe with the current
+      // architecture: enterAcceptedGame()/restorePersistedActiveSession()
+      // are built around a live, already-open client reacting to the
+      // realtime session event, or restoring THIS device's own
+      // previously-persisted session — neither covers a device that was
+      // closed at accept time now cold-starting for a session it never
+      // locally persisted. Routing to Challenges reuses the existing,
+      // already-safe acceptance UI instead of a new parallel path.
+      if (type === 'challenge' || type === 'challenge_accepted') navigate('activity')
     }
 
     // App was already open — the service worker postMessages the
