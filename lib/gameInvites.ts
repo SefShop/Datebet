@@ -151,11 +151,17 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
 
     if (!originalSessionId) {
       // Brand-new challenge only (never a rematch, which always has
-      // originalSessionId set) — fire-and-forget, never awaited, so a
-      // push failure can never affect challenge-sending UX or delay
-      // this return.
+      // originalSessionId set). Awaited — not truly fire-and-forget —
+      // because the caller immediately navigates after this function
+      // returns (e.g. to the waiting screen), and an un-awaited fetch
+      // left in flight at that exact moment was being silently dropped
+      // on some mobile browsers before it ever reached the server. This
+      // still cannot block or fail challenge creation: the invite is
+      // already inserted above, and triggerChallengePush() itself never
+      // throws — every error path inside it is already caught and only
+      // logged as a warning.
       const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang') === 'gr') ? 'gr' : 'en'
-      triggerChallengePush(data.id, lang)
+      await triggerChallengePush(data.id, lang)
     }
 
     return { ok: true, inviteId: data.id, invite: data as GameInvite }

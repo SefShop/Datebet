@@ -105,11 +105,15 @@ export async function enablePushForThisDevice(): Promise<{ ok: boolean; error?: 
   }
 }
 
-// Fire-and-forget trigger for a new-challenge push — deliberately never
-// throws and is meant to be called without awaiting its result, so a
-// push failure can never affect challenge-sending UX. lang is the only
-// content-related input; the server constructs the actual notification
-// text itself from fixed templates.
+// Trigger for a new-challenge push. Never throws — every internal
+// error path is caught and only logged as a warning, so a push failure
+// can never surface as a challenge-sending failure. Awaited by its
+// caller (lib/gameInvites.ts) so the request genuinely completes before
+// that function returns and the UI navigates away — a fire-and-forget
+// call left in flight at that exact moment was being silently dropped
+// on some mobile browsers before it ever reached the server. lang is
+// the only content-related input; the server constructs the actual
+// notification text itself from fixed templates.
 export async function triggerChallengePush(inviteId: string, lang: 'en' | 'gr'): Promise<void> {
   try {
     if (!isSupabaseConfigured()) return
