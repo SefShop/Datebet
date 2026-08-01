@@ -1,9 +1,18 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'DateDuel — Play a game. Win a date.',
   description: 'The dating app where you play before you chat.',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [{ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: [{ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#08080f',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

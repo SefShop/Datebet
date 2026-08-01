@@ -1,0 +1,64 @@
+// DateDuel Service Worker — Web Push Phase 1 only.
+//
+// Scope, deliberately: receive a push payload, display a notification,
+// and handle clicking it (focus an existing DateDuel window, or open a
+// new one). No offline caching, no asset precaching, no broader PWA
+// behavior — that is explicitly out of scope for this phase.
+
+self.addEventListener('install', () => {
+  // Activate this worker as soon as it finishes installing, without
+  // waiting for old tabs to close — safe here since there is no cache
+  // versioning to worry about (no caching happens at all in this phase).
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim())
+})
+
+self.addEventListener('push', (event) => {
+  let payload = { title: 'DateDuel', body: 'Test notification', data: { type: 'test', target: '/app' } }
+  try {
+    if (event.data) {
+      const parsed = event.data.json()
+      payload = {
+        title: parsed.title || payload.title,
+        body: parsed.body || payload.body,
+        data: parsed.data || payload.data,
+      }
+    }
+  } catch (e) {
+    // Payload wasn't valid JSON — fall back to the generic test payload
+    // above rather than failing to show anything at all.
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data: payload.data,
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+
+  const target = (event.notification.data && event.notification.data.target) || '/app'
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Prefer an already-open DateDuel window if one exists, focusing
+      // it instead of opening a duplicate tab.
+      for (const client of clientList) {
+        if (client.url.includes('/app') && 'focus' in client) {
+          return client.focus()
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(target)
+      }
+    })
+  )
+})

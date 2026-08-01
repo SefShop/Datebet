@@ -1,9 +1,42 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { Lang } from '@/lib/copy'
+import {
+  isPushSupported, isIOSNonStandalone, getPushPermissionState, getExistingSubscription,
+  enablePushForThisDevice, disablePushForThisDevice, PushPermissionState,
+} from '@/lib/push'
 
 export default function SettingsScreen() {
   const { navigate, lang, setLang } = useApp()
+
+  // ── Notification settings state ──
+  const [pushState, setPushState] = useState<PushPermissionState>('unsupported')
+  const [subscribed, setSubscribed] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const iosNotInstalled = isIOSNonStandalone()
+
+  useEffect(() => {
+    setPushState(getPushPermissionState())
+    getExistingSubscription().then(sub => setSubscribed(!!sub))
+  }, [])
+
+  async function handleEnable() {
+    // Only ever called from this explicit button press — the permission
+    // prompt appears nowhere else in the app.
+    setBusy(true)
+    const result = await enablePushForThisDevice()
+    setBusy(false)
+    setPushState(getPushPermissionState())
+    setSubscribed(!!result.ok)
+  }
+
+  async function handleDisable() {
+    setBusy(true)
+    await disablePushForThisDevice()
+    setBusy(false)
+    setSubscribed(false)
+  }
 
   const t = {
     title:    lang === 'gr' ? 'Ρυθμίσεις' : 'Settings',
@@ -12,6 +45,16 @@ export default function SettingsScreen() {
     hint:     lang === 'gr'
       ? 'Αλλάζει αμέσως τη γλώσσα σε όλη την εφαρμογή.'
       : 'Changes the language across the whole app immediately.',
+    notifTitle: lang === 'gr' ? 'Ενεργοποίηση ειδοποιήσεων' : 'Enable notifications',
+    notifHint:  lang === 'gr' ? 'Λάβε ειδοποιήσεις για νέες προκλήσεις και μηνύματα.' : 'Get notified about new challenges and messages.',
+    notifEnabling: lang === 'gr' ? 'Ενεργοποίηση…' : 'Enabling…',
+    notifEnabled:  lang === 'gr' ? 'Οι ειδοποιήσεις είναι ενεργές' : 'Notifications enabled',
+    notifDenied:   lang === 'gr' ? 'Οι ειδοποιήσεις έχουν απορριφθεί από τον browser σου. Ενεργοποίησέ τις από τις ρυθμίσεις του browser.' : 'Notifications were denied in your browser. You can re-enable them from your browser\'s site settings.',
+    notifUnsupported: lang === 'gr' ? 'Οι ειδοποιήσεις δεν υποστηρίζονται σε αυτόν τον browser.' : 'Notifications aren\'t supported in this browser.',
+    notifDisable: lang === 'gr' ? 'Απενεργοποίηση για αυτή τη συσκευή' : 'Disable notifications for this device',
+    notifIos: lang === 'gr'
+      ? 'Για ειδοποιήσεις στο iPhone, πρόσθεσε πρώτα το DateDuel στην Αρχική Οθόνη και άνοιξέ το από εκεί.'
+      : 'To receive notifications on iPhone, first add DateDuel to your Home Screen and open it from there.',
   }
 
   function choose(l: Lang) {
@@ -61,6 +104,46 @@ export default function SettingsScreen() {
               {lang === 'en' && <span className="text-[14px]" style={{ color: '#ff3384' }}>✓</span>}
             </button>
           </div>
+        </div>
+
+        {/* Notifications — Phase 1: enable/disable push for this device only.
+            No real event notifications are wired up yet. */}
+        <div className="rounded-2xl p-4 mt-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="text-[13px] font-bold text-white mb-1 flex items-center gap-2">
+            🔔 {t.notifTitle}
+          </div>
+          <div className="text-[11.5px] mb-3.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {t.notifHint}
+          </div>
+
+          {iosNotInstalled ? (
+            <div className="text-[11.5px] rounded-xl px-3.5 py-3" style={{ color: 'rgba(255,255,255,0.55)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              {t.notifIos}
+            </div>
+          ) : pushState === 'unsupported' ? (
+            <div className="text-[11.5px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{t.notifUnsupported}</div>
+          ) : pushState === 'denied' ? (
+            <div className="text-[11.5px] rounded-xl px-3.5 py-3" style={{ color: 'rgba(255,255,255,0.55)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              {t.notifDenied}
+            </div>
+          ) : subscribed ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-[13px] font-semibold flex items-center gap-2" style={{ color: '#4ade80' }}>
+                ✓ {t.notifEnabled}
+              </div>
+              <button onClick={handleDisable} disabled={busy}
+                className="text-[11.5px] font-medium active:opacity-60 cursor-pointer"
+                style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {t.notifDisable}
+              </button>
+            </div>
+          ) : (
+            <button onClick={handleEnable} disabled={busy}
+              className="w-full rounded-xl px-4 py-3 text-[14px] font-bold cursor-pointer active:scale-[0.98] transition-transform"
+              style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', color: '#fff', opacity: busy ? 0.7 : 1 }}>
+              {busy ? t.notifEnabling : t.notifTitle}
+            </button>
+          )}
         </div>
       </div>
     </div>
