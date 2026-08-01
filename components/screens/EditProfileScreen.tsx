@@ -278,7 +278,7 @@ export default function EditProfileScreen() {
                 )}
               </div>
               {/* Presence status selector — this is the user's own profile */}
-              {userId && <PresenceStatusDot userId={userId} interactive lang={lang} top={6} left={6} />}
+              {userId && <PresenceStatusDot userId={userId} lang={lang} top={6} left={6} />}
             </div>
 
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"

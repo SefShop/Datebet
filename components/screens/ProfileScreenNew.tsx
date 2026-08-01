@@ -654,7 +654,7 @@ export default function ProfileScreenNew() {
                 )}
 
                 {/* Presence status dot — read-only when viewing another user's profile */}
-                {p?.id && <PresenceStatusDot userId={p.id} interactive={false} lang={lang} />}
+                {p?.id && <PresenceStatusDot userId={p.id} lang={lang} />}
 
                 {/* Mystery Player badge — now lives on the photo overlay, next to the name */}
                 {!canShowPhoto && (

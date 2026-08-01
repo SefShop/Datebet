@@ -1,9 +1,17 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
-// ── Manual presence status (Online / Away / Offline) ───────────────
-// This is a SEPARATE, user-controlled field from the existing automatic
-// is_online/last_seen presence system in lib/presence.ts, which this
-// file never reads from or writes to. Persisted in profiles.presence_status.
+// ── Automatic presence status (Online / Away / Offline) ────────────
+// Fully automatic — derived from real app activity (tab/app visibility)
+// and heartbeat freshness. There is no manual selector anymore.
+//
+// Reuses the EXISTING profiles.last_seen column, already kept fresh
+// every ~30s by the untouched automatic presence system in
+// lib/presence.ts (startPresence/heartbeat) whenever the user is
+// authenticated — regardless of tab visibility. That existing heartbeat
+// is the "final source of truth" for staleness/offline detection here;
+// this file adds no second heartbeat timer of its own. profiles.
+// presence_status itself is only ever written on discrete, meaningful
+// transitions (visibility change, logout) — never on a repeating timer.
 
 export type PresenceStatus = 'online' | 'away' | 'offline'
 
@@ -20,58 +28,101 @@ export function presenceStatusTitle(status: PresenceStatus, lang: 'en' | 'gr'): 
   return status === 'online' ? 'Online' : status === 'away' ? 'Away' : 'Offline'
 }
 
-export function presenceStatusDescription(status: PresenceStatus, lang: 'en' | 'gr'): string {
-  if (lang === 'gr') {
-    return status === 'online' ? 'Εμφανίζεσαι ως ενεργός.' : status === 'away' ? 'Είσαι προσωρινά μακριά.' : 'Δεν εμφανίζεσαι ως ενεργός.'
-  }
-  return status === 'online' ? 'Appear as active.' : status === 'away' ? 'Temporarily away.' : 'Do not appear as active.'
-}
+// Stale-heartbeat timeout: if last_seen is older than this, the stored
+// presence_status is no longer trusted and the user is shown as Offline
+// regardless of what it says — covers app closed/crashed/disconnected,
+// which may never get a chance to write an explicit 'offline' value.
+// Midpoint of the requested 60-90s range.
+const OFFLINE_TIMEOUT_MS = 75 * 1000
 
-export function presenceStatusToast(status: PresenceStatus, lang: 'en' | 'gr'): string {
-  if (lang === 'gr') {
-    return status === 'online' ? 'Είσαι τώρα σε σύνδεση.' : status === 'away' ? 'Η κατάσταση άλλαξε σε Μακριά.' : 'Είσαι τώρα εκτός σύνδεσης.'
-  }
-  return status === 'online' ? "You're now Online." : status === 'away' ? 'Status changed to Away.' : "You're now Offline."
-}
-
-function normalize(value: string | null | undefined): PresenceStatus {
+function normalizeRaw(value: string | null | undefined): 'online' | 'away' | 'offline' {
   return value === 'away' || value === 'offline' ? value : 'online'
 }
 
-// Fetch a specific user's manual presence status. Defaults to 'online'
-// for users without a saved value, per spec.
-export async function getPresenceStatus(userId: string): Promise<PresenceStatus> {
-  if (!isSupabaseConfigured()) return 'online'
-  try {
-    const { data } = await supabase.from('profiles').select('presence_status').eq('id', userId).maybeSingle()
-    return normalize(data?.presence_status)
-  } catch { return 'online' }
+// The actual rule combining stored presence_status with heartbeat
+// freshness — this is what every read path (fetch + realtime + the
+// local re-check timer) funnels through, so "stale wins" is applied
+// consistently everywhere.
+export function deriveDisplayedPresence(rawStatus: string | null | undefined, lastSeen: string | null | undefined): PresenceStatus {
+  if (rawStatus === 'offline') return 'offline'
+  if (!lastSeen) return 'offline'  // unknown → default safely to Offline, never flash Online
+  const age = Date.now() - new Date(lastSeen).getTime()
+  if (age > OFFLINE_TIMEOUT_MS) return 'offline'
+  return normalizeRaw(rawStatus)
 }
 
-// Set the CURRENT user's manual presence status.
-export async function setPresenceStatus(status: PresenceStatus): Promise<{ ok: boolean }> {
-  if (!isSupabaseConfigured()) return { ok: false }
+// Fetch a specific user's current displayed presence (for viewers).
+export async function getPresenceStatus(userId: string): Promise<PresenceStatus> {
+  if (!isSupabaseConfigured()) return 'offline'
+  try {
+    const { data } = await supabase.from('profiles').select('presence_status, last_seen').eq('id', userId).maybeSingle()
+    return deriveDisplayedPresence(data?.presence_status, data?.last_seen)
+  } catch { return 'offline' }
+}
+
+// Raw fetch (status + last_seen) — used by the dot component's own
+// periodic re-check timer, so it can re-derive staleness locally
+// without waiting for a new realtime event (a stale transition happens
+// purely from time passing, not from a database write).
+export async function getRawPresence(userId: string): Promise<{ status: string | null; lastSeen: string | null }> {
+  if (!isSupabaseConfigured()) return { status: null, lastSeen: null }
+  try {
+    const { data } = await supabase.from('profiles').select('presence_status, last_seen').eq('id', userId).maybeSingle()
+    return { status: data?.presence_status ?? null, lastSeen: data?.last_seen ?? null }
+  } catch { return { status: null, lastSeen: null } }
+}
+
+// Write the CURRENT user's presence_status — internal to the automatic
+// controller below; not exported for arbitrary manual use.
+async function writePresenceStatus(status: 'online' | 'away' | 'offline'): Promise<void> {
+  if (!isSupabaseConfigured()) return
   try {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { ok: false }
-    const { error } = await supabase.from('profiles').update({ presence_status: status }).eq('id', user.id)
-    if (error) { console.error('setPresenceStatus:', error.message); return { ok: false } }
-    console.log('PRESENCE STATUS SET:', status)
-    return { ok: true }
-  } catch (e: any) { console.error('setPresenceStatus:', e.message); return { ok: false } }
+    if (!user) return
+    await supabase.from('profiles').update({ presence_status: status }).eq('id', user.id)
+    console.log('AUTO PRESENCE STATUS SET:', status)
+  } catch (e: any) { console.error('writePresenceStatus:', e.message) }
 }
 
-// Live updates for a specific user's presence_status — scoped to exactly
-// that one profile row, one channel per subscriber, cleaned up via the
-// returned unsubscribe function.
+// ── Automatic controller ────────────────────────────────────────────
+// Single visibilitychange listener per authenticated session (guarded
+// against duplicates). Writes 'online' or 'away' immediately on every
+// transition — no repeating timer of its own, reusing lib/presence.ts's
+// existing heartbeat for staleness detection instead (see above).
+let _visibilityHandler: (() => void) | null = null
+let _started = false
+
+export function startAutoPresence() {
+  if (_started) return
+  _started = true
+
+  function apply() {
+    const visible = typeof document !== 'undefined' && document.visibilityState === 'visible'
+    writePresenceStatus(visible ? 'online' : 'away')
+  }
+
+  apply()
+  _visibilityHandler = () => apply()
+  document.addEventListener('visibilitychange', _visibilityHandler)
+}
+
+export function stopAutoPresence() {
+  if (_visibilityHandler) { document.removeEventListener('visibilitychange', _visibilityHandler); _visibilityHandler = null }
+  _started = false
+  writePresenceStatus('offline')
+}
+
+// Live updates for a specific user's presence_status/last_seen — scoped
+// to exactly that one profile row, one channel per subscriber, cleaned
+// up via the returned unsubscribe function.
 export function subscribePresenceStatus(userId: string, onChange: (status: PresenceStatus) => void): () => void {
   if (!isSupabaseConfigured()) return () => {}
   const channel = supabase
     .channel(`presence-status-${userId}`)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
       (payload: any) => {
-        if (payload.new && 'presence_status' in payload.new) {
-          onChange(normalize(payload.new.presence_status))
+        if (payload.new) {
+          onChange(deriveDisplayedPresence(payload.new.presence_status, payload.new.last_seen))
         }
       })
     .subscribe()

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { startMessagesPolling, stopMessagesPolling, refreshMessagesState } from '@/lib/messagesState'
 import { startNotificationsPolling, stopNotificationsPolling } from '@/lib/notificationsState'
 import { startPresence, stopPresence, setOnline, setOffline, heartbeat } from '@/lib/presence'
+import { startAutoPresence, stopAutoPresence } from '@/lib/presenceStatus'
 import { useApp, AppProvider } from '@/lib/AppContext'
 import SplashScreen    from '@/components/screens/SplashScreen'
 import GameSelectionScreen from '@/components/screens/GameSelectionScreen'
@@ -240,9 +241,10 @@ function AppShell() {
 
   // Global messages polling — single source of truth for inbox/menu/badge
   useEffect(() => {
-    if (!authed) { stopMessagesPolling(); stopPresence(); stopNotificationsPolling(); return }
+    if (!authed) { stopMessagesPolling(); stopPresence(); stopAutoPresence(); stopNotificationsPolling(); return }
     startMessagesPolling()
     startPresence()
+    startAutoPresence()
     startNotificationsPolling()
 
     // Reconciliation: recover a missed "invite accepted" realtime event —
@@ -317,6 +319,7 @@ function AppShell() {
       unsubscribeSession()
       stopMessagesPolling()
       stopPresence()
+      stopAutoPresence()
       stopNotificationsPolling()
     }
   }, [authed])
