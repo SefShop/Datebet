@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/lib/AppContext'
 import { clearProfileState } from '@/lib/profiles'
+import { setOfflineBeforeLogout } from '@/lib/presenceStatus'
 import { refreshMessagesState } from '@/lib/messagesState'
 import { getNotificationsState, subscribeNotifications, refreshNotifications } from '@/lib/notificationsState'
 
@@ -47,6 +48,12 @@ export default function UserMenu({ onLogout }: Props) {
   async function logout() {
     console.log('LOGOUT: signing out + clearing state')
     clearProfileState()
+    // Write offline presence BEFORE signOut() — once signed out, the
+    // session is gone and a presence write can no longer identify the
+    // user, silently no-oping. This is the one piece of state that must
+    // be written while auth is still valid.
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user?.id) await setOfflineBeforeLogout(user.id)
     await supabase.auth.signOut()
     // Only remove app keys, not Supabase auth tokens (signOut handles those)
     try { localStorage.removeItem('lang') } catch {}

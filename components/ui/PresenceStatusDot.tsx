@@ -18,7 +18,7 @@ const LONG_PRESS_MS = 500
 // event — a stale (→ Offline) transition happens purely from time
 // passing, not from a database write, so this is required in addition
 // to the realtime subscription below.
-const RECHECK_INTERVAL_MS = 15000
+const RECHECK_INTERVAL_MS = 8000
 
 // Fully automatic, read-only presence dot. No manual selector — status
 // is entirely derived from real app activity + heartbeat freshness (see

@@ -32,8 +32,10 @@ export function presenceStatusTitle(status: PresenceStatus, lang: 'en' | 'gr'): 
 // presence_status is no longer trusted and the user is shown as Offline
 // regardless of what it says — covers app closed/crashed/disconnected,
 // which may never get a chance to write an explicit 'offline' value.
-// Midpoint of the requested 60-90s range.
-const OFFLINE_TIMEOUT_MS = 75 * 1000
+// 28s — within the requested 25-30s range. Requires the heartbeat
+// interval (lib/presence.ts) to have been reduced to 10s so this stays
+// safely above heartbeat + a small buffer, per spec.
+const OFFLINE_TIMEOUT_MS = 28 * 1000
 
 function normalizeRaw(value: string | null | undefined): 'online' | 'away' | 'offline' {
   return value === 'away' || value === 'offline' ? value : 'online'
@@ -70,6 +72,22 @@ export async function getRawPresence(userId: string): Promise<{ status: string |
     const { data } = await supabase.from('profiles').select('presence_status, last_seen').eq('id', userId).maybeSingle()
     return { status: data?.presence_status ?? null, lastSeen: data?.last_seen ?? null }
   } catch { return { status: null, lastSeen: null } }
+}
+
+// Explicit logout path — call this and AWAIT it BEFORE supabase.auth.
+// signOut(), while the session/user id is still valid. stopAutoPresence()
+// alone is not sufficient for logout: it's only triggered afterward,
+// indirectly, by the app's authed state changing — by which point
+// auth.getUser() returns null and the write silently no-ops. This writes
+// presence_status AND last_seen together, directly, using the id passed
+// in (captured by the caller before signOut) rather than re-deriving it
+// from auth state that may already be gone.
+export async function setOfflineBeforeLogout(userId: string): Promise<void> {
+  if (!isSupabaseConfigured() || !userId) return
+  try {
+    await supabase.from('profiles').update({ presence_status: 'offline', last_seen: new Date().toISOString() }).eq('id', userId)
+    console.log('PRESENCE STATUS SET OFFLINE (pre-logout):', userId)
+  } catch (e: any) { console.error('setOfflineBeforeLogout:', e.message) }
 }
 
 // Write the CURRENT user's presence_status — internal to the automatic

@@ -41,7 +41,7 @@ let _hb: any = null
 export function startPresence() {
   if (_hb) return
   setOnline()
-  _hb = setInterval(() => heartbeat(), 30000)  // every 30s
+  _hb = setInterval(() => heartbeat(), 10000)  // every 10s — see lib/presenceStatus.ts's offline threshold for why
 }
 
 export function stopPresence() {
