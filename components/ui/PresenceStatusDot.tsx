@@ -47,12 +47,20 @@ export default function PresenceStatusDot({ userId, lang, top = 16, left = 16 }:
       setStatus(s)
     })
 
-    // Local periodic re-check: re-derive from the last known raw values
-    // in case enough time has passed to newly cross the stale threshold,
-    // without needing a fresh database write to trigger it.
-    const recheck = setInterval(() => {
+    // Fallback: every 15s, re-fetch this user's current presence directly
+    // — the realtime subscription above is the primary path, but a
+    // missed event (network blip, reconnect, etc.) would otherwise leave
+    // the dot stuck on a stale value indefinitely. Resolves through the
+    // exact same canonical helper as every other read path; only updates
+    // if the resolved status actually changed, so this never flashes or
+    // shows a loading state.
+    const recheck = setInterval(async () => {
       if (cancelled) return
-      setStatus(deriveDisplayedPresence(rawRef.current.status, rawRef.current.lastSeen))
+      const raw = await getRawPresence(userId)
+      if (cancelled) return
+      rawRef.current = raw
+      const next = deriveDisplayedPresence(raw.status, raw.lastSeen)
+      setStatus(prev => (prev === next ? prev : next))
     }, RECHECK_INTERVAL_MS)
 
     return () => { cancelled = true; unsubscribe(); clearInterval(recheck) }
