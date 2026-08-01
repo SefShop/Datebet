@@ -105,6 +105,26 @@ export async function enablePushForThisDevice(): Promise<{ ok: boolean; error?: 
   }
 }
 
+export async function sendTestNotification(lang: 'en' | 'gr'): Promise<{ ok: boolean; sent?: number; failed?: number; removed?: number }> {
+  try {
+    if (!isSupabaseConfigured()) return { ok: false }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return { ok: false }
+
+    const res = await fetch('/api/push/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ lang }),
+    })
+    if (!res.ok) return { ok: false }
+    const result = await res.json()
+    return { ok: true, sent: result.sent, failed: result.failed, removed: result.removed }
+  } catch (e: any) {
+    console.error('sendTestNotification:', e?.message)
+    return { ok: false }
+  }
+}
+
 export async function disablePushForThisDevice(): Promise<{ ok: boolean }> {
   try {
     const sub = await getExistingSubscription()

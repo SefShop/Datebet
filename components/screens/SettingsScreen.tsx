@@ -4,7 +4,7 @@ import { useApp } from '@/lib/AppContext'
 import { Lang } from '@/lib/copy'
 import {
   isPushSupported, isIOSNonStandalone, getPushPermissionState, getExistingSubscription,
-  enablePushForThisDevice, disablePushForThisDevice, PushPermissionState,
+  enablePushForThisDevice, disablePushForThisDevice, sendTestNotification, PushPermissionState,
 } from '@/lib/push'
 
 export default function SettingsScreen() {
@@ -14,6 +14,7 @@ export default function SettingsScreen() {
   const [pushState, setPushState] = useState<PushPermissionState>('unsupported')
   const [subscribed, setSubscribed] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
   const iosNotInstalled = isIOSNonStandalone()
 
   useEffect(() => {
@@ -38,6 +39,14 @@ export default function SettingsScreen() {
     setSubscribed(false)
   }
 
+  async function handleTestNotification() {
+    if (testStatus === 'sending') return  // prevent repeated clicks while sending
+    setTestStatus('sending')
+    const result = await sendTestNotification(lang)
+    setTestStatus(result.ok && (result.sent ?? 0) > 0 ? 'success' : 'error')
+    setTimeout(() => setTestStatus('idle'), 2500)
+  }
+
   const t = {
     title:    lang === 'gr' ? 'Ρυθμίσεις' : 'Settings',
     back:     lang === 'gr' ? '← Πίσω' : '← Back',
@@ -55,6 +64,10 @@ export default function SettingsScreen() {
     notifIos: lang === 'gr'
       ? 'Για ειδοποιήσεις στο iPhone, πρόσθεσε πρώτα το DateDuel στην Αρχική Οθόνη και άνοιξέ το από εκεί.'
       : 'To receive notifications on iPhone, first add DateDuel to your Home Screen and open it from there.',
+    testSend:    lang === 'gr' ? 'Αποστολή δοκιμαστικής ειδοποίησης' : 'Send test notification',
+    testSending: lang === 'gr' ? 'Αποστολή…' : 'Sending…',
+    testSuccess: lang === 'gr' ? 'Η δοκιμαστική ειδοποίηση στάλθηκε.' : 'Test notification sent.',
+    testError:   lang === 'gr' ? 'Δεν ήταν δυνατή η αποστολή της ειδοποίησης.' : 'Could not send the test notification.',
   }
 
   function choose(l: Lang) {
@@ -127,15 +140,29 @@ export default function SettingsScreen() {
               {t.notifDenied}
             </div>
           ) : subscribed ? (
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-[13px] font-semibold flex items-center gap-2" style={{ color: '#4ade80' }}>
-                ✓ {t.notifEnabled}
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[13px] font-semibold flex items-center gap-2" style={{ color: '#4ade80' }}>
+                  ✓ {t.notifEnabled}
+                </div>
+                <button onClick={handleDisable} disabled={busy}
+                  className="text-[11.5px] font-medium active:opacity-60 cursor-pointer"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  {t.notifDisable}
+                </button>
               </div>
-              <button onClick={handleDisable} disabled={busy}
-                className="text-[11.5px] font-medium active:opacity-60 cursor-pointer"
-                style={{ color: 'rgba(255,255,255,0.4)' }}>
-                {t.notifDisable}
+
+              <button onClick={handleTestNotification} disabled={testStatus === 'sending'}
+                className="w-full rounded-xl px-4 py-2.5 text-[12.5px] font-bold cursor-pointer active:scale-[0.98] transition-transform"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', opacity: testStatus === 'sending' ? 0.7 : 1 }}>
+                {testStatus === 'sending' ? t.testSending : t.testSend}
               </button>
+              {testStatus === 'success' && (
+                <div className="text-[11px] text-center" style={{ color: '#4ade80' }}>{t.testSuccess}</div>
+              )}
+              {testStatus === 'error' && (
+                <div className="text-[11px] text-center" style={{ color: '#f87171' }}>{t.testError}</div>
+              )}
             </div>
           ) : (
             <button onClick={handleEnable} disabled={busy}
