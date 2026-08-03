@@ -154,8 +154,15 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
         console.log('CHAT OPEN POLL RESULT:', data.length, 'messages')
         setMsgs(prev => {
           if (prev.length === data.length && prev.every((m, i) => m.id === data[i].id && m.read_at === data[i].read_at)) return prev
-          console.log('CHAT UPDATED:', data.length, 'messages')
-          return data
+          // Merge by id rather than replacing wholesale — this fetch may
+          // have been in flight when a newer message arrived via the
+          // realtime INSERT handler below; a stale (shorter) result here
+          // must never remove a message the client already has.
+          const byId = new Map(prev.map(m => [m.id, m]))
+          for (const m of data) byId.set(m.id, m)  // freshly-fetched fields (e.g. read_at) win for messages present in both
+          const merged = Array.from(byId.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          console.log('CHAT UPDATED:', merged.length, 'messages')
+          return merged
         })
         if (receiverId) markAsRead(receiverId)
       }
