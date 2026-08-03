@@ -27,7 +27,7 @@ import WaitingScreen     from '@/components/screens/WaitingScreen'
 import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { clearProfileState } from '@/lib/profiles'
+import { clearProfileState, setCurrentMatch } from '@/lib/profiles'
 import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, setCurrentSession, clearGameState, isValidActiveGameSession, isRematchInProgress, isEnteringGame, setEnteringGame, restorePersistedActiveSession } from '@/lib/gameInvites'
 // SocialPresence removed
 
@@ -96,7 +96,7 @@ async function ensureProfileExists(user: any): Promise<boolean> {
 }
 
 function AppShell() {
-  const { screen, navigate, lang } = useApp()
+  const { screen, navigate, lang, openChat } = useApp()
 
   // ── Auth gate (skip if Supabase not configured) ──
   const [authed, setAuthed] = useState(!isSupabaseConfigured())
@@ -340,7 +340,7 @@ function AppShell() {
   // a game; it only navigates to the same screen the user would tap to
   // reach manually.
   useEffect(() => {
-    function routeFromPush(type: string | undefined) {
+    async function routeFromPush(type: string | undefined, senderId?: string) {
       // Both route to the same, safe destination. Directly entering the
       // accepted game from here isn't safe with the current
       // architecture: enterAcceptedGame()/restorePersistedActiveSession()
@@ -350,13 +350,31 @@ function AppShell() {
       // closed at accept time now cold-starting for a session it never
       // locally persisted. Routing to Challenges reuses the existing,
       // already-safe acceptance UI instead of a new parallel path.
-      if (type === 'challenge' || type === 'challenge_accepted') navigate('activity')
+      if (type === 'challenge' || type === 'challenge_accepted') { navigate('activity'); return }
+      if (type === 'message' && senderId) {
+        // Reuses the exact existing chat-opening mechanism
+        // (getCurrentMatch/setCurrentMatch, ChatPanel, GameChatOverlay —
+        // already globally mounted regardless of `screen`) rather than
+        // building a parallel one. Same profile shape
+        // restorePersistedActiveSession() already builds for its own
+        // opponent lookup.
+        const { data: sender } = await supabase.from('profiles').select('*').eq('id', senderId).maybeSingle()
+        if (sender) {
+          setCurrentMatch({
+            id: sender.id, name: sender.name || 'Player', age: sender.age || 0,
+            photo: sender.photo || '', gradient: 'linear-gradient(135deg,#ff3384,#ff7a6e)',
+            location: { en: sender.location || '', gr: sender.location || '' },
+            online: true, interests: [], bio: { en: sender.bio || '', gr: sender.bio || '' },
+          } as any)
+          openChat()
+        }
+      }
     }
 
     // App was already open — the service worker postMessages the
     // focused client directly (see public/sw.js).
     function onMessage(event: MessageEvent) {
-      if (event.data?.type === 'push-click') routeFromPush(event.data.data?.type)
+      if (event.data?.type === 'push-click') routeFromPush(event.data.data?.type, event.data.data?.senderId)
     }
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', onMessage)
@@ -370,9 +388,11 @@ function AppShell() {
       const params = new URLSearchParams(window.location.search)
       const pushType = params.get('push_type')
       if (pushType) {
-        routeFromPush(pushType)
+        const pushSender = params.get('push_sender') || undefined
+        routeFromPush(pushType, pushSender)
         params.delete('push_type')
         params.delete('push_invite')
+        params.delete('push_sender')
         const newUrl = window.location.pathname + (params.toString() ? `?${params}` : '')
         window.history.replaceState(null, '', newUrl)
       }

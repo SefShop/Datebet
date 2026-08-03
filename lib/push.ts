@@ -149,6 +149,29 @@ export async function triggerChallengeAcceptedPush(inviteId: string, lang: 'en' 
   }
 }
 
+// Trigger for a new-message push. Never throws — every internal error
+// path is caught and only logged as a warning, so a push failure can
+// never surface as a message-send failure. Meant to be awaited by its
+// caller (ChatPanel.tsx), same lesson as the challenge-push fix: an
+// unawaited call left in flight during an immediate UI update risks
+// being silently dropped on some mobile browsers before it ever reaches
+// the server. lang is the only content-related input; the server
+// constructs the actual notification text itself from fixed templates.
+export async function triggerMessagePush(messageId: string, lang: 'en' | 'gr'): Promise<void> {
+  try {
+    if (!isSupabaseConfigured()) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return
+    await fetch('/api/push/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ messageId, lang }),
+    })
+  } catch (e: any) {
+    console.warn('triggerMessagePush: push notification failed (message itself is unaffected):', e?.message)
+  }
+}
+
 export async function sendTestNotification(lang: 'en' | 'gr'): Promise<{ ok: boolean; sent?: number; failed?: number; removed?: number }> {
   try {
     if (!isSupabaseConfigured()) return { ok: false }

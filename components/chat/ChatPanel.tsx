@@ -7,6 +7,7 @@ import { getCurrentMatch, subscribeCurrentMatch } from '@/lib/profiles'
 import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
 import { getPairProgress } from '@/lib/pairProgress'
 import { markAsRead } from '@/lib/unread'
+import { triggerMessagePush } from '@/lib/push'
 import BackControl from '@/components/ui/BackControl'
 
 interface Message {
@@ -363,11 +364,20 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       sender_id: userId,
       receiver_id: receiverId,
       text,
-    })
+    }).select('id').single()
     console.log('[CHAT DEBUG] insert result — data:', data, 'error:', e)
 
     if (e) { console.error('CHAT send error:', e); setError(e.message) }
-    else { console.log('MESSAGE SENT REFRESH CALLED'); refreshMessagesState() }
+    else {
+      console.log('MESSAGE SENT REFRESH CALLED'); refreshMessagesState()
+      // Awaited — not fire-and-forget — per the same lesson learned from
+      // the challenge-push mobile-delivery fix: an unawaited call left
+      // in flight during this component's own immediate UI updates
+      // risked being silently dropped on some mobile browsers before it
+      // ever reached the server. Never throws, so this cannot surface as
+      // a message-send failure.
+      if (data?.id) await triggerMessagePush(data.id, lang)
+    }
   }
 
   // Message timestamp — local time, hours:minutes only, from the

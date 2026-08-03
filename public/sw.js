@@ -68,6 +68,7 @@ self.addEventListener('notificationclick', (event) => {
         const url = new URL(target, self.location.origin)
         if (data.type) url.searchParams.set('push_type', data.type)
         if (data.inviteId) url.searchParams.set('push_invite', data.inviteId)
+        if (data.senderId) url.searchParams.set('push_sender', data.senderId)
         return self.clients.openWindow(url.pathname + url.search)
       }
     })
