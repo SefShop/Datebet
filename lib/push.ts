@@ -166,6 +166,17 @@ export async function triggerMessagePush(messageId: string, lang: 'en' | 'gr'): 
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ messageId, lang }),
+      // Sending a chat message on mobile typically blurs the text input
+      // and dismisses the on-screen keyboard, triggering a significant
+      // viewport resize — a more disruptive event than the challenge
+      // flow's simple screen transition, and one that was still
+      // interrupting this already-awaited fetch on some mobile browsers.
+      // keepalive is the standard mitigation for a request that must
+      // survive exactly this kind of page-lifecycle disruption, and
+      // (unlike navigator.sendBeacon(), which doesn't support custom
+      // headers) still works with the Authorization header this route
+      // requires.
+      keepalive: true,
     })
   } catch (e: any) {
     console.warn('triggerMessagePush: push notification failed (message itself is unaffected):', e?.message)
