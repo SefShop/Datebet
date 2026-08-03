@@ -65,12 +65,6 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
   }, [])
 
   const [msgs, setMsgs]       = useState<Message[]>([])
-  useEffect(() => {
-    console.log('[CHAT_DIAG] visible_msgs_state', JSON.stringify({
-      count: msgs.length,
-      lastFewIds: msgs.slice(-5).map(m => ({ id: m.id, senderId: m.sender_id, receiverId: m.receiver_id, createdAt: m.created_at })),
-    }))
-  }, [msgs])
   const [input, setInput]     = useState('')
   const [userId, setUserId]   = useState<string | null>(null)
   // Typing indicator — reuses the same realtime channel the message
@@ -207,11 +201,6 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       if (!receiverId) { setLoading(false); return }
 
       const orFilter = `sender_id.eq.${user.id},receiver_id.eq.${user.id}`
-      // TEMPORARY DIAGNOSTIC
-      console.log('[CHAT_DIAG] initial_fetch_query', JSON.stringify({
-        currentUserId: user.id, selectedOtherUserId: receiverId,
-        conversationKey: [user.id, receiverId].sort().join('-'), orFilter,
-      }))
 
       // Same simple, already-proven-working filter pattern as
       // InboxScreen.tsx — see fetchLatest above for the full reasoning.
@@ -228,15 +217,6 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
 
       if (cancelled) return
       console.log('CHAT: loaded', data?.length ?? 0, 'messages')
-      // TEMPORARY DIAGNOSTIC — the returned rows' own sender/receiver ids
-      // (proves whether the SELECT actually matched anything, and
-      // whether an RLS denial surfaces as an error here vs. silently
-      // empty data).
-      console.log('[CHAT_DIAG] initial_fetch_result', JSON.stringify({
-        rowCount: data?.length ?? 0,
-        supabaseError: e?.message ?? null,
-        sampleIds: (data || []).slice(-5).map(m => ({ id: m.id, senderId: m.sender_id, receiverId: m.receiver_id, createdAt: m.created_at })),
-      }))
 
       // Mark messages from this partner as read
       markAsRead(receiverId)
@@ -272,17 +252,6 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
             (newMsg.sender_id === user.id && newMsg.receiver_id === receiverId) ||
             (newMsg.sender_id === receiverId && newMsg.receiver_id === user.id)
           )
-          // TEMPORARY DIAGNOSTIC — safe identifiers only, no message text.
-          console.log('[CHAT_DIAG] realtime_insert', JSON.stringify({
-            messageId: newMsg.id,
-            senderId: newMsg.sender_id,
-            receiverId: newMsg.receiver_id,
-            currentUserId: user.id,
-            selectedOtherUserId: receiverId,
-            conversationKey: [user.id, receiverId].sort().join('-'),
-            createdAt: newMsg.created_at,
-            passesFilter,
-          }))
           // Only add if it's between these two users
           if (passesFilter) {
             console.log('NEW MESSAGE RECEIVED:', newMsg.sender_id)
@@ -293,9 +262,9 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
             }
             setMsgs(prev => {
               if (prev.some(m => m.id === newMsg.id)) return prev
-              console.log('[CHAT_DIAG] realtime_insert applied to state', JSON.stringify({ messageId: newMsg.id, countBefore: prev.length, countAfter: prev.length + 1 }))
-              console.log('CHAT UPDATED:', prev.length + 1, 'messages')
-              return [...prev, newMsg]
+              const merged = mergeMessagesById(prev, [newMsg])
+              console.log('CHAT UPDATED:', merged.length, 'messages')
+              return merged
             })
           }
         })
@@ -357,11 +326,6 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
           }
         })
         .subscribe(async (status: string) => {
-          // TEMPORARY DIAGNOSTIC — logs every status, not just SUBSCRIBED,
-          // so a silent CHANNEL_ERROR/TIMED_OUT/CLOSED becomes visible.
-          console.log('[CHAT_DIAG] subscription_status', JSON.stringify({
-            status, conversationKey: [user.id, receiverId].sort().join('-'), currentUserId: user.id, selectedOtherUserId: receiverId,
-          }))
           if (status === 'SUBSCRIBED') {
             console.log('CHAT REALTIME CONNECTED')
             // Announces "I'm actively in this conversation" — scoped
@@ -445,6 +409,8 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     prevInputRef.current = input
   }, [input, userId])
 
+  const isSendingRef = useRef(false)
+
   async function send() {
     console.log('[CHAT DEBUG] send() entered')
     console.log('[CHAT DEBUG] input.trim():', JSON.stringify(input.trim()))
@@ -454,14 +420,20 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       console.log('[CHAT DEBUG] early-return TRIGGERED — one of input/userId/receiverId is falsy')
       return
     }
+    if (isSendingRef.current) {
+      console.log('[CHAT DEBUG] early-return TRIGGERED — a send is already in flight')
+      return
+    }
+    isSendingRef.current = true
     console.log('[CHAT DEBUG] early-return NOT triggered — proceeding')
     const text = input.trim()
     setInput('')
     console.log('[CHAT DEBUG] setInput(\'\') reached')
 
     // Optimistic update — show immediately
+    const tempId = 'temp-' + Date.now()
     const tempMsg: Message = {
-      id: 'temp-' + Date.now(),
+      id: tempId,
       created_at: new Date().toISOString(),
       sender_id: userId,
       receiver_id: receiverId,
@@ -475,12 +447,26 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       sender_id: userId,
       receiver_id: receiverId,
       text,
-    }).select('id').single()
+    }).select('*').single()
     console.log('[CHAT DEBUG] insert result — data:', data, 'error:', e)
+    isSendingRef.current = false
 
-    if (e) { console.error('CHAT send error:', e); setError(e.message) }
-    else {
+    if (e) {
+      console.error('CHAT send error:', e); setError(e.message)
+      // Remove the optimistic bubble on failure too — otherwise a failed
+      // send would leave a bubble on screen for a message that was
+      // never actually persisted.
+      setMsgs(prev => prev.filter(m => m.id !== tempId))
+    } else {
       console.log('MESSAGE SENT REFRESH CALLED'); refreshMessagesState()
+      // Reconcile the optimistic bubble with the real, canonical row —
+      // this is what lets the realtime INSERT handler's own existing
+      // id-based dedup correctly recognize this message as already
+      // present once that event arrives, instead of adding a second,
+      // distinct copy under the real id.
+      if (data) {
+        setMsgs(prev => mergeMessagesById(prev.filter(m => m.id !== tempId), [data as Message]))
+      }
       // Awaited — not fire-and-forget — per the same lesson learned from
       // the challenge-push mobile-delivery fix: an unawaited call left
       // in flight during this component's own immediate UI updates
