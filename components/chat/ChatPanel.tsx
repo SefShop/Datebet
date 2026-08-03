@@ -168,14 +168,23 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     let cancelled = false
 
     async function fetchLatest(uid: string) {
-      const { data } = await supabase
+      // Same simple, already-proven-working filter pattern as
+      // InboxScreen.tsx (which correctly surfaces the newest message) —
+      // fetch every row involving this user, then match the exact pair
+      // client-side, rather than the nested and()/or() PostgREST filter
+      // string previously used here.
+      const { data: allRows } = await supabase
         .from('messages')
         .select('*')
-        .or(`and(sender_id.eq.${uid},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${uid})`)
+        .or(`sender_id.eq.${uid},receiver_id.eq.${uid}`)
         .order('created_at', { ascending: true })
-        .limit(100)
+        .limit(500)
       if (cancelled) return
-      if (data) {
+      const data = (allRows || []).filter(m =>
+        (m.sender_id === uid && m.receiver_id === receiverId) ||
+        (m.sender_id === receiverId && m.receiver_id === uid)
+      )
+      {
         console.log('CHAT OPEN POLL RESULT:', data.length, 'messages')
         setMsgs(prev => {
           if (prev.length === data.length && prev.every((m, i) => m.id === data[i].id && m.read_at === data[i].read_at)) return prev
@@ -197,20 +206,25 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
 
       if (!receiverId) { setLoading(false); return }
 
-      const orFilter = `and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`
+      const orFilter = `sender_id.eq.${user.id},receiver_id.eq.${user.id}`
       // TEMPORARY DIAGNOSTIC
       console.log('[CHAT_DIAG] initial_fetch_query', JSON.stringify({
         currentUserId: user.id, selectedOtherUserId: receiverId,
         conversationKey: [user.id, receiverId].sort().join('-'), orFilter,
       }))
 
-      // Fetch existing messages
-      const { data, error: e } = await supabase
+      // Same simple, already-proven-working filter pattern as
+      // InboxScreen.tsx — see fetchLatest above for the full reasoning.
+      const { data: allRows, error: e } = await supabase
         .from('messages')
         .select('*')
         .or(orFilter)
         .order('created_at', { ascending: true })
-        .limit(100)
+        .limit(500)
+      const data = (allRows || []).filter(m =>
+        (m.sender_id === user.id && m.receiver_id === receiverId) ||
+        (m.sender_id === receiverId && m.receiver_id === user.id)
+      )
 
       if (cancelled) return
       console.log('CHAT: loaded', data?.length ?? 0, 'messages')
