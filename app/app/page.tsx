@@ -216,7 +216,15 @@ function AppShell() {
             // what restores it). Only relevant once onboarding is
             // confirmed complete, since an incomplete-onboarding user
             // can't have an active game.
-            const restored = await restorePersistedActiveSession(session.user.id)
+            //
+            // Skip this entirely if the app was opened from a notification
+            // click (a pending push routing signal in the URL) — that
+            // signal must win over whatever session this device last
+            // happened to have persisted, not race against it. The
+            // push-routing bridge effect below handles navigating to the
+            // correct destination once onboarding is confirmed complete.
+            const hasPendingPushRoute = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('push_type')
+            const restored = hasPendingPushRoute ? null : await restorePersistedActiveSession(session.user.id)
             if (restored) {
               console.log('RESTORED ACTIVE SESSION AFTER REFRESH:', restored.session.id, '→', restored.screen)
               setEnteringGame(true)  // protects this navigation from the screen guard's own check, same as the accept-invite flow
