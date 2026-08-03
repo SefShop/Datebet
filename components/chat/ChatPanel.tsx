@@ -20,6 +20,19 @@ interface Message {
   read_at: string | null
 }
 
+// Merges two message lists by id — the union of both, never a
+// replacement. A message present in `current` but missing from
+// `incoming` (e.g. just added via realtime, or from a fetch that
+// resolved more recently) is always preserved, even if `incoming` is a
+// stale/older snapshot. For ids present in both, `incoming`'s own
+// fields (e.g. read_at) win, since it's the fresher database read for
+// those specific rows.
+function mergeMessagesById(current: Message[], incoming: Message[]): Message[] {
+  const byId = new Map(current.map(m => [m.id, m]))
+  for (const m of incoming) byId.set(m.id, m)
+  return Array.from(byId.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+}
+
 interface Props {
   onClose: () => void
   // True only when rendered inside GameChatOverlay. The overlay
@@ -142,6 +155,11 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
     let channel: any = null
     let poll: any = null
     let activeUser: string | null = null
+    // Stale-request/conversation-switch guard — flipped in this effect's
+    // own cleanup. Every async operation below checks this before
+    // touching state, so a response for a conversation the user has
+    // since switched away from can never be applied.
+    let cancelled = false
 
     async function fetchLatest(uid: string) {
       const { data } = await supabase
@@ -150,17 +168,12 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
         .or(`and(sender_id.eq.${uid},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${uid})`)
         .order('created_at', { ascending: true })
         .limit(100)
+      if (cancelled) return
       if (data) {
         console.log('CHAT OPEN POLL RESULT:', data.length, 'messages')
         setMsgs(prev => {
           if (prev.length === data.length && prev.every((m, i) => m.id === data[i].id && m.read_at === data[i].read_at)) return prev
-          // Merge by id rather than replacing wholesale — this fetch may
-          // have been in flight when a newer message arrived via the
-          // realtime INSERT handler below; a stale (shorter) result here
-          // must never remove a message the client already has.
-          const byId = new Map(prev.map(m => [m.id, m]))
-          for (const m of data) byId.set(m.id, m)  // freshly-fetched fields (e.g. read_at) win for messages present in both
-          const merged = Array.from(byId.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          const merged = mergeMessagesById(prev, data)
           console.log('CHAT UPDATED:', merged.length, 'messages')
           return merged
         })
@@ -170,6 +183,7 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
+      if (cancelled) return
       if (!user) { setError('Not logged in'); setLoading(false); return }
       setUserId(user.id)
       activeUser = user.id
@@ -185,13 +199,18 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
         .order('created_at', { ascending: true })
         .limit(100)
 
+      if (cancelled) return
       console.log('CHAT: loaded', data?.length ?? 0, 'messages')
 
       // Mark messages from this partner as read
       markAsRead(receiverId)
       refreshMessagesState()
       if (e) { console.error('CHAT error:', e); setError(e.message) }
-      if (data) setMsgs(data)
+      // Merge-safe even here: protects against the (rare) case where the
+      // realtime channel below has somehow already delivered a message
+      // by the time this initial fetch resolves, or a rapid
+      // conversation switch back to the same receiverId.
+      if (data) setMsgs(prev => mergeMessagesById(prev, data))
       setLoading(false)
 
       // Subscribe to realtime
@@ -306,8 +325,25 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
       poll = setInterval(() => { if (activeUser) fetchLatest(activeUser) }, 3000)
     }
 
+    // Recovery: while backgrounded, both the polling interval above and
+    // the realtime websocket connection can be throttled or paused by
+    // the browser — and neither automatically catches up on any
+    // messages that arrived during that window once the tab becomes
+    // visible again. This is what was actually causing messages to
+    // permanently never appear (not a race that eventually
+    // self-corrects) — an explicit refetch on return closes that gap.
+    function onVisible() {
+      if (document.visibilityState === 'visible' && activeUser) {
+        console.log('CHAT: tab visible again — refetching to recover any missed messages')
+        fetchLatest(activeUser)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
     init()
     return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisible)
       if (channel && iAmTypingRef.current && userId) {
         channel.send({ type: 'broadcast', event: 'typing', payload: { userId, stopped: true } })
         iAmTypingRef.current = false
