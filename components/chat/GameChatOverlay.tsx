@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
-import { getCurrentSession } from '@/lib/gameInvites'
+import { getCurrentSession, getChatOrigin } from '@/lib/gameInvites'
 import { supabase } from '@/lib/supabase'
 import { emitGamePresence } from '@/lib/gamePresence'
 import ChatPanel from '@/components/chat/ChatPanel'
@@ -152,10 +152,32 @@ export default function GameChatOverlay() {
   // ChatPanel's own internal scrolling message list is what scrolls —
   // never the shell itself.
   if (isDesktop) {
-    // Fixed right-side panel, fills the full viewport height — unchanged
-    // from before, exact same mount/unmount timing (gated directly on
-    // chatOpen, no animation, no drag).
     if (!chatOpen) return null
+    const isProfileOrigin = getChatOrigin() !== 'game_room'
+    if (isProfileOrigin) {
+      // Profile/four-action-buttons origin — sized to match the desktop
+      // profile card's own exact footprint (.desktop-profile-card's CSS
+      // in ProfileScreenNew.tsx), not the full-viewport-height panel
+      // game-origin chat uses. Vertically centered, right-aligned with a
+      // small margin — same general right-side positioning as game
+      // chat, just no longer edge-to-edge/full-height. Rounded corners
+      // added so it visually reads as the same card footprint, since
+      // it's no longer flush with the viewport edges.
+      return (
+        <div style={{
+          position: 'fixed', top: '50%', right: 24, transform: 'translateY(-50%)',
+          width: 'clamp(420px, 34vw, 500px)', maxWidth: 500,
+          height: 'clamp(440px, 54vh, 560px)', minHeight: 440, maxHeight: 560,
+          background: '#0a0a10', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28,
+          zIndex: 300, overflow: 'hidden',
+        }}>
+          <ChatPanel onClose={closeChat} isOverlay />
+        </div>
+      )
+    }
+    // Game-origin chat — fixed right-side panel, fills the full viewport
+    // height — unchanged from before, exact same mount/unmount timing
+    // (gated directly on chatOpen, no animation, no drag).
     return (
       <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 380, background: '#0a0a10', borderLeft: '1px solid rgba(255,255,255,0.1)', zIndex: 300, overflow: 'hidden' }}>
         <ChatPanel onClose={closeChat} isOverlay />
