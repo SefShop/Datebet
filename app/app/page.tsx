@@ -373,8 +373,12 @@ function AppShell() {
 
     // App was already open — the service worker postMessages the
     // focused client directly (see public/sw.js).
-    function onMessage(event: MessageEvent) {
-      if (event.data?.type === 'push-click') routeFromPush(event.data.data?.type, event.data.data?.senderId)
+    async function onMessage(event: MessageEvent) {
+      if (event.data?.type === 'push-click') {
+        await routeFromPush(event.data.data?.type, event.data.data?.senderId).catch((e: any) => {
+          console.warn('routeFromPush (postMessage) failed:', e?.message)
+        })
+      }
     }
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', onMessage)
@@ -389,7 +393,9 @@ function AppShell() {
       const pushType = params.get('push_type')
       if (pushType) {
         const pushSender = params.get('push_sender') || undefined
-        routeFromPush(pushType, pushSender)
+        routeFromPush(pushType, pushSender).catch((e: any) => {
+          console.warn('routeFromPush (cold start) failed:', e?.message)
+        })
         params.delete('push_type')
         params.delete('push_invite')
         params.delete('push_sender')
