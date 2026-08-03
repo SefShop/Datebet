@@ -26,6 +26,12 @@ export interface PushPayload {
   title: string
   body: string
   data?: Record<string, any>
+  // Optional — used for notification grouping (message pushes). When
+  // set, the service worker uses these to replace/update a prior
+  // notification for the same conversation instead of stacking a new
+  // one. Unused by test/challenge/challenge-accepted pushes.
+  tag?: string
+  renotify?: boolean
 }
 
 export interface PushSubscriptionRow {

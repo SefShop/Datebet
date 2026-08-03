@@ -5,10 +5,27 @@ import { deriveUnlockState, sortPair } from '@/lib/pairProgress'
 
 export const runtime = 'nodejs'
 
-function buildPayload(senderName: string, lang: 'en' | 'gr', senderId: string, messageId: string): PushPayload {
-  const title = lang === 'gr' ? 'Νέο μήνυμα 💬' : 'New message 💬'
-  const body = lang === 'gr' ? `Ο/Η ${senderName} σου έστειλε μήνυμα.` : `${senderName} sent you a message.`
-  return { title, body, data: { type: 'message', target: '/app', senderId, messageId } }
+// Active-chat rows older than this are no longer trusted as "currently
+// viewing" — the shortest safe value above the 12s client heartbeat
+// interval, within the requested 20-30s range.
+const ACTIVE_CHAT_STALE_MS = 25 * 1000
+
+function buildPayload(senderName: string, lang: 'en' | 'gr', senderId: string, messageId: string, conversationKey: string, unreadCount: number | null): PushPayload {
+  let title: string
+  let body: string
+  if (unreadCount !== null && unreadCount > 1) {
+    title = lang === 'gr' ? `${unreadCount} νέα μηνύματα 💬` : `${unreadCount} new messages 💬`
+    body = lang === 'gr' ? `Από τον/την ${senderName}.` : `From ${senderName}.`
+  } else {
+    title = lang === 'gr' ? 'Νέο μήνυμα 💬' : 'New message 💬'
+    body = lang === 'gr' ? `Ο/Η ${senderName} σου έστειλε μήνυμα.` : `${senderName} sent you a message.`
+  }
+  return {
+    title, body,
+    tag: `message-${conversationKey}`,
+    renotify: true,
+    data: { type: 'message', target: '/app', senderId, messageId },
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -75,7 +92,10 @@ export async function POST(req: NextRequest) {
     const senderName = senderProfile?.name || 'Someone'
 
     // ── Idempotency — the existing push_notification_log table, a
-    // distinct event_type from Phase 3/4's rows. ──
+    // distinct event_type from Phase 3/4's rows. Claimed BEFORE the
+    // active-chat suppression check below, so a retry for this exact
+    // messageId always correctly returns duplicate: true, regardless of
+    // whether the first attempt sent or was suppressed. ──
     const { error: logError } = await client.from('push_notification_log').insert({
       event_type: 'new_message',
       event_id: message.id,
@@ -90,7 +110,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to record event' }, { status: 500 })
     }
 
-    const payload = buildPayload(senderName, lang, senderId, message.id)
+    // ── Active-chat suppression — a trustworthy, server-visible check.
+    // The recipient's own client (never the sender's) writes this row
+    // about itself; nothing here is taken on the sender's word.
+    //
+    // LIMITATION: this is logical (all-device), not per-device.
+    // Mapping a specific push_subscriptions row to the specific device
+    // currently viewing the chat would require associating each
+    // subscription with the same stable device_key used here — a
+    // schema/route change to the existing, already-working
+    // subscribe/unsubscribe flow. That wasn't made in this change; if
+    // the recipient is actively viewing this exact conversation on ANY
+    // of their currently-active sessions, the push is withheld from
+    // ALL of their enabled devices, not just the one currently looking
+    // at it. For the common case (one active device at a time) this
+    // behaves identically to true per-device suppression. ──
+    const staleCutoff = new Date(Date.now() - ACTIVE_CHAT_STALE_MS).toISOString()
+    const { data: activeChatRows } = await client
+      .from('active_chat_presence')
+      .select('id')
+      .eq('user_id', message.receiver_id)
+      .eq('other_user_id', senderId)
+      .eq('active', true)
+      .gte('last_seen', staleCutoff)
+      .limit(1)
+
+    if (activeChatRows && activeChatRows.length > 0) {
+      console.log('PUSH MESSAGE: suppressed — recipient actively viewing this chat:', message.id)
+      return NextResponse.json({ sent: 0, failed: 0, removed: 0, duplicate: false, suppressed: true })
+    }
+
+    // ── Unread count — derived from the database, never trusted from
+    // the client. Used only to choose between the singular/grouped
+    // templates above; the read-receipt field and logic themselves are
+    // completely unchanged. ──
+    const { count: unreadCount } = await client
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('sender_id', senderId)
+      .eq('receiver_id', message.receiver_id)
+      .is('read_at', null)
+
+    const conversationKey = `${one}-${two}`
+    const payload = buildPayload(senderName, lang, senderId, message.id, conversationKey, unreadCount ?? null)
 
     const { data: subs, error: subsError } = await client
       .from('push_subscriptions')

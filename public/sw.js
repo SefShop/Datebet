@@ -17,7 +17,7 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'DateDuel', body: 'Test notification', data: { type: 'test', target: '/app' } }
+  let payload = { title: 'DateDuel', body: 'Test notification', data: { type: 'test', target: '/app' }, tag: undefined, renotify: undefined }
   try {
     if (event.data) {
       const parsed = event.data.json()
@@ -25,6 +25,8 @@ self.addEventListener('push', (event) => {
         title: parsed.title || payload.title,
         body: parsed.body || payload.body,
         data: parsed.data || payload.data,
+        tag: parsed.tag,
+        renotify: parsed.renotify,
       }
     }
   } catch (e) {
@@ -32,14 +34,20 @@ self.addEventListener('push', (event) => {
     // above rather than failing to show anything at all.
   }
 
-  event.waitUntil(
-    self.registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-      data: payload.data,
-    })
-  )
+  const options = {
+    body: payload.body,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: payload.data,
+  }
+  // Only set when present (message pushes) — an undefined tag/renotify
+  // is simply omitted, leaving test/challenge/challenge-accepted
+  // notifications completely unaffected (each still gets its own,
+  // untagged notification, exactly as before).
+  if (payload.tag) options.tag = payload.tag
+  if (payload.renotify !== undefined) options.renotify = payload.renotify
+
+  event.waitUntil(self.registration.showNotification(payload.title, options))
 })
 
 self.addEventListener('notificationclick', (event) => {

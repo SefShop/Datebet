@@ -8,6 +8,7 @@ import { getPresence, isOnlineNow, presenceLabel } from '@/lib/presence'
 import { getPairProgress } from '@/lib/pairProgress'
 import { markAsRead } from '@/lib/unread'
 import { triggerMessagePush } from '@/lib/push'
+import { markChatActive, markChatInactive } from '@/lib/activeChatPresence'
 import BackControl from '@/components/ui/BackControl'
 
 interface Message {
@@ -76,6 +77,19 @@ export default function ChatPanel({ onClose, isOverlay = false }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const receiverId = match && match.id !== 'none' ? match.id : null
+
+  // Active-chat presence — server-visible record of "this device is
+  // currently viewing this exact conversation", used by the message-push
+  // route to suppress a push while the recipient is already looking at
+  // it. markChatActive/markChatInactive are idempotent-safe to call
+  // repeatedly; the cleanup here covers unmount, receiverId changing to
+  // a different conversation, and the overlay closing (all of which
+  // unmount or re-run this effect).
+  useEffect(() => {
+    if (!receiverId) return
+    markChatActive(receiverId)
+    return () => { markChatInactive() }
+  }, [receiverId])
 
   // ── Fail-closed access guard ──────────────────────────────────────
   // Verifies effectiveChatUnlocked === true directly against the same
