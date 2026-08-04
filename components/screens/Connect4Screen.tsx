@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { supabase } from '@/lib/supabase'
-import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite, setRematchInProgress, setChatOrigin } from '@/lib/gameInvites'
+import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite, setRematchInProgress, setChatOrigin, acceptRematchIfShouldAccept } from '@/lib/gameInvites'
 import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import BackControl from '@/components/ui/BackControl'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
@@ -575,15 +575,19 @@ export default function Connect4Screen() {
         return
       }
       if (result.shouldAccept && result.invite) {
-        // Simultaneous Play Again: the opponent's request was canonical,
-        // mine lost the reconciliation. Previously this auto-accepted and
-        // jumped straight into the new game. Now it stays on this
-        // completed screen with a disabled "waiting" button instead — the
-        // existing, unchanged floating rematch notification is still the
-        // one and only way this actually gets accepted, same as the
-        // normal one-sided flow. No navigation, no auto-accept here.
-        console.log('PLAY AGAIN: OPPONENT REQUEST IS CANONICAL — SHOWING WAITING STATE:', result.inviteId)
-        setWaitingForPlayer(true)
+        // My own request lost the reconciliation to the opponent's
+        // competing one — immediately accept and enter their already-
+        // canonical invite, same as the normal one-sided accept flow and
+        // the same pattern Mystery Choice's own playAgain() already used.
+        // Previously this instead set a local "waiting" flag and returned,
+        // relying entirely on the separate FloatingRematchNotification
+        // component's own polling (up to 3s) to eventually detect and
+        // accept the invite later — a meaningfully slower, less direct
+        // path that could leave this device's session transition starting
+        // well after the opponent's, right when they're about to make the
+        // new game's first move.
+        console.log('PLAY AGAIN: OPPONENT REQUEST IS CANONICAL — ACCEPTING DIRECTLY:', result.inviteId)
+        await acceptRematchIfShouldAccept(result, myId)
         return
       }
       const { data: opp } = await supabase.from('profiles').select('name').eq('id', opponentId).maybeSingle()

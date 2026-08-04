@@ -168,7 +168,24 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
   } catch (e: any) { return { ok: false, error: e.message } }
 }
 
-// Shared by sendGameInvite's initial check and its unique-conflict
+// Shared by every game's playAgain(): when sendGameInvite() reports
+// shouldAccept (this device's own rematch request lost the reconciliation
+// to the opponent's competing one), this immediately accepts and enters
+// the opponent's already-canonical invite — the exact same, already-proven
+// pattern Mystery Choice's own playAgain() already used inline. Returns
+// true if this case was handled (caller must not also navigate to the
+// waiting screen), false if the normal one-sided flow applies instead.
+export async function acceptRematchIfShouldAccept(
+  result: { shouldAccept?: boolean; invite?: GameInvite },
+  currentUserId: string
+): Promise<boolean> {
+  if (!result.shouldAccept || !result.invite) return false
+  const { ok } = await respondInvite(result.invite.id, true)
+  if (!ok) return true  // still "handled" — do not fall through to the waiting screen
+  await enterAcceptedGame(result.invite, currentUserId)
+  return true
+}
+
 // recovery path — looks for a pending invite between two users for a
 // game type, in either sender/receiver direction, returning the newest
 // non-expired one if more than one somehow exists.
