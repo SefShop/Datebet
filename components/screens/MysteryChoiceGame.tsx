@@ -273,6 +273,33 @@ export default function MysteryChoiceGame() {
     }
 
     async function init() {
+      // Subscribe to THIS game_session row via Supabase realtime FIRST —
+      // before any fetch or repair logic runs. This is what closes the
+      // residual race window a write-then-refetch approach alone can't:
+      // even if this client's local state momentarily diverges after its
+      // own repair write, a later UPDATE from the OTHER client's own
+      // repair attempt (landing after this channel is already listening)
+      // is what corrects it via the existing realtime handler.
+      const channel = supabase
+        .channel(`mystery-choice-${sess0.id}`)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${sess0.id}` }, (payload: any) => {
+          if (payload.new?.id !== activeSessionRef.current) return  // hard guard: ignore stale/other-session updates
+          const newState = payload.new.state as MysteryChoiceState
+          console.log('MYSTERY CHOICE REALTIME UPDATE', newState)
+          if (!isValidMysteryState(newState)) {
+            console.log('MYSTERY ERROR:', 'invalid realtime state received', sess0.id)
+            return  // ignore malformed broadcasts; local state stays as last-known-good
+          }
+          setState(newState)
+          // TEMPORARY DIAGNOSTIC
+          console.log('[MYSTERY_DIAG] realtime state', JSON.stringify({
+            sessionId: sess0.id, currentRound: newState.current_round, questionId: newState.rounds?.[newState.current_round]?.id ?? null,
+          }))
+          checkAndRecover(newState)
+        })
+        .subscribe()
+      channelRef.current = channel
+
       try {
         const { data: { user } } = await supabase.auth.getUser()
         setMyId(user?.id ?? null)
@@ -317,8 +344,16 @@ export default function MysteryChoiceGame() {
         } else {
           console.log('MYSTERY ERROR:', 'invalid or incomplete session state', sess0.id)
           setPreparing(true)
-          s = buildFreshMysteryState()
-          await supabase.from('game_sessions').update({ state: s }).eq('id', sess0.id)
+          const candidate = buildFreshMysteryState()
+          await supabase.from('game_sessions').update({ state: candidate }).eq('id', sess0.id)
+          // Always re-fetch the row's actual canonical state afterward,
+          // rather than trusting this client's own locally-generated
+          // candidate directly — if the other client's own repair
+          // attempt happens to write after this one, this is what makes
+          // both clients still converge on the same final row instead of
+          // each silently keeping its own, different local question set.
+          const { data: reread } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
+          s = (reread && isValidMysteryState(reread.state)) ? reread.state : candidate
           console.log('MYSTERY STATE REPAIRED:', sess0.id)
           setPreparing(false)
         }
@@ -326,29 +361,16 @@ export default function MysteryChoiceGame() {
         setState(s)
         setLoading(false)
         console.log('SESSION READY', sess0.id)
+        // TEMPORARY DIAGNOSTIC — safe identifiers only (no question text).
+        console.log('[MYSTERY_DIAG] final state', JSON.stringify({
+          sessionId: sess0.id, currentRound: s.current_round, questionId: s.rounds?.[s.current_round]?.id ?? null,
+        }))
         checkAndRecover(s)
       } catch (e: any) {
         console.log('MYSTERY ERROR:', e?.message || e)
         setLoading(false)
         setPreparing(false)
       }
-
-      // Subscribe to THIS game_session row via Supabase realtime
-      const channel = supabase
-        .channel(`mystery-choice-${sess0.id}`)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${sess0.id}` }, (payload: any) => {
-          if (payload.new?.id !== activeSessionRef.current) return  // hard guard: ignore stale/other-session updates
-          const newState = payload.new.state as MysteryChoiceState
-          console.log('MYSTERY CHOICE REALTIME UPDATE', newState)
-          if (!isValidMysteryState(newState)) {
-            console.log('MYSTERY ERROR:', 'invalid realtime state received', sess0.id)
-            return  // ignore malformed broadcasts; local state stays as last-known-good
-          }
-          setState(newState)
-          checkAndRecover(newState)
-        })
-        .subscribe()
-      channelRef.current = channel
     }
     init()
 
