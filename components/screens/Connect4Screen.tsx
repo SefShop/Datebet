@@ -148,7 +148,19 @@ export default function Connect4Screen() {
       if (cancelled) return
       setPairCount(prog.games_completed)
 
-      const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', s0.id).maybeSingle()
+      // Small, bounded retry if the row/state isn't there yet — same
+      // fix already proven for Tic Tac Toe's identical fetch pattern.
+      // Closes a transient read-after-write lag window (e.g. right
+      // after the other client's own session creation) that would
+      // otherwise trigger an unnecessary "repair" write here.
+      let sess: { state: any } | null = null
+      for (let tries = 0; tries < 5; tries++) {
+        const { data } = await supabase.from('game_sessions').select('state').eq('id', s0.id).maybeSingle()
+        if (cancelled) return
+        sess = data
+        if (sess?.state) break
+        await new Promise(r => setTimeout(r, 400))
+      }
       let gs: GameState
       if (sess?.state && sess.state.board && sess.state.board.length === 42) {
         gs = sess.state as GameState
@@ -206,8 +218,8 @@ export default function Connect4Screen() {
     }
   }, [session?.id])
 
-  // Visibility reconciliation — Connect4 only, no polling. When the tab
-  // becomes visible again, fetch the exact active session's state once.
+  // Visibility reconciliation — when the tab becomes visible again,
+  // fetch the exact active session's state once.
   useEffect(() => {
     function onVisible() {
       if (document.visibilityState !== 'visible') return
@@ -221,6 +233,28 @@ export default function Connect4Screen() {
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
+  // Polling fallback — the visibility/post-subscribe reconciliations
+  // above only cover specific windows (tab returning from background,
+  // the gap between initial fetch and the channel going live). Neither
+  // recovers a realtime UPDATE broadcast that's genuinely, transiently
+  // missed while the tab stays visible the whole time — a real,
+  // occasional possibility with any websocket-based realtime channel.
+  // Same 3s interval already proven safe in ChatPanel.tsx. Uses the
+  // existing applyIfNotStale guard, so this is a safe no-op whenever
+  // nothing has actually changed since the last known state.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const sid = activeSessionRef.current
+      if (!sid) return
+      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
+        if (error || !data?.state?.board) return
+        if (activeSessionRef.current !== sid) return
+        applyIfNotStale(data.state as GameState)
+      })
+    }, 3000)
+    return () => clearInterval(t)
   }, [])
 
   async function drop(col: number) {
