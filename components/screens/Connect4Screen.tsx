@@ -174,42 +174,66 @@ export default function Connect4Screen() {
       latestMovesRef.current = typeof gs.moves === 'number' ? gs.moves : -1
       setState(gs); setLoading(false)
 
-      channelRef.current = supabase
-        .channel(`c4-${s0.id}`)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${s0.id}` },
-          (payload: any) => {
-            const updatedId = payload.new?.id
-            if (updatedId !== activeSessionRef.current) return
-            const ns = payload.new?.state
-            if (ns && ns.board) {
-              console.log('REALTIME GAME UPDATE:', ns.moves)
-              applyIfNotStale(ns)
-              if (ns.status === 'finished' && ns.progressCounted && progressRefreshedRef.current !== s0.id) {
-                progressRefreshedRef.current = s0.id
-                supabase.auth.getUser().then(({ data: { user } }) => {
-                  if (!user) return
-                  const otherId = user.id === s0.player_one_id ? s0.player_two_id : s0.player_one_id
-                  getPairProgress(otherId).then(prog => {
-                    if (!prog.error) { console.log('PROGRESS REFRESHED (non-mover):', prog.games_completed); setPairCount(prog.games_completed) }
+      let reconnectAttempts = 0
+      function subscribeChannel() {
+        const ch = supabase
+          .channel(`c4-${s0.id}-${Date.now()}-${reconnectAttempts}`)
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${s0.id}` },
+            (payload: any) => {
+              const updatedId = payload.new?.id
+              if (updatedId !== activeSessionRef.current) return
+              const ns = payload.new?.state
+              if (ns && ns.board) {
+                console.log('REALTIME GAME UPDATE:', ns.moves)
+                applyIfNotStale(ns)
+                if (ns.status === 'finished' && ns.progressCounted && progressRefreshedRef.current !== s0.id) {
+                  progressRefreshedRef.current = s0.id
+                  supabase.auth.getUser().then(({ data: { user } }) => {
+                    if (!user) return
+                    const otherId = user.id === s0.player_one_id ? s0.player_two_id : s0.player_one_id
+                    getPairProgress(otherId).then(prog => {
+                      if (!prog.error) { console.log('PROGRESS REFRESHED (non-mover):', prog.games_completed); setPairCount(prog.games_completed) }
+                    })
                   })
-                })
+                }
               }
+            })
+          .subscribe(async (status: string) => {
+            console.log('[C4_SUBSCRIPTION_STATUS]', status, 'session:', s0.id)
+            if (cancelled || activeSessionRef.current !== s0.id) return
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              // A genuinely broken connection (e.g. surfacing after the tab
+              // was backgrounded/"Away") — the previous behavior here was to
+              // silently do nothing, leaving this client's realtime path
+              // dead for the rest of this game. Reconnect: tear down this
+              // channel and create a fresh one, bounded so a persistent
+              // problem doesn't retry forever (the independent polling
+              // fallback below still covers recovery either way).
+              if (reconnectAttempts >= 5) return
+              reconnectAttempts++
+              const dead = channelRef.current
+              channelRef.current = null
+              if (dead) await supabase.removeChannel(dead)
+              if (cancelled || activeSessionRef.current !== s0.id) return
+              await new Promise(r => setTimeout(r, 1000))
+              if (cancelled || activeSessionRef.current !== s0.id) return
+              subscribeChannel()
+              return
             }
+            if (status !== 'SUBSCRIBED') return
+            // Closes the gap between the initial SELECT and the moment this
+            // channel actually goes live — re-fetch once in case a move
+            // landed in that window and was missed. Same fix already proven
+            // for Tic Tac Toe.
+            const { data: latest, error: latestErr } = await supabase
+              .from('game_sessions').select('state').eq('id', s0.id).single()
+            if (cancelled || activeSessionRef.current !== s0.id) return
+            if (latestErr || !latest?.state?.board) return
+            applyIfNotStale(latest.state as GameState)
           })
-        .subscribe(async (status: string) => {
-          console.log('[C4_SUBSCRIPTION_STATUS]', status, 'session:', s0.id)
-          if (status !== 'SUBSCRIBED') return
-          // Closes the gap between the initial SELECT and the moment this
-          // channel actually goes live — re-fetch once in case a move
-          // landed in that window and was missed. Same fix already proven
-          // for Tic Tac Toe.
-          if (cancelled || activeSessionRef.current !== s0.id) return
-          const { data: latest, error: latestErr } = await supabase
-            .from('game_sessions').select('state').eq('id', s0.id).single()
-          if (cancelled || activeSessionRef.current !== s0.id) return
-          if (latestErr || !latest?.state?.board) return
-          applyIfNotStale(latest.state as GameState)
-        })
+        channelRef.current = ch
+      }
+      subscribeChannel()
     }
     init()
     return () => {
