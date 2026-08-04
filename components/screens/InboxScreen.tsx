@@ -24,6 +24,18 @@ export default function InboxScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
 
+  // Same detection pattern already used in ProfileScreenNew.tsx and
+  // GameChatOverlay.tsx — reused exactly, not a second mechanism.
+  const [isDesktop, setIsDesktop] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const update = () => setIsDesktop(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
   useEffect(() => {
     loadConversations()
     console.log('MESSAGES POLLING STARTED')
@@ -137,7 +149,11 @@ export default function InboxScreen() {
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: '#0a0a10' }}>
+    <div className={isDesktop ? 'flex items-center justify-center h-full' : 'h-full'}>
+    <div className="flex flex-col" style={isDesktop
+      ? { width: 'clamp(420px, 34vw, 500px)', maxWidth: 500, height: 'clamp(440px, 54vh, 560px)', minHeight: 440, maxHeight: 560, background: '#0a0a10', borderRadius: 28, overflow: 'hidden' }
+      : { height: '100%', background: '#0a0a10' }
+    }>
 
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-14 pb-4"
@@ -243,6 +259,7 @@ export default function InboxScreen() {
         @keyframes fadeSlide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
       `}</style>
+    </div>
     </div>
   )
 }
