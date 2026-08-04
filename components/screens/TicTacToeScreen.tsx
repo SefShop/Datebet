@@ -185,8 +185,23 @@ export default function TicTacToeScreen() {
       // component already used by Mystery Choice. Presentation-only.
       fetchGamePlayerPhotoAccess(user.id, otherId).then(setPhotoAccess)
 
-      // Always fetch FRESH state from Supabase by session_id
-      const { data: sess } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
+      // Always fetch FRESH state from Supabase by session_id — small,
+      // bounded retry if the row/state isn't there yet, covering a brief
+      // read-after-write lag right after the other client's own session
+      // creation. Same interval/cap already used safely elsewhere in this
+      // codebase (Mystery Choice's fetchSessionRow, enterAcceptedGame's
+      // session-discovery loop). Only retries while state is altogether
+      // missing — a state that exists but is malformed is a different,
+      // genuine issue that retrying wouldn't fix, and falls through to
+      // the existing repair path below exactly as before.
+      let sess: { state: any } | null = null
+      for (let tries = 0; tries < 5; tries++) {
+        const { data } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
+        if (cancelled) return
+        sess = data
+        if (sess?.state) break
+        await new Promise(r => setTimeout(r, 400))
+      }
       console.log('NEW SESSION FRESH LOADED:', sess0.id)
 
       let gs: GameState
