@@ -13,15 +13,6 @@ import FloatingRematchNotification from '@/components/game/FloatingRematchNotifi
 import ChatUnlockProgress from '@/components/game/ChatUnlockProgress'
 import RematchDeclinedToast from '@/components/game/RematchDeclinedToast'
 
-const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
-
-function checkWinner(b: string[]): string | null {
-  for (const [a,c,d] of LINES) {
-    if (b[a] && b[a] === b[c] && b[a] === b[d]) return b[a]
-  }
-  return null
-}
-
 interface GameState {
   gameNumber?: number
   parentSessionId?: string | null
@@ -112,6 +103,17 @@ export default function TicTacToeScreen() {
   // Kept separate from iAmReady, which is tied to the existing, unchanged
   // normal one-user Play Again flow's own (differently worded) UI.
   const [waitingForPlayer, setWaitingForPlayer] = useState(false)
+  // Session-generation guard — incremented every time a new session
+  // becomes active. Every async operation (fetch, realtime event, RPC
+  // response) captures this value at its own start and checks it before
+  // applying any result, so an old session's in-flight async work can
+  // never update a newer, currently-active session's screen.
+  const sessionGenerationRef = useRef(0)
+  // True only while a move RPC call is actually in flight — prevents a
+  // duplicate tap from firing a second request before the first
+  // resolves. No other local flag decides whether the board is playable
+  // (see isMyTurn below).
+  const [moveRequestPending, setMoveRequestPending] = useState(false)
 
   // My symbol: player_one = X, player_two = O
   const mySymbol = session && myId === session.player_one_id ? 'X' : 'O'
@@ -138,8 +140,19 @@ export default function TicTacToeScreen() {
     setLoading(true)
     setIAmReady(false)
     setWaitingForPlayer(false)
+    setMoveRequestPending(false)
     const oldChannel = channelRef.current
     channelRef.current = null
+
+    // Step 5/6 — session-generation guard: mark the old generation
+    // inactive immediately, synchronously, before any async work starts.
+    // Captured by this closure as `myGeneration` below; every async
+    // operation compares its own captured generation against the current
+    // ref value before applying any result, so old-session async work
+    // (a slow fetch, a delayed RPC response, a stale realtime event) can
+    // never update a newer, currently-active session's screen.
+    sessionGenerationRef.current += 1
+    const myGeneration = sessionGenerationRef.current
 
     // Hard guard: mark the active session id
     activeSessionRef.current = sess0.id
@@ -150,6 +163,11 @@ export default function TicTacToeScreen() {
     // Guards the post-SUBSCRIBED refetch below against applying state after
     // this effect has been cleaned up (unmount, or session/game changed).
     let cancelled = false
+    // Combines the effect-cleanup guard with the session-generation guard
+    // (Step 5) — true if this closure's async work should no longer
+    // apply anything, either because this effect was cleaned up or
+    // because a newer session has since become active.
+    function isStale() { return cancelled || sessionGenerationRef.current !== myGeneration }
 
     async function init() {
       // Await the old channel's removal (server-acknowledged) before ever
@@ -157,17 +175,17 @@ export default function TicTacToeScreen() {
       // on immediately — sequences the two rather than letting them race,
       // so the old subscription is fully torn down first.
       if (oldChannel) { await supabase.removeChannel(oldChannel) }
-      if (cancelled) return
+      if (isStale()) return
 
       const { data: { user } } = await supabase.auth.getUser()
-      if (cancelled) return
+      if (isStale()) return
       if (!user) { setError('Not logged in'); setLoading(false); return }
       setMyId(user.id)
 
       // Fetch player names
       const { data: profs } = await supabase.from('profiles').select('id, name')
         .in('id', [sess0.player_one_id, sess0.player_two_id])
-      if (cancelled) return
+      if (isStale()) return
       const nm = new Map(profs?.map(p => [p.id, p.name]) || [])
       setNames({
         one: nm.get(sess0.player_one_id) || 'Player 1',
@@ -177,7 +195,7 @@ export default function TicTacToeScreen() {
       // Load pair progress (for chat unlock gate)
       const otherId = user.id === sess0.player_one_id ? sess0.player_two_id : sess0.player_one_id
       const prog = await getPairProgress(otherId)
-      if (cancelled) return
+      if (isStale()) return
       setPairCount(prog.games_completed)
       console.log('CHAT LOCK CHECK:', prog.games_completed, '/10, unlocked:', prog.chat_unlocked)
 
@@ -197,7 +215,7 @@ export default function TicTacToeScreen() {
       let sess: { state: any } | null = null
       for (let tries = 0; tries < 5; tries++) {
         const { data } = await supabase.from('game_sessions').select('state').eq('id', sess0.id).maybeSingle()
-        if (cancelled) return
+        if (isStale()) return
         sess = data
         if (sess?.state) break
         await new Promise(r => setTimeout(r, 400))
@@ -227,6 +245,7 @@ export default function TicTacToeScreen() {
         await supabase.from('game_sessions').update({ state: gs }).eq('id', sess0.id)
         console.log('VALID STATE: repaired/initialized')
       }
+      if (isStale()) return
       console.log('GAME NUMBER:', gs.gameNumber ?? 1)
       setState(gs)
       console.log('CURRENT TURN:', gs.currentTurn)
@@ -241,8 +260,11 @@ export default function TicTacToeScreen() {
         }, (payload: any) => {
           const updatedId = payload.new?.id
           console.log('REALTIME UPDATE SESSION ID:', updatedId)
-          // HARD GUARD: ignore updates that aren't for the active session
-          if (updatedId !== activeSessionRef.current) {
+          // HARD GUARD: ignore updates that aren't for the active session,
+          // and (Step 5) ignore anything if a newer session has since
+          // become active — realtime is notification-only, never
+          // authoritative for which session's screen it may update.
+          if (updatedId !== activeSessionRef.current || isStale()) {
             console.log('IGNORED OLD SESSION UPDATE:', updatedId)
             return
           }
@@ -277,13 +299,13 @@ export default function TicTacToeScreen() {
           // Closes the gap between the initial SELECT and the moment this
           // channel actually goes live: re-fetch once, right now, in case
           // the opponent's move landed in that window and was missed.
-          if (cancelled || activeSessionRef.current !== sess0.id) return
+          if (isStale() || activeSessionRef.current !== sess0.id) return
           const { data: latest, error: latestErr } = await supabase
             .from('game_sessions')
             .select('state')
             .eq('id', sess0.id)
             .single()
-          if (cancelled || activeSessionRef.current !== sess0.id) return
+          if (isStale() || activeSessionRef.current !== sess0.id) return
           if (latestErr || !latest?.state) return
           const latestState = latest.state as any
           if (!latestState.board || !Array.isArray(latestState.board)) return
@@ -311,9 +333,10 @@ export default function TicTacToeScreen() {
       if (document.visibilityState !== 'visible') return
       const sid = activeSessionRef.current
       if (!sid) return
+      const genAtFetch = sessionGenerationRef.current
       supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
         if (error || !data?.state) return
-        if (activeSessionRef.current !== sid) return  // session changed while fetching
+        if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return  // session changed while fetching
         const latest = data.state as any
         if (!latest.board || !Array.isArray(latest.board)) return
         console.log('TICTACTOE VISIBILITY RECONCILE:', latest.moves, 'moves')
@@ -327,71 +350,62 @@ export default function TicTacToeScreen() {
 
   async function play(i: number) {
     if (!state || !session || !myId) { console.log('MOVE BLOCKED REASON: no state/session/user'); return }
-    if (state.status === 'finished') { console.log('MOVE BLOCKED REASON: game finished'); return }
+    if (moveRequestPending) { console.log('MOVE BLOCKED REASON: move request already in flight'); return }
+    if (state.status !== 'active') { console.log('MOVE BLOCKED REASON: game finished'); return }
     if (state.currentTurn !== myId) { console.log('MOVE BLOCKED REASON: not your turn (turn=' + state.currentTurn + ', me=' + myId + ')'); return }
     if (state.board[i] !== '') { console.log('MOVE BLOCKED REASON: cell taken'); return }
 
-    const board = Array.from({ length: 9 }, (_, k) => state.board?.[k] || '')
-    board[i] = mySymbol
+    console.log('MOVE ATTEMPT (RPC):', i)
+    setMoveRequestPending(true)
+    const generationAtRequest = sessionGenerationRef.current
+    const sessionIdAtRequest = session.id
 
-    const win = checkWinner(board)
-    const moves = state.moves + 1
-    let winner: string | null = null
-    let status = 'active'
-    let currentTurn = myId === session.player_one_id ? session.player_two_id : session.player_one_id
+    try {
+      const { data, error } = await supabase.rpc('play_tic_tac_toe_move', {
+        p_session_id: sessionIdAtRequest,
+        p_cell_index: i,
+      })
 
-    if (win) {
-      winner = myId
-      status = 'finished'
-      console.log('WINNER FOUND:', myId)
-    } else if (moves >= 9) {
-      winner = 'draw'
-      status = 'finished'
-      console.log('DRAW FOUND:')
-    }
-
-    const newState: GameState = {
-      gameNumber: state.gameNumber ?? 1,
-      parentSessionId: state.parentSessionId ?? null,
-      board, currentTurn, winner, status, moves,
-      progressCounted: state.progressCounted,
-      // Initialize playAgain whenever the game finishes (winner OR draw)
-      playAgain: status === 'finished'
-        ? (state.playAgain || { player_one_ready: false, player_two_ready: false, next_session_id: null })
-        : state.playAgain,
-    }
-    setState(newState) // optimistic
-    console.log('MOVE ATTEMPT:', i, mySymbol)
-
-    const sessionIdAtWrite = session.id
-    const { data: confirmed, error: e } = await supabase
-      .from('game_sessions')
-      .update({ state: newState })
-      .eq('id', session.id)
-      .select('state')
-      .single()
-    if (e) {
-      console.error('SESSION UPDATE error:', e)
-    } else {
-      console.log('MOVE SAVED TO SESSION:', session.id)
-      // Reconcile with the confirmed database row instead of leaving this
-      // device permanently dependent on its own optimistic update. Guard
-      // against applying a stale write's confirmation if the session has
-      // since changed (e.g. a fast Play Again transition).
-      if (activeSessionRef.current === sessionIdAtWrite && confirmed?.state) {
-        const confirmedState = confirmed.state as any
-        if (confirmedState.board && Array.isArray(confirmedState.board)) {
-          confirmedState.board = Array.from({ length: 9 }, (_, k) => confirmedState.board?.[k] || '')
-          setState(confirmedState)
-        }
+      if (sessionGenerationRef.current !== generationAtRequest || activeSessionRef.current !== sessionIdAtRequest) {
+        // A rematch already moved this screen to a new session while this
+        // RPC call was in flight — an old-session response must never be
+        // applied to the new session's screen.
+        console.log('MOVE RPC RESPONSE IGNORED: session changed while in flight')
+        return
       }
-    }
 
-    // If this move finished the game, count progress once (the finishing mover records it)
-    if (status === 'finished') {
-      console.log('GAME ENDED')
-      console.log('winner:', winner)
-      await countProgress(newState)
+      if (error) {
+        console.error('MOVE RPC error:', error.message)
+        return
+      }
+      if (!data || data.error) {
+        // One of the RPC's own structured rejections — not_authenticated,
+        // not_a_player, not_your_turn, cell_occupied, game_finished,
+        // invalid_cell, session_not_found, wrong_game_type, invalid_state.
+        console.log('MOVE BLOCKED REASON (server):', data?.error || 'unknown')
+        return
+      }
+
+      const confirmedState = data.state as any
+      if (!confirmedState?.board || !Array.isArray(confirmedState.board)) {
+        console.error('MOVE RPC returned an unexpected shape')
+        return
+      }
+      confirmedState.board = Array.from({ length: 9 }, (_, k) => confirmedState.board?.[k] || '')
+      console.log('MOVE CONFIRMED BY SERVER:', confirmedState.moves, 'moves, status:', confirmedState.status)
+      setState(confirmedState)
+
+      // If this move finished the game, count progress once (the
+      // finishing mover records it) — a separate, additive metadata
+      // write (progressCounted/playAgain), not part of the move/turn
+      // computation the RPC already made authoritative above.
+      if (confirmedState.status === 'finished') {
+        console.log('GAME ENDED')
+        console.log('winner:', confirmedState.winner)
+        await countProgress(confirmedState as GameState)
+      }
+    } finally {
+      setMoveRequestPending(false)
     }
   }
 
@@ -544,7 +558,7 @@ export default function TicTacToeScreen() {
     )
   }
 
-  const isMyTurn = state.currentTurn === myId && state.status === 'active'
+  const isMyTurn = state.currentTurn === myId && state.status === 'active' && !moveRequestPending
   const myName = myId === session.player_one_id ? names.one : names.two
   const oppName = myId === session.player_one_id ? names.two : names.one
 
