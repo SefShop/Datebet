@@ -13,26 +13,7 @@ import RematchDeclinedToast from '@/components/game/RematchDeclinedToast'
 
 const COLS = 7, ROWS = 6
 
-function checkWin(b: string[]): string | null {
-  const at = (r: number, c: number) => b[r * COLS + c]
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-    const p = at(r, c); if (!p) continue
-    // horizontal, vertical, two diagonals
-    if (c + 3 < COLS && p === at(r,c+1) && p === at(r,c+2) && p === at(r,c+3)) return p
-    if (r + 3 < ROWS && p === at(r+1,c) && p === at(r+2,c) && p === at(r+3,c)) return p
-    if (r + 3 < ROWS && c + 3 < COLS && p === at(r+1,c+1) && p === at(r+2,c+2) && p === at(r+3,c+3)) return p
-    if (r + 3 < ROWS && c - 3 >= 0 && p === at(r+1,c-1) && p === at(r+2,c-2) && p === at(r+3,c-3)) return p
-  }
-  return null
-}
-
 interface GameState { board: string[]; currentTurn: string; winner: string | null; status: string; moves: number; progressCounted?: boolean }
-
-// TEMPORARY DIAGNOSTIC — occupied-cell count for board state logging.
-function occupiedCellsDiag(board: string[] | undefined | null): number {
-  if (!Array.isArray(board)) return -1
-  return board.filter(c => c).length
-}
 
 export default function Connect4Screen() {
   const { navigate, lang, openChat } = useApp()
@@ -89,15 +70,18 @@ export default function Connect4Screen() {
   // visible during the CSS opacity fade-out of an entirely expected,
   // intentional exit.
   const isExitingRef = useRef(false)
-  // TEMPORARY DIAGNOSTIC — tracks the previous session id purely for
-  // comparison logging below; does not affect any existing logic.
-  const prevSessionIdRefDiag = useRef<string | null>(null)
-  // TEMPORARY DIAGNOSTIC — always mirrors the latest `state`, so closures
-  // created earlier (e.g. the realtime handler) can log accurate current
-  // values instead of a stale closure snapshot. Read-only, diagnostic use
-  // only — never used to drive any actual game logic.
-  const latestStateRefDiag = useRef<GameState | null>(null)
-  useEffect(() => { latestStateRefDiag.current = state }, [state])
+  // Session-generation guard — incremented every time a new session
+  // becomes active. Every async operation (fetch, realtime event, RPC
+  // response) captures this value at its own start and checks it before
+  // applying any result, so an old session's in-flight async work can
+  // never update a newer, currently-active session's screen. Same
+  // proven pattern as Tic Tac Toe.
+  const sessionGenerationRef = useRef(0)
+  // True only while a move RPC call is actually in flight — prevents a
+  // duplicate tap from firing a second request before the first
+  // resolves. No other local flag decides whether the board is playable
+  // (see isMyTurn below).
+  const [moveRequestPending, setMoveRequestPending] = useState(false)
 
   const myColor = session && myId === session.player_one_id ? 'R' : 'Y'
 
@@ -115,17 +99,6 @@ export default function Connect4Screen() {
     }
 
     console.log('CONNECT4 SESSION:', s0.id)
-    // TEMPORARY DIAGNOSTIC
-    const isNewSessionDiag = prevSessionIdRefDiag.current !== s0.id
-    console.log('[C4_SESSION_DIAG] session change detected', JSON.stringify({
-      timestamp: new Date().toISOString(),
-      newSessionId: s0.id,
-      previousSessionId: prevSessionIdRefDiag.current,
-      isNewSessionId: isNewSessionDiag,
-      sameSessionIdReceivedAgain: !isNewSessionDiag,
-      hadOldChannel: !!channelRef.current,
-    }))
-    prevSessionIdRefDiag.current = s0.id
     activeSessionRef.current = s0.id
     progressRefreshedRef.current = null
     isExitingRef.current = false
@@ -144,16 +117,22 @@ export default function Connect4Screen() {
     setLoading(true)
     latestMovesRef.current = -1
     setWaitingForPlayer(false)
-    // TEMPORARY DIAGNOSTIC
-    console.log('[C4_SESSION_DIAG] synchronous state reset complete', JSON.stringify({
-      timestamp: new Date().toISOString(),
-      sessionId: s0.id,
-      latestMovesRefResetTo: latestMovesRef.current,
-    }))
+    setMoveRequestPending(false)
+
+    // Step 5/6 — session-generation guard: mark the old generation
+    // inactive immediately, synchronously, before any async work starts.
+    // Captured by this closure as `myGeneration` below; every async
+    // operation compares its own captured generation against the current
+    // ref value before applying any result. Same proven pattern as Tic
+    // Tac Toe.
+    sessionGenerationRef.current += 1
+    const myGeneration = sessionGenerationRef.current
 
     // Guards the post-SUBSCRIBED refetch below against applying state
     // after this effect has been cleaned up (unmount, or session changed).
     let cancelled = false
+    // Combines the effect-cleanup guard with the session-generation guard.
+    function isStale() { return cancelled || sessionGenerationRef.current !== myGeneration }
 
     async function init() {
       // Await the old channel's removal (server-acknowledged) before ever
@@ -161,20 +140,15 @@ export default function Connect4Screen() {
       // function to fire-and-forget it — same fix already proven for Tic
       // Tac Toe. Sequences the teardown rather than letting it race the
       // new subscription's creation.
-      if (oldChannel) {
-        // TEMPORARY DIAGNOSTIC
-        console.log('[C4_SESSION_DIAG] old channel removal begins', JSON.stringify({ timestamp: new Date().toISOString(), sessionId: s0.id }))
-        await supabase.removeChannel(oldChannel)
-        console.log('[C4_SESSION_DIAG] old channel removal completes', JSON.stringify({ timestamp: new Date().toISOString(), sessionId: s0.id }))
-      }
-      if (cancelled) return
+      if (oldChannel) { await supabase.removeChannel(oldChannel) }
+      if (isStale()) return
 
       const { data: { user } } = await supabase.auth.getUser()
       if (cancelled) return
       if (!user) { setLoading(false); return }
       setMyId(user.id)
       const { data: profs } = await supabase.from('profiles').select('id, name').in('id', [s0.player_one_id, s0.player_two_id])
-      if (cancelled) return
+      if (isStale()) return
       const nm = new Map(profs?.map(p => [p.id, p.name]) || [])
       setNames({ one: nm.get(s0.player_one_id) || 'P1', two: nm.get(s0.player_two_id) || 'P2' })
 
@@ -182,7 +156,7 @@ export default function Connect4Screen() {
       // truth already used by Tic Tac Toe and Mystery Choice.
       const otherId = user.id === s0.player_one_id ? s0.player_two_id : s0.player_one_id
       const prog = await getPairProgress(otherId)
-      if (cancelled) return
+      if (isStale()) return
       setPairCount(prog.games_completed)
 
       // Small, bounded retry if the row/state isn't there yet — same
@@ -193,20 +167,8 @@ export default function Connect4Screen() {
       let sess: { state: any } | null = null
       for (let tries = 0; tries < 5; tries++) {
         const { data } = await supabase.from('game_sessions').select('state').eq('id', s0.id).maybeSingle()
-        if (cancelled) return
+        if (isStale()) return
         sess = data
-        // TEMPORARY DIAGNOSTIC
-        console.log('[C4_FETCH_DIAG] initial-fetch attempt', JSON.stringify({
-          timestamp: new Date().toISOString(),
-          source: 'initial-fetch',
-          attempt: tries,
-          sessionId: s0.id,
-          fetchedCurrentTurn: data?.state?.currentTurn ?? null,
-          fetchedMoveCount: typeof data?.state?.moves === 'number' ? data.state.moves : null,
-          fetchedStatus: data?.state?.status ?? null,
-          occupiedCells: occupiedCellsDiag(data?.state?.board),
-          hadState: !!data?.state,
-        }))
         if (sess?.state) break
         await new Promise(r => setTimeout(r, 400))
       }
@@ -219,68 +181,22 @@ export default function Connect4Screen() {
         gs = { board: Array(42).fill(''), currentTurn: s0.player_one_id, winner: null, status: 'active', moves: 0 }
         await supabase.from('game_sessions').update({ state: gs }).eq('id', s0.id)
       }
-      if (cancelled) return
-      // TEMPORARY DIAGNOSTIC
-      console.log('[C4_INIT_DIAG] initialization resolved', JSON.stringify({
-        timestamp: new Date().toISOString(),
-        authenticatedUserId: user.id,
-        sessionId: s0.id,
-        inviteId: s0.invite_id ?? null,
-        playerOneId: s0.player_one_id,
-        playerTwoId: s0.player_two_id,
-        myRole: user.id === s0.player_one_id ? 'player_one' : user.id === s0.player_two_id ? 'player_two' : 'unknown',
-        initialCurrentTurn: gs.currentTurn,
-        initialMoveCount: gs.moves,
-        initialStatus: gs.status,
-        occupiedCells: occupiedCellsDiag(gs.board),
-        visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
-        wasRepaired: !(sess?.state && sess.state.board && sess.state.board.length === 42),
-      }))
+      if (isStale()) return
       latestMovesRef.current = typeof gs.moves === 'number' ? gs.moves : -1
       setState(gs); setLoading(false)
 
       let reconnectAttempts = 0
       function subscribeChannel() {
         const channelName = `c4-${s0.id}-${Date.now()}-${reconnectAttempts}`
-        // TEMPORARY DIAGNOSTIC
-        console.log('[C4_CHANNEL_DIAG] SUBSCRIBING', JSON.stringify({
-          timestamp: new Date().toISOString(),
-          sessionId: s0.id,
-          channelName,
-          reconnectAttempt: reconnectAttempts,
-          hadOldChannel: !!channelRef.current,
-          visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
-        }))
         const ch = supabase
           .channel(channelName)
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${s0.id}` },
             (payload: any) => {
               const updatedId = payload.new?.id
-              if (updatedId !== activeSessionRef.current) return
+              if (updatedId !== activeSessionRef.current || isStale()) return
               const ns = payload.new?.state
               if (ns && ns.board) {
                 console.log('REALTIME GAME UPDATE:', ns.moves)
-                // TEMPORARY DIAGNOSTIC — capture the pre-apply local values
-                // and the accept/reject decision applyIfNotStale is about
-                // to make, without altering its own behavior at all.
-                const prevTurnDiag = latestStateRefDiag.current?.currentTurn ?? null
-                const prevMovesDiag = latestStateRefDiag.current?.moves ?? null
-                const wouldRejectDiag = typeof ns.moves !== 'number' || ns.moves < latestMovesRef.current
-                supabase.auth.getUser().then(({ data: { user: uDiag } }) => {
-                  console.log('[C4_REALTIME_DIAG] postgres_changes UPDATE received', JSON.stringify({
-                    timestamp: new Date().toISOString(),
-                    sessionId: s0.id,
-                    receivingUserId: uDiag?.id ?? null,
-                    incomingCurrentTurn: ns.currentTurn ?? null,
-                    incomingMoveCount: typeof ns.moves === 'number' ? ns.moves : null,
-                    incomingOccupiedCells: occupiedCellsDiag(ns.board),
-                    previousLocalCurrentTurn: prevTurnDiag,
-                    previousLocalMoveCount: prevMovesDiag,
-                    latestMovesRefBeforeApply: latestMovesRef.current,
-                    accepted: !wouldRejectDiag,
-                    rejectionReason: wouldRejectDiag ? (typeof ns.moves !== 'number' ? 'moves not a number' : 'moves < latestMovesRef.current (stale)') : null,
-                  }))
-                })
                 applyIfNotStale(ns)
                 if (ns.status === 'finished' && ns.progressCounted && progressRefreshedRef.current !== s0.id) {
                   progressRefreshedRef.current = s0.id
@@ -296,38 +212,21 @@ export default function Connect4Screen() {
             })
           .subscribe(async (status: string) => {
             console.log('[C4_SUBSCRIPTION_STATUS]', status, 'session:', s0.id)
-            // TEMPORARY DIAGNOSTIC
-            const { data: { user: chUserDiag } } = await supabase.auth.getUser()
-            console.log('[C4_CHANNEL_DIAG] status transition', JSON.stringify({
-              timestamp: new Date().toISOString(),
-              userId: chUserDiag?.id ?? null,
-              sessionId: s0.id,
-              channelName,
-              status,
-              reconnectAttempt: reconnectAttempts,
-              visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
-            }))
-            if (cancelled || activeSessionRef.current !== s0.id) return
+            if (isStale() || activeSessionRef.current !== s0.id) return
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
               // A genuinely broken connection (e.g. surfacing after the tab
-              // was backgrounded/"Away") — the previous behavior here was to
-              // silently do nothing, leaving this client's realtime path
-              // dead for the rest of this game. Reconnect: tear down this
-              // channel and create a fresh one, bounded so a persistent
-              // problem doesn't retry forever (the independent polling
-              // fallback below still covers recovery either way).
+              // was backgrounded/"Away") — reconnect: tear down this channel
+              // and create a fresh one, bounded so a persistent problem
+              // doesn't retry forever (the independent polling fallback
+              // below still covers recovery either way).
               if (reconnectAttempts >= 5) return
               reconnectAttempts++
               const dead = channelRef.current
               channelRef.current = null
-              // TEMPORARY DIAGNOSTIC
-              console.log('[C4_CHANNEL_DIAG] reconnecting after broken status', JSON.stringify({
-                timestamp: new Date().toISOString(), sessionId: s0.id, brokenStatus: status, nextReconnectAttempt: reconnectAttempts, oldChannelRemoved: !!dead,
-              }))
               if (dead) await supabase.removeChannel(dead)
-              if (cancelled || activeSessionRef.current !== s0.id) return
+              if (isStale() || activeSessionRef.current !== s0.id) return
               await new Promise(r => setTimeout(r, 1000))
-              if (cancelled || activeSessionRef.current !== s0.id) return
+              if (isStale() || activeSessionRef.current !== s0.id) return
               subscribeChannel()
               return
             }
@@ -338,25 +237,8 @@ export default function Connect4Screen() {
             // for Tic Tac Toe.
             const { data: latest, error: latestErr } = await supabase
               .from('game_sessions').select('state').eq('id', s0.id).single()
-            if (cancelled || activeSessionRef.current !== s0.id) return
+            if (isStale() || activeSessionRef.current !== s0.id) return
             if (latestErr || !latest?.state?.board) return
-            // TEMPORARY DIAGNOSTIC
-            {
-              const ms = latest.state?.moves
-              const wouldReject = typeof ms !== 'number' || ms < latestMovesRef.current
-              console.log('[C4_FETCH_DIAG] post-subscribe-refetch', JSON.stringify({
-                timestamp: new Date().toISOString(),
-                source: reconnectAttempts > 0 ? 'reconnect-refetch' : 'post-subscribe-refetch',
-                sessionId: s0.id,
-                fetchedCurrentTurn: latest.state?.currentTurn ?? null,
-                fetchedMoveCount: typeof ms === 'number' ? ms : null,
-                fetchedStatus: latest.state?.status ?? null,
-                occupiedCells: occupiedCellsDiag(latest.state?.board),
-                latestMovesRefBeforeApply: latestMovesRef.current,
-                applied: !wouldReject,
-                rejectionReason: wouldReject ? (typeof ms !== 'number' ? 'moves not a number' : 'moves < latestMovesRef.current (stale)') : null,
-              }))
-            }
             applyIfNotStale(latest.state as GameState)
           })
         channelRef.current = ch
@@ -365,12 +247,6 @@ export default function Connect4Screen() {
     }
     init()
     return () => {
-      // TEMPORARY DIAGNOSTIC
-      console.log('[C4_SESSION_DIAG] effect cleanup running', JSON.stringify({
-        timestamp: new Date().toISOString(),
-        sessionId: s0.id,
-        hadChannel: !!channelRef.current,
-      }))
       cancelled = true
       if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
     }
@@ -380,37 +256,13 @@ export default function Connect4Screen() {
   // fetch the exact active session's state once.
   useEffect(() => {
     function onVisible() {
-      // TEMPORARY DIAGNOSTIC — logs both hidden and visible transitions,
-      // before the existing early-return logic (unchanged below).
-      console.log('[C4_VISIBILITY_DIAG] visibilitychange', JSON.stringify({
-        timestamp: new Date().toISOString(),
-        visibilityState: document.visibilityState,
-        sessionId: activeSessionRef.current,
-      }))
       if (document.visibilityState !== 'visible') return
       const sid = activeSessionRef.current
       if (!sid) return
-      console.log('[C4_VISIBILITY_DIAG] reconciliation begins', JSON.stringify({ timestamp: new Date().toISOString(), sessionId: sid }))
+      const genAtFetch = sessionGenerationRef.current
       supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
-        const ms = data?.state?.moves
-        const wouldReject = !error && data?.state?.board && (typeof ms !== 'number' || ms < latestMovesRef.current)
-        // TEMPORARY DIAGNOSTIC
-        console.log('[C4_VISIBILITY_DIAG] reconciliation fetch returns', JSON.stringify({
-          timestamp: new Date().toISOString(),
-          sessionId: sid,
-          hadError: !!error,
-          fetchedCurrentTurn: data?.state?.currentTurn ?? null,
-          fetchedMoveCount: typeof ms === 'number' ? ms : null,
-          occupiedCells: occupiedCellsDiag(data?.state?.board),
-          latestMovesRefBeforeApply: latestMovesRef.current,
-          sessionStillActive: activeSessionRef.current === sid,
-        }))
         if (error || !data?.state?.board) return
-        if (activeSessionRef.current !== sid) return
-        console.log('[C4_VISIBILITY_DIAG] state applied/rejected', JSON.stringify({
-          timestamp: new Date().toISOString(), sessionId: sid, applied: !wouldReject,
-          rejectionReason: wouldReject ? 'moves < latestMovesRef.current (stale) or invalid' : null,
-        }))
+        if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
         applyIfNotStale(data.state as GameState)
       })
     }
@@ -431,25 +283,10 @@ export default function Connect4Screen() {
     const t = setInterval(() => {
       const sid = activeSessionRef.current
       if (!sid) return
+      const genAtFetch = sessionGenerationRef.current
       supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
-        const ms = data?.state?.moves
-        const wouldReject = !error && data?.state?.board && (typeof ms !== 'number' || ms < latestMovesRef.current)
-        // TEMPORARY DIAGNOSTIC
-        console.log('[C4_FETCH_DIAG] polling tick', JSON.stringify({
-          timestamp: new Date().toISOString(),
-          source: 'polling',
-          sessionId: sid,
-          hadError: !!error,
-          fetchedCurrentTurn: data?.state?.currentTurn ?? null,
-          fetchedMoveCount: typeof ms === 'number' ? ms : null,
-          fetchedStatus: data?.state?.status ?? null,
-          occupiedCells: occupiedCellsDiag(data?.state?.board),
-          latestMovesRefBeforeApply: latestMovesRef.current,
-          applied: !!data?.state?.board && !error && !wouldReject,
-          rejectionReason: (!error && data?.state?.board && wouldReject) ? (typeof ms !== 'number' ? 'moves not a number' : 'moves < latestMovesRef.current (stale)') : null,
-        }))
         if (error || !data?.state?.board) return
-        if (activeSessionRef.current !== sid) return
+        if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
         applyIfNotStale(data.state as GameState)
       })
     }, 3000)
@@ -457,82 +294,66 @@ export default function Connect4Screen() {
   }, [])
 
   async function drop(col: number) {
-    // TEMPORARY DIAGNOSTIC — logged before any existing guard checks below.
-    console.log('[C4_MOVE_DIAG] drop() called', JSON.stringify({
-      timestamp: new Date().toISOString(),
-      sessionId: session?.id ?? null,
-      userId: myId,
-      column: col,
-      currentTurn: state?.currentTurn ?? null,
-      isMyTurn: !!state && state.currentTurn === myId && state.status === 'active',
-      moveCount: state?.moves ?? null,
-      gameStatus: state?.status ?? null,
-      loading,
-      subscriptionState: channelRef.current ? (channelRef.current.state ?? 'unknown') : 'no channel',
-    }))
-    if (!state || !session || !myId) {
-      console.log('[C4_MOVE_BLOCKED]', 'no state/session/user')
-      console.log('[C4_MOVE_DIAG] blocked', JSON.stringify({ timestamp: new Date().toISOString(), reason: 'no state/session/user' }))
-      return
-    }
-    if (state.status === 'finished') {
-      console.log('[C4_MOVE_BLOCKED]', 'game finished')
-      console.log('[C4_MOVE_DIAG] blocked', JSON.stringify({ timestamp: new Date().toISOString(), sessionId: session.id, reason: 'finished' }))
-      return
-    }
-    if (state.currentTurn !== myId) {
-      console.log('[C4_MOVE_BLOCKED]', 'not your turn (turn=' + state.currentTurn + ', me=' + myId + ')')
-      console.log('[C4_MOVE_DIAG] blocked', JSON.stringify({ timestamp: new Date().toISOString(), sessionId: session.id, reason: 'not my turn', currentTurn: state.currentTurn, myId }))
-      return
-    }
-    // find lowest empty row in col
+    if (!state || !session || !myId) { console.log('[C4_MOVE_BLOCKED]', 'no state/session/user'); return }
+    if (moveRequestPending) { console.log('[C4_MOVE_BLOCKED]', 'move request already in flight'); return }
+    if (state.status !== 'active') { console.log('[C4_MOVE_BLOCKED]', 'game finished'); return }
+    if (state.currentTurn !== myId) { console.log('[C4_MOVE_BLOCKED]', 'not your turn (turn=' + state.currentTurn + ', me=' + myId + ')'); return }
+    // Fast, non-authoritative early exit only — avoids an unnecessary RPC
+    // round-trip for an obviously-full column. The RPC itself still
+    // independently, authoritatively re-checks this server-side.
     let row = -1
     for (let r = ROWS - 1; r >= 0; r--) { if (!state.board[r * COLS + col]) { row = r; break } }
-    if (row < 0) {
-      console.log('[C4_MOVE_BLOCKED]', 'column full')
-      console.log('[C4_MOVE_DIAG] blocked', JSON.stringify({ timestamp: new Date().toISOString(), sessionId: session.id, reason: 'full column', column: col }))
-      return
-    }
+    if (row < 0) { console.log('[C4_MOVE_BLOCKED]', 'column full'); return }
 
-    const board = [...state.board]
-    board[row * COLS + col] = myColor
-    const win = checkWin(board)
-    const moves = state.moves + 1
-    let winner: string | null = null, status = 'active'
-    let currentTurn = myId === session.player_one_id ? session.player_two_id : session.player_one_id
-    if (win) { winner = myId; status = 'finished' }
-    else if (moves >= 42) { winner = 'draw'; status = 'finished' }
+    console.log('MOVE ATTEMPT (RPC):', col)
+    setMoveRequestPending(true)
+    const generationAtRequest = sessionGenerationRef.current
+    const sessionIdAtRequest = session.id
 
-    const newState: GameState = { board, currentTurn, winner, status, moves }
-    applyIfNotStale(newState) // optimistic
+    try {
+      const { data, error } = await supabase.rpc('play_connect_4_move', {
+        p_session_id: sessionIdAtRequest,
+        p_column: col,
+      })
 
-    const sessionIdAtWrite = session.id
-    const { data: confirmed, error } = await supabase
-      .from('game_sessions').update({ state: newState }).eq('id', session.id)
-      .select('state').single()
-    if (error) {
-      console.error('SESSION UPDATE error:', error)
-      // TEMPORARY DIAGNOSTIC
-      console.log('[C4_MOVE_DIAG] write result', JSON.stringify({
-        timestamp: new Date().toISOString(), sessionId: sessionIdAtWrite, writeSucceeded: false, errorMessage: error.message,
-      }))
-    } else {
-      console.log('SESSION UPDATED:', session.id)
-      // TEMPORARY DIAGNOSTIC
-      console.log('[C4_MOVE_DIAG] write result', JSON.stringify({
-        timestamp: new Date().toISOString(),
-        sessionId: sessionIdAtWrite,
-        writeSucceeded: true,
-        confirmedCurrentTurn: confirmed?.state?.currentTurn ?? null,
-        confirmedMoveCount: confirmed?.state?.moves ?? null,
-        confirmedOccupiedCells: occupiedCellsDiag(confirmed?.state?.board),
-      }))
-      if (activeSessionRef.current === sessionIdAtWrite && confirmed?.state?.board) {
-        applyIfNotStale(confirmed.state as GameState)
+      if (sessionGenerationRef.current !== generationAtRequest || activeSessionRef.current !== sessionIdAtRequest) {
+        // A rematch already moved this screen to a new session while this
+        // RPC call was in flight — an old-session response must never be
+        // applied to the new session's screen.
+        console.log('MOVE RPC RESPONSE IGNORED: session changed while in flight')
+        return
       }
-    }
 
-    if (status === 'finished') await countProgress(newState)
+      if (error) {
+        console.error('MOVE RPC error:', error.message)
+        return
+      }
+      if (!data || data.error) {
+        // One of the RPC's own structured rejections — not_authenticated,
+        // not_a_player, not_your_turn, invalid_column, full_column,
+        // finished_game, wrong_game_type, missing_session, invalid_state.
+        console.log('[C4_MOVE_BLOCKED] (server)', data?.error || 'unknown')
+        return
+      }
+
+      const confirmedState = data.state as GameState
+      if (!confirmedState?.board || !Array.isArray(confirmedState.board)) {
+        console.error('MOVE RPC returned an unexpected shape')
+        return
+      }
+      console.log('MOVE CONFIRMED BY SERVER:', confirmedState.moves, 'moves, status:', confirmedState.status)
+      applyIfNotStale(confirmedState)
+
+      // If this move finished the game, count progress once (the
+      // finishing mover records it) — a separate, additive metadata
+      // write (progressCounted), not part of the move/turn computation
+      // the RPC already made authoritative above.
+      if (confirmedState.status === 'finished') {
+        await countProgress(confirmedState)
+      }
+    } finally {
+      setMoveRequestPending(false)
+    }
   }
 
   async function countProgress(finishedState: GameState) {
@@ -598,48 +419,6 @@ export default function Connect4Screen() {
     }
   }
 
-  // TEMPORARY DEV DIAGNOSTIC — remove after investigation.
-  // Must be here, before any conditional return below, so it's always
-  // called on every render (Rules of Hooks) — this is the exact fix for
-  // the app-wide crash the previous placement (after an early return)
-  // caused.
-  useEffect(() => {
-    console.log('[C4_MOVE_DIAG]', JSON.stringify({
-      sessionId: session?.id,
-      currentTurn: state?.currentTurn,
-      playerOne: session?.player_one_id,
-      playerTwo: session?.player_two_id,
-      myUserId: myId,
-      myRole: myId === session?.player_one_id ? 'R (player_one)' : myId === session?.player_two_id ? 'Y (player_two)' : 'UNKNOWN',
-      loading,
-      gameStatus: state?.status,
-      isMyTurn: !!state && state.currentTurn === myId && state.status === 'active',
-      subscriptionState: channelRef.current ? (channelRef.current.state ?? 'unknown') : 'no channel',
-    }))
-  }, [session?.id, state?.currentTurn, state?.status, myId, loading])
-
-  // TEMPORARY DIAGNOSTIC — separate from the effect above; this is the
-  // render/state-level diagnostic that's essential for diagnosing Player
-  // 2 when the board's click handler never fires at all (the button is
-  // simply disabled={!isMyTurn}, so drop() is never even called). Same
-  // Rules-of-Hooks placement requirement — before any conditional return.
-  useEffect(() => {
-    const isMyTurnDiag = !!state && state.currentTurn === myId && state.status === 'active'
-    console.log('[C4_PLAYER_STATE_DIAG]', JSON.stringify({
-      timestamp: new Date().toISOString(),
-      userId: myId,
-      sessionId: session?.id ?? null,
-      myRole: myId === session?.player_one_id ? 'player_one' : myId === session?.player_two_id ? 'player_two' : 'unknown',
-      currentTurn: state?.currentTurn ?? null,
-      isMyTurn: isMyTurnDiag,
-      loading,
-      gameStatus: state?.status ?? null,
-      moveCount: state?.moves ?? null,
-      subscriptionState: channelRef.current ? (channelRef.current.state ?? 'unknown') : 'no channel',
-      boardDisabled: !isMyTurnDiag,
-    }))
-  }, [session?.id, myId, state?.currentTurn, state?.status, state?.moves, loading])
-
   if (!session) {
     if (isExitingRef.current) {
       return <div className="flex flex-col h-full" style={{ background: '#0a0a10' }} />
@@ -654,7 +433,7 @@ export default function Connect4Screen() {
   }
   if (loading || !state) return <div className="flex items-center justify-center h-full" style={{ background: '#0a0a10' }}><div className="text-[28px]" style={{ animation: 'pulse 1s infinite' }}>🔴</div></div>
 
-  const isMyTurn = state.currentTurn === myId && state.status === 'active'
+  const isMyTurn = state.currentTurn === myId && state.status === 'active' && !moveRequestPending
   const myName = myId === session.player_one_id ? names.one : names.two
   const oppName = myId === session.player_one_id ? names.two : names.one
 
