@@ -13,7 +13,7 @@ import RematchDeclinedToast from '@/components/game/RematchDeclinedToast'
 
 const COLS = 7, ROWS = 6
 
-interface GameState { board: string[]; currentTurn: string; winner: string | null; status: string; moves: number; progressCounted?: boolean }
+interface GameState { board: string[]; currentTurn: string | null; winner: string | null; status: string; moves: number; progressCounted?: boolean; readyPlayers?: string[] }
 
 export default function Connect4Screen() {
   const { navigate, lang, openChat } = useApp()
@@ -175,10 +175,16 @@ export default function Connect4Screen() {
       let gs: GameState
       if (sess?.state && sess.state.board && sess.state.board.length === 42) {
         gs = sess.state as GameState
-        const validTurn = gs.currentTurn === s0.player_one_id || gs.currentTurn === s0.player_two_id
+        // A null currentTurn is legitimate and expected while
+        // status === 'waiting_for_players' — only treat it as invalid
+        // (needing repair to player_one_id) once the game is actually
+        // meant to be active.
+        const validTurn = gs.status === 'waiting_for_players'
+          ? gs.currentTurn === null
+          : (gs.currentTurn === s0.player_one_id || gs.currentTurn === s0.player_two_id)
         if (!validTurn) gs.currentTurn = s0.player_one_id
       } else {
-        gs = { board: Array(42).fill(''), currentTurn: s0.player_one_id, winner: null, status: 'active', moves: 0 }
+        gs = { board: Array(42).fill(''), currentTurn: null, winner: null, status: 'waiting_for_players', readyPlayers: [], moves: 0 }
         await supabase.from('game_sessions').update({ state: gs }).eq('id', s0.id)
       }
       if (isStale()) return
@@ -240,6 +246,22 @@ export default function Connect4Screen() {
             if (isStale() || activeSessionRef.current !== s0.id) return
             if (latestErr || !latest?.state?.board) return
             applyIfNotStale(latest.state as GameState)
+
+            // Two-player readiness handshake — this device is now
+            // genuinely subscribed and has the latest canonical state, so
+            // it's safe to declare itself ready. Idempotent server-side:
+            // safe to call again on a later reconnect/visibility-resume
+            // for the same session without any effect beyond re-confirming
+            // readiness. The session only becomes canonically 'active'
+            // once BOTH participants have made this same call.
+            const { data: readyData, error: readyErr } = await supabase.rpc('mark_connect_4_player_ready', {
+              p_session_id: s0.id,
+            })
+            if (isStale() || activeSessionRef.current !== s0.id) return
+            if (readyErr) { console.error('READY RPC error:', readyErr.message); return }
+            if (readyData?.ok && readyData.state?.board) {
+              applyIfNotStale(readyData.state as GameState)
+            }
           })
         channelRef.current = ch
       }
@@ -260,10 +282,24 @@ export default function Connect4Screen() {
       const sid = activeSessionRef.current
       if (!sid) return
       const genAtFetch = sessionGenerationRef.current
-      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
+      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(async ({ data, error }) => {
         if (error || !data?.state?.board) return
         if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
         applyIfNotStale(data.state as GameState)
+
+        // Recovery: if the ORIGINAL ready-call (made once, right after
+        // this session's channel first reached SUBSCRIBED) never fired
+        // or failed for some transient reason, nothing else would ever
+        // retry it — leaving this player permanently stuck waiting. The
+        // RPC itself is idempotent, so calling it again here is always
+        // safe; only actually calling it while genuinely still waiting
+        // avoids any extra call for the common, already-active case.
+        if (data.state.status === 'waiting_for_players') {
+          const { data: readyData, error: readyErr } = await supabase.rpc('mark_connect_4_player_ready', { p_session_id: sid })
+          if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
+          if (readyErr) { console.error('READY RPC error (visibility recovery):', readyErr.message); return }
+          if (readyData?.ok && readyData.state?.board) applyIfNotStale(readyData.state as GameState)
+        }
       })
     }
     document.addEventListener('visibilitychange', onVisible)
@@ -284,10 +320,22 @@ export default function Connect4Screen() {
       const sid = activeSessionRef.current
       if (!sid) return
       const genAtFetch = sessionGenerationRef.current
-      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
+      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(async ({ data, error }) => {
         if (error || !data?.state?.board) return
         if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
         applyIfNotStale(data.state as GameState)
+
+        // Same readiness recovery as the visibility effect — covers even
+        // a channel that never reached SUBSCRIBED at all (e.g. stuck in
+        // reconnect attempts), since polling is fully independent of
+        // channel status. Only calls the RPC while genuinely still
+        // waiting, so this adds no extra call for an already-active game.
+        if (data.state.status === 'waiting_for_players') {
+          const { data: readyData, error: readyErr } = await supabase.rpc('mark_connect_4_player_ready', { p_session_id: sid })
+          if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
+          if (readyErr) { console.error('READY RPC error (polling recovery):', readyErr.message); return }
+          if (readyData?.ok && readyData.state?.board) applyIfNotStale(readyData.state as GameState)
+        }
       })
     }, 3000)
     return () => clearInterval(t)
@@ -296,7 +344,7 @@ export default function Connect4Screen() {
   async function drop(col: number) {
     if (!state || !session || !myId) { console.log('[C4_MOVE_BLOCKED]', 'no state/session/user'); return }
     if (moveRequestPending) { console.log('[C4_MOVE_BLOCKED]', 'move request already in flight'); return }
-    if (state.status !== 'active') { console.log('[C4_MOVE_BLOCKED]', 'game finished'); return }
+    if (state.status !== 'active') { console.log('[C4_MOVE_BLOCKED]', state.status === 'waiting_for_players' ? 'not ready yet' : 'game finished'); return }
     if (state.currentTurn !== myId) { console.log('[C4_MOVE_BLOCKED]', 'not your turn (turn=' + state.currentTurn + ', me=' + myId + ')'); return }
     // Fast, non-authoritative early exit only — avoids an unnecessary RPC
     // round-trip for an obviously-full column. The RPC itself still
@@ -438,7 +486,9 @@ export default function Connect4Screen() {
   const oppName = myId === session.player_one_id ? names.two : names.one
 
   let statusMsg = ''
-  if (state.status === 'finished') {
+  if (state.status === 'waiting_for_players') {
+    statusMsg = lang === 'gr' ? '⏳ Περιμένουμε τον παίκτη...' : '⏳ Waiting for a player...'
+  } else if (state.status === 'finished') {
     if (state.winner === 'draw') statusMsg = lang === 'gr' ? 'Ισοπαλία!' : "It's a draw!"
     else if (state.winner === myId) statusMsg = lang === 'gr' ? '🎉 Νίκησες!' : '🎉 You won!'
     else statusMsg = lang === 'gr' ? `${oppName} κέρδισε.` : `${oppName} won.`

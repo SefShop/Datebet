@@ -339,7 +339,12 @@ export interface GameSession {
 
 function initStateFor(gameType: string): any {
   if (gameType === 'connect_4') {
-    return { board: Array(42).fill(''), currentTurn: null, winner: null, status: 'active', moves: 0, gameNumber: 1, parentSessionId: null }
+    // status starts as 'waiting_for_players' — the session only becomes
+    // 'active' (with currentTurn set) once mark_connect_4_player_ready()
+    // has been called by both participants. readyPlayers always starts
+    // empty for a fresh session; readiness from a previous game is never
+    // reused, since every rematch creates a brand-new session row here.
+    return { board: Array(42).fill(''), currentTurn: null, winner: null, status: 'waiting_for_players', readyPlayers: [], moves: 0, gameNumber: 1, parentSessionId: null }
   }
   if (gameType === 'mystery_choice') {
     // Question Engine: randomly generates 10 questions (3 easy, 4 medium, 3 deep)
@@ -414,7 +419,15 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
         player_two_id: invite.receiver_id,
         game_type: invite.game_type,
         status: 'active',
-        state: { ...initStateFor(invite.game_type), currentTurn: invite.sender_id },
+        // Connect 4 only: initStateFor() already sets currentTurn: null
+        // and status: 'waiting_for_players' — left as-is here, since the
+        // readiness handshake (mark_connect_4_player_ready) is what sets
+        // a real currentTurn, only once both participants are ready.
+        // Every other game type keeps its existing behavior: the sender
+        // goes first immediately, no handshake involved.
+        state: invite.game_type === 'connect_4'
+          ? initStateFor(invite.game_type)
+          : { ...initStateFor(invite.game_type), currentTurn: invite.sender_id },
       })
       .select()
       .single()
