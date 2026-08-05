@@ -450,12 +450,42 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
           .order('created_at', { ascending: true })
           .limit(1)
           .maybeSingle()
-        if (canonical) return { session: canonical }
+        if (canonical) {
+          // TEMPORARY DIAGNOSTIC — Connect4 only.
+          if (invite.game_type === 'connect_4') {
+            console.log('[C4_READY_SESSION_DIAG] resolved via unique-conflict recovery', JSON.stringify({
+              inviteId: invite.id,
+              originalSessionId: invite.original_session_id ?? null,
+              previousSessionId: invite.original_session_id ?? null,
+              newSessionId: canonical.id,
+              initialStatus: canonical.state?.status ?? null,
+              initialReadyPlayers: canonical.state?.readyPlayers ?? null,
+              initialCurrentTurn: canonical.state?.currentTurn ?? null,
+              playerOneId: canonical.player_one_id,
+              playerTwoId: canonical.player_two_id,
+            }))
+          }
+          return { session: canonical }
+        }
       }
       console.error('GAME SESSION error:', error)
       return { error: error.message }
     }
     console.log('NEW GAME SESSION CREATED:', data.id)
+    // TEMPORARY DIAGNOSTIC — Connect4 only.
+    if (invite.game_type === 'connect_4') {
+      console.log('[C4_READY_SESSION_DIAG] fresh session created', JSON.stringify({
+        inviteId: invite.id,
+        originalSessionId: invite.original_session_id ?? null,
+        previousSessionId: invite.original_session_id ?? null,
+        newSessionId: data.id,
+        initialStatus: data.state?.status ?? null,
+        initialReadyPlayers: data.state?.readyPlayers ?? null,
+        initialCurrentTurn: data.state?.currentTurn ?? null,
+        playerOneId: data.player_one_id,
+        playerTwoId: data.player_two_id,
+      }))
+    }
     if (invite.game_type === 'mystery_choice') {
       console.log('MYSTERY CHOICE SESSION CREATED:', data.id)
       console.log('MYSTERY SESSION CREATED:', data.id, 'players', invite.sender_id, invite.receiver_id)

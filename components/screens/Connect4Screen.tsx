@@ -82,6 +82,47 @@ export default function Connect4Screen() {
   // resolves. No other local flag decides whether the board is playable
   // (see isMyTurn below).
   const [moveRequestPending, setMoveRequestPending] = useState(false)
+  // TEMPORARY DIAGNOSTIC — tracks the previous session id purely for
+  // comparison logging below; does not affect any existing logic.
+  const prevSessionIdRefDiag = useRef<string | null>(null)
+
+  // TEMPORARY DIAGNOSTIC — logs a ready-RPC attempt/result consistently
+  // across all three call sites (SUBSCRIBED callback, visibility
+  // recovery, polling recovery). Safe fields only — no tokens, emails,
+  // names, or message content.
+  async function readyDiagLog(phase: 'before' | 'after', sessionId: string, opts: {
+    myRole: 'player_one' | 'player_two' | 'unknown'
+    statusBefore?: string | null
+    readyBefore?: any
+    rpcStarted?: boolean
+    rpcOk?: boolean
+    rpcError?: string | null
+    returnedStatus?: string | null
+    returnedReady?: any
+    returnedTurn?: string | null
+  }) {
+    console.log('[C4_READY_DIAG]', JSON.stringify({
+      phase,
+      timestamp: new Date().toISOString(),
+      authenticatedUserId: myId,
+      sessionId,
+      previousSessionId: prevSessionIdRefDiag.current,
+      playerOneId: session?.player_one_id ?? null,
+      playerTwoId: session?.player_two_id ?? null,
+      myRole: opts.myRole,
+      statusBeforeRpc: opts.statusBefore ?? null,
+      readyStateBeforeRpc: opts.readyBefore ?? null,
+      rpcCallStarted: opts.rpcStarted ?? null,
+      rpcOk: opts.rpcOk ?? null,
+      rpcErrorMessage: opts.rpcError ?? null,
+      returnedStatus: opts.returnedStatus ?? null,
+      returnedReadyState: opts.returnedReady ?? null,
+      returnedCurrentTurn: opts.returnedTurn ?? null,
+      activeSessionIdOnClient: activeSessionRef.current,
+      sessionGeneration: sessionGenerationRef.current,
+      visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+    }))
+  }
 
   const myColor = session && myId === session.player_one_id ? 'R' : 'Y'
 
@@ -99,6 +140,8 @@ export default function Connect4Screen() {
     }
 
     console.log('CONNECT4 SESSION:', s0.id)
+    // TEMPORARY DIAGNOSTIC
+    prevSessionIdRefDiag.current = activeSessionRef.current !== s0.id ? activeSessionRef.current : prevSessionIdRefDiag.current
     activeSessionRef.current = s0.id
     progressRefreshedRef.current = null
     isExitingRef.current = false
@@ -184,7 +227,18 @@ export default function Connect4Screen() {
           : (gs.currentTurn === s0.player_one_id || gs.currentTurn === s0.player_two_id)
         if (!validTurn) gs.currentTurn = s0.player_one_id
       } else {
-        gs = { board: Array(42).fill(''), currentTurn: null, winner: null, status: 'waiting_for_players', readyPlayers: [], moves: 0 }
+        // Preserve whatever readiness progress already exists in the row
+        // — board/moves being missing/malformed doesn't mean readyPlayers
+        // or an already-'active' status were also corrupted. Blindly
+        // resetting them here would silently wipe a player's already-
+        // recorded readiness if this rare path ever fired after the
+        // other participant had already marked ready.
+        const staleReady = Array.isArray(sess?.state?.readyPlayers) ? sess!.state.readyPlayers : []
+        const staleStatus = sess?.state?.status === 'active' ? 'active' : 'waiting_for_players'
+        const staleTurn = staleStatus === 'active'
+          ? (sess?.state?.currentTurn === s0.player_one_id || sess?.state?.currentTurn === s0.player_two_id ? sess.state.currentTurn : s0.player_one_id)
+          : null
+        gs = { board: Array(42).fill(''), currentTurn: staleTurn, winner: null, status: staleStatus, readyPlayers: staleReady, moves: 0 }
         await supabase.from('game_sessions').update({ state: gs }).eq('id', s0.id)
       }
       if (isStale()) return
@@ -203,6 +257,30 @@ export default function Connect4Screen() {
               const ns = payload.new?.state
               if (ns && ns.board) {
                 console.log('REALTIME GAME UPDATE:', ns.moves)
+                // TEMPORARY DIAGNOSTIC — only during the readiness window,
+                // to directly prove whether each client's realtime handler
+                // actually receives the waiting_for_players → active
+                // transition, and whether applyIfNotStale's own guard
+                // (moves-based) ever unexpectedly rejects it.
+                if (ns.status === 'waiting_for_players' || ns.status === 'active') {
+                  const wouldRejectDiag = typeof ns.moves !== 'number' || ns.moves < latestMovesRef.current
+                  console.log('[C4_READY_DIAG]', JSON.stringify({
+                    phase: 'realtime_received',
+                    timestamp: new Date().toISOString(),
+                    authenticatedUserId: myId,
+                    sessionId: s0.id,
+                    myRole: myId === s0.player_one_id ? 'player_one' : myId === s0.player_two_id ? 'player_two' : 'unknown',
+                    returnedStatus: ns.status,
+                    returnedReadyState: ns.readyPlayers ?? null,
+                    returnedCurrentTurn: ns.currentTurn ?? null,
+                    latestMovesRefBeforeApply: latestMovesRef.current,
+                    incomingMoves: ns.moves,
+                    applied: !wouldRejectDiag,
+                    activeSessionIdOnClient: activeSessionRef.current,
+                    sessionGeneration: sessionGenerationRef.current,
+                    visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+                  }))
+                }
                 applyIfNotStale(ns)
                 if (ns.status === 'finished' && ns.progressCounted && progressRefreshedRef.current !== s0.id) {
                   progressRefreshedRef.current = s0.id
@@ -254,8 +332,25 @@ export default function Connect4Screen() {
             // for the same session without any effect beyond re-confirming
             // readiness. The session only becomes canonically 'active'
             // once BOTH participants have made this same call.
+            const myRoleDiag = myId === s0.player_one_id ? 'player_one' : myId === s0.player_two_id ? 'player_two' : 'unknown'
+            // TEMPORARY DIAGNOSTIC
+            readyDiagLog('before', s0.id, {
+              myRole: myRoleDiag,
+              statusBefore: latest.state?.status ?? null,
+              readyBefore: latest.state?.readyPlayers ?? null,
+              rpcStarted: true,
+            })
             const { data: readyData, error: readyErr } = await supabase.rpc('mark_connect_4_player_ready', {
               p_session_id: s0.id,
+            })
+            // TEMPORARY DIAGNOSTIC
+            readyDiagLog('after', s0.id, {
+              myRole: myRoleDiag,
+              rpcOk: !readyErr && !!readyData?.ok,
+              rpcError: readyErr?.message ?? readyData?.error ?? null,
+              returnedStatus: readyData?.state?.status ?? null,
+              returnedReady: readyData?.state?.readyPlayers ?? null,
+              returnedTurn: readyData?.state?.currentTurn ?? null,
             })
             if (isStale() || activeSessionRef.current !== s0.id) return
             if (readyErr) { console.error('READY RPC error:', readyErr.message); return }
@@ -295,7 +390,15 @@ export default function Connect4Screen() {
         // safe; only actually calling it while genuinely still waiting
         // avoids any extra call for the common, already-active case.
         if (data.state.status === 'waiting_for_players') {
+          const myRoleDiag = myId === session?.player_one_id ? 'player_one' : myId === session?.player_two_id ? 'player_two' : 'unknown'
+          // TEMPORARY DIAGNOSTIC
+          readyDiagLog('before', sid, { myRole: myRoleDiag, statusBefore: data.state.status, readyBefore: data.state.readyPlayers ?? null, rpcStarted: true })
           const { data: readyData, error: readyErr } = await supabase.rpc('mark_connect_4_player_ready', { p_session_id: sid })
+          // TEMPORARY DIAGNOSTIC
+          readyDiagLog('after', sid, {
+            myRole: myRoleDiag, rpcOk: !readyErr && !!readyData?.ok, rpcError: readyErr?.message ?? readyData?.error ?? null,
+            returnedStatus: readyData?.state?.status ?? null, returnedReady: readyData?.state?.readyPlayers ?? null, returnedTurn: readyData?.state?.currentTurn ?? null,
+          })
           if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
           if (readyErr) { console.error('READY RPC error (visibility recovery):', readyErr.message); return }
           if (readyData?.ok && readyData.state?.board) applyIfNotStale(readyData.state as GameState)
@@ -331,7 +434,15 @@ export default function Connect4Screen() {
         // channel status. Only calls the RPC while genuinely still
         // waiting, so this adds no extra call for an already-active game.
         if (data.state.status === 'waiting_for_players') {
+          const myRoleDiag = myId === session?.player_one_id ? 'player_one' : myId === session?.player_two_id ? 'player_two' : 'unknown'
+          // TEMPORARY DIAGNOSTIC
+          readyDiagLog('before', sid, { myRole: myRoleDiag, statusBefore: data.state.status, readyBefore: data.state.readyPlayers ?? null, rpcStarted: true })
           const { data: readyData, error: readyErr } = await supabase.rpc('mark_connect_4_player_ready', { p_session_id: sid })
+          // TEMPORARY DIAGNOSTIC
+          readyDiagLog('after', sid, {
+            myRole: myRoleDiag, rpcOk: !readyErr && !!readyData?.ok, rpcError: readyErr?.message ?? readyData?.error ?? null,
+            returnedStatus: readyData?.state?.status ?? null, returnedReady: readyData?.state?.readyPlayers ?? null, returnedTurn: readyData?.state?.currentTurn ?? null,
+          })
           if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
           if (readyErr) { console.error('READY RPC error (polling recovery):', readyErr.message); return }
           if (readyData?.ok && readyData.state?.board) applyIfNotStale(readyData.state as GameState)
