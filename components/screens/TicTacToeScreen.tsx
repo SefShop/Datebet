@@ -17,11 +17,12 @@ interface GameState {
   gameNumber?: number
   parentSessionId?: string | null
   board: string[]
-  currentTurn: string
+  currentTurn: string | null
   winner: string | null
   status: string
   moves: number
   progressCounted?: boolean
+  readyPlayers?: string[]
   playAgain?: {
     player_one_ready: boolean
     player_two_ready: boolean
@@ -114,6 +115,14 @@ export default function TicTacToeScreen() {
   // resolves. No other local flag decides whether the board is playable
   // (see isMyTurn below).
   const [moveRequestPending, setMoveRequestPending] = useState(false)
+  // Minimum visual wait — purely cosmetic. Starts false on every new
+  // session, flips true after ~1.5s regardless of readiness state. Used
+  // ONLY to keep the waiting indicator visible for a minimum window so it
+  // doesn't flash by unnoticed if both players happen to become ready
+  // almost instantly — never used as the activation condition itself
+  // (see isMyTurn/board-disabled logic below, which depends purely on
+  // canonical state.status/readyPlayers).
+  const [minWaitElapsed, setMinWaitElapsed] = useState(false)
 
   // My symbol: player_one = X, player_two = O
   const mySymbol = session && myId === session.player_one_id ? 'X' : 'O'
@@ -141,6 +150,8 @@ export default function TicTacToeScreen() {
     setIAmReady(false)
     setWaitingForPlayer(false)
     setMoveRequestPending(false)
+    setMinWaitElapsed(false)
+    const minWaitTimer = setTimeout(() => setMinWaitElapsed(true), 1500)
     const oldChannel = channelRef.current
     channelRef.current = null
 
@@ -225,20 +236,30 @@ export default function TicTacToeScreen() {
       let gs: GameState
       const raw = sess?.state as any
       const validBoard = raw?.board && Array.isArray(raw.board) && raw.board.length === 9
-      const validTurn = raw?.currentTurn === sess0.player_one_id || raw?.currentTurn === sess0.player_two_id
+      const validTurn = raw?.status === 'waiting_for_players'
+        ? raw?.currentTurn === null
+        : (raw?.currentTurn === sess0.player_one_id || raw?.currentTurn === sess0.player_two_id)
 
       if (raw && validBoard && validTurn) {
         gs = raw as GameState
         console.log('VALID STATE: loaded existing')
       } else {
-        // Repair / initialize
+        // Preserve whatever readiness progress already exists — board
+        // being missing/malformed doesn't mean readyPlayers or an
+        // already-'active' status were also corrupted.
+        const staleReady = Array.isArray(raw?.readyPlayers) ? raw.readyPlayers : []
+        const staleStatus = raw?.status === 'active' ? 'active' : 'waiting_for_players'
+        const staleTurn = staleStatus === 'active'
+          ? (raw?.currentTurn === sess0.player_one_id || raw?.currentTurn === sess0.player_two_id ? raw.currentTurn : sess0.player_one_id)
+          : null
         gs = {
           gameNumber: typeof raw?.gameNumber === 'number' ? raw.gameNumber : 1,
           parentSessionId: raw?.parentSessionId ?? null,
           board: validBoard ? raw.board : ['','','','','','','','',''],
-          currentTurn: validTurn ? raw.currentTurn : sess0.player_one_id,
+          currentTurn: staleTurn,
           winner: raw?.winner ?? null,
-          status: raw?.status || 'active',
+          status: staleStatus,
+          readyPlayers: staleReady,
           moves: typeof raw?.moves === 'number' ? raw.moves : 0,
           progressCounted: raw?.progressCounted || false,
         }
@@ -312,12 +333,31 @@ export default function TicTacToeScreen() {
           console.log('TICTACTOE POST-SUBSCRIBE REFETCH:', latestState.moves, 'moves')
           latestState.board = Array.from({ length: 9 }, (_, k) => latestState.board?.[k] || '')
           setState(latestState)
+
+          // Two-player readiness handshake — same proven pattern as
+          // Connect4. This device is now genuinely subscribed and has the
+          // latest canonical state, so it's safe to declare itself ready.
+          // Idempotent server-side: safe to call again later on a
+          // reconnect/visibility-resume for the same session. The session
+          // only becomes canonically 'active' once BOTH participants have
+          // made this same call.
+          const { data: readyData, error: readyErr } = await supabase.rpc('mark_tic_tac_toe_player_ready', {
+            p_session_id: sess0.id,
+          })
+          if (isStale() || activeSessionRef.current !== sess0.id) return
+          if (readyErr) { console.error('READY RPC error:', readyErr.message); return }
+          if (readyData?.ok && readyData.state?.board) {
+            const readyState = readyData.state as any
+            readyState.board = Array.from({ length: 9 }, (_, k) => readyState.board?.[k] || '')
+            setState(readyState)
+          }
         })
     }
 
     init()
     return () => {
       cancelled = true
+      clearTimeout(minWaitTimer)
       if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -334,7 +374,7 @@ export default function TicTacToeScreen() {
       const sid = activeSessionRef.current
       if (!sid) return
       const genAtFetch = sessionGenerationRef.current
-      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
+      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(async ({ data, error }) => {
         if (error || !data?.state) return
         if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return  // session changed while fetching
         const latest = data.state as any
@@ -342,10 +382,64 @@ export default function TicTacToeScreen() {
         console.log('TICTACTOE VISIBILITY RECONCILE:', latest.moves, 'moves')
         latest.board = Array.from({ length: 9 }, (_, k) => latest.board?.[k] || '')
         setState(latest)
+
+        // Recovery: if the ORIGINAL ready-call (made once, right after
+        // this session's channel first reached SUBSCRIBED) never fired or
+        // failed for some transient reason, nothing else would ever retry
+        // it. Idempotent server-side, so calling it again here is always
+        // safe; only calling it while genuinely still waiting avoids any
+        // extra call for the common, already-active case.
+        if (latest.status === 'waiting_for_players') {
+          const { data: readyData, error: readyErr } = await supabase.rpc('mark_tic_tac_toe_player_ready', { p_session_id: sid })
+          if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
+          if (readyErr) { console.error('READY RPC error (visibility recovery):', readyErr.message); return }
+          if (readyData?.ok && readyData.state?.board) {
+            const readyState = readyData.state as any
+            readyState.board = Array.from({ length: 9 }, (_, k) => readyState.board?.[k] || '')
+            setState(readyState)
+          }
+        }
       })
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
+  // Polling fallback — covers even a channel that never reached
+  // SUBSCRIBED at all (e.g. stuck in reconnect attempts), since polling
+  // is fully independent of channel status. Same 3s interval already
+  // proven safe in Connect4/ChatPanel. Only calls the ready RPC while
+  // genuinely still waiting, so this adds no extra call for the common,
+  // already-active case — and this is a bounded, fixed-interval backstop,
+  // not the primary synchronization mechanism.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const sid = activeSessionRef.current
+      if (!sid) return
+      const genAtFetch = sessionGenerationRef.current
+      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(async ({ data, error }) => {
+        if (error || !data?.state?.board) return
+        if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
+        const latest = data.state as any
+        latest.board = Array.from({ length: 9 }, (_, k) => latest.board?.[k] || '')
+        setState((prev) => {
+          if (prev && typeof latest.moves === 'number' && latest.moves < prev.moves) return prev  // stale, ignore
+          return latest
+        })
+
+        if (latest.status === 'waiting_for_players') {
+          const { data: readyData, error: readyErr } = await supabase.rpc('mark_tic_tac_toe_player_ready', { p_session_id: sid })
+          if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
+          if (readyErr) { console.error('READY RPC error (polling recovery):', readyErr.message); return }
+          if (readyData?.ok && readyData.state?.board) {
+            const readyState = readyData.state as any
+            readyState.board = Array.from({ length: 9 }, (_, k) => readyState.board?.[k] || '')
+            setState(readyState)
+          }
+        }
+      })
+    }, 3000)
+    return () => clearInterval(t)
   }, [])
 
   async function play(i: number) {
@@ -558,13 +652,15 @@ export default function TicTacToeScreen() {
     )
   }
 
-  const isMyTurn = state.currentTurn === myId && state.status === 'active' && !moveRequestPending
+  const isMyTurn = state.currentTurn === myId && state.status === 'active' && !moveRequestPending && minWaitElapsed
   const myName = myId === session.player_one_id ? names.one : names.two
   const oppName = myId === session.player_one_id ? names.two : names.one
 
   // Status message
   let statusMsg = ''
-  if (state.status === 'finished') {
+  if (state.status === 'waiting_for_players') {
+    statusMsg = lang === 'gr' ? '⏳ Περιμένουμε τον παίκτη...' : '⏳ Waiting for a player...'
+  } else if (state.status === 'finished') {
     if (state.winner === 'draw') statusMsg = lang === 'gr' ? 'Ισοπαλία!' : "It's a draw!"
     else if (state.winner === myId) statusMsg = lang === 'gr' ? '🎉 Νίκησες!' : '🎉 You won!'
     else statusMsg = lang === 'gr' ? `${oppName} κέρδισε.` : `${oppName} won.`

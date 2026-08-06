@@ -82,6 +82,12 @@ export default function Connect4Screen() {
   // resolves. No other local flag decides whether the board is playable
   // (see isMyTurn below).
   const [moveRequestPending, setMoveRequestPending] = useState(false)
+  // Minimum visual wait — purely cosmetic. Starts false on every new
+  // session, flips true after ~1.5s regardless of readiness state. Used
+  // ONLY to keep the waiting indicator visible for a minimum window —
+  // never used as the activation condition itself (isMyTurn below still
+  // depends purely on canonical state.status/currentTurn).
+  const [minWaitElapsed, setMinWaitElapsed] = useState(false)
   // TEMPORARY DIAGNOSTIC — tracks the previous session id purely for
   // comparison logging below; does not affect any existing logic.
   const prevSessionIdRefDiag = useRef<string | null>(null)
@@ -161,6 +167,8 @@ export default function Connect4Screen() {
     latestMovesRef.current = -1
     setWaitingForPlayer(false)
     setMoveRequestPending(false)
+    setMinWaitElapsed(false)
+    const minWaitTimer = setTimeout(() => setMinWaitElapsed(true), 1500)
 
     // Step 5/6 — session-generation guard: mark the old generation
     // inactive immediately, synchronously, before any async work starts.
@@ -365,6 +373,7 @@ export default function Connect4Screen() {
     init()
     return () => {
       cancelled = true
+      clearTimeout(minWaitTimer)
       if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
     }
   }, [session?.id])
@@ -592,7 +601,7 @@ export default function Connect4Screen() {
   }
   if (loading || !state) return <div className="flex items-center justify-center h-full" style={{ background: '#0a0a10' }}><div className="text-[28px]" style={{ animation: 'pulse 1s infinite' }}>🔴</div></div>
 
-  const isMyTurn = state.currentTurn === myId && state.status === 'active' && !moveRequestPending
+  const isMyTurn = state.currentTurn === myId && state.status === 'active' && !moveRequestPending && minWaitElapsed
   const myName = myId === session.player_one_id ? names.one : names.two
   const oppName = myId === session.player_one_id ? names.two : names.one
 

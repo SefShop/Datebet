@@ -369,7 +369,13 @@ function initStateFor(gameType: string): any {
     }
   }
   // tic_tac_toe / default
-  return { board: ['','','','','','','','',''], currentTurn: null, winner: null, status: 'active', moves: 0, progressCounted: false, gameNumber: 1, parentSessionId: null }
+  // status starts as 'waiting_for_players' — the session only becomes
+  // 'active' (with currentTurn set) once mark_tic_tac_toe_player_ready()
+  // has been called by both participants. Same handshake pattern already
+  // proven for Connect 4. readyPlayers always starts empty for a fresh
+  // session; readiness from a previous game is never reused, since every
+  // rematch creates a brand-new session row.
+  return { board: ['','','','','','','','',''], currentTurn: null, winner: null, status: 'waiting_for_players', readyPlayers: [], moves: 0, progressCounted: false, gameNumber: 1, parentSessionId: null }
 }
 
 // Static fallback (used only if the question engine ever returns fewer than 10 rounds)
@@ -419,13 +425,15 @@ export async function createGameSession(invite: GameInvite): Promise<{ session?:
         player_two_id: invite.receiver_id,
         game_type: invite.game_type,
         status: 'active',
-        // Connect 4 only: initStateFor() already sets currentTurn: null
-        // and status: 'waiting_for_players' — left as-is here, since the
-        // readiness handshake (mark_connect_4_player_ready) is what sets
-        // a real currentTurn, only once both participants are ready.
-        // Every other game type keeps its existing behavior: the sender
-        // goes first immediately, no handshake involved.
-        state: invite.game_type === 'connect_4'
+        // Tic Tac Toe and Connect 4 only: initStateFor() already sets
+        // currentTurn: null and status: 'waiting_for_players' for these
+        // two — left as-is here, since each one's own readiness-
+        // handshake RPC (mark_tic_tac_toe_player_ready /
+        // mark_connect_4_player_ready) is what sets a real currentTurn,
+        // only once both participants are ready. Mystery Choice keeps
+        // its existing behavior: the sender goes first immediately, no
+        // handshake involved.
+        state: (invite.game_type === 'connect_4' || invite.game_type === 'tic_tac_toe')
           ? initStateFor(invite.game_type)
           : { ...initStateFor(invite.game_type), currentTurn: invite.sender_id },
       })
