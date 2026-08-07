@@ -10,6 +10,7 @@ import FloatingChatButton from '@/components/chat/FloatingChatButton'
 import FloatingRematchNotification from '@/components/game/FloatingRematchNotification'
 import ChatUnlockProgress from '@/components/game/ChatUnlockProgress'
 import RematchDeclinedToast from '@/components/game/RematchDeclinedToast'
+import { c4StartDiag } from '@/lib/c4StartDiag'
 
 const COLS = 7, ROWS = 6
 
@@ -147,11 +148,40 @@ export default function Connect4Screen() {
 
     console.log('CONNECT4 SESSION:', s0.id)
     // TEMPORARY DIAGNOSTIC
+    const previousSessionIdForDiag = activeSessionRef.current
+    c4StartDiag('C4_START_SESSION', {
+      userId: myId,
+      previousSessionId: previousSessionIdForDiag,
+      currentSessionId: s0.id,
+      sessionChanged: previousSessionIdForDiag !== s0.id,
+      inviteId: (s0 as any).invite_id ?? null,
+      originalSessionId: (s0 as any).original_session_id ?? null,
+      playerOneId: s0.player_one_id,
+      playerTwoId: s0.player_two_id,
+      sessionGeneration: sessionGenerationRef.current,
+      initialStatus: (s0 as any).state?.status ?? null,
+      initialCurrentTurn: (s0 as any).state?.currentTurn ?? null,
+      initialReadyState: (s0 as any).state?.readyPlayers ?? null,
+      visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+    })
+    // TEMPORARY DIAGNOSTIC
     prevSessionIdRefDiag.current = activeSessionRef.current !== s0.id ? activeSessionRef.current : prevSessionIdRefDiag.current
     activeSessionRef.current = s0.id
     progressRefreshedRef.current = null
     isExitingRef.current = false
     const oldChannel = channelRef.current
+    // TEMPORARY DIAGNOSTIC
+    c4StartDiag('C4_START_CLEANUP', {
+      userId: myId,
+      oldSessionId: previousSessionIdForDiag,
+      currentSessionId: s0.id,
+      generationBeforeIncrement: sessionGenerationRef.current,
+      oldChannelName: oldChannel?.topic ?? null,
+      oldChannelStatus: oldChannel?.state ?? null,
+      channelRemovalStarted: !!oldChannel,
+      readyGuardNote: 'no local ready-called guard/ref exists in this implementation — readiness is gated only by (a) the SUBSCRIBED callback firing once per subscribeChannel() call, and (b) canonical state.status === waiting_for_players checked fresh from the DB in the visibility/polling recovery paths',
+      localStateResetStarting: true,
+    })
     channelRef.current = null
 
     // Clear the previous game's transient state immediately, synchronously,
@@ -178,6 +208,13 @@ export default function Connect4Screen() {
     // Tac Toe.
     sessionGenerationRef.current += 1
     const myGeneration = sessionGenerationRef.current
+    // TEMPORARY DIAGNOSTIC
+    c4StartDiag('C4_START_CLEANUP', {
+      userId: myId,
+      currentSessionId: s0.id,
+      generationAfterIncrement: myGeneration,
+      localStateResetCompleted: true,
+    })
 
     // Guards the post-SUBSCRIBED refetch below against applying state
     // after this effect has been cleaned up (unmount, or session changed).
@@ -256,11 +293,34 @@ export default function Connect4Screen() {
       let reconnectAttempts = 0
       function subscribeChannel() {
         const channelName = `c4-${s0.id}-${Date.now()}-${reconnectAttempts}`
+        // TEMPORARY DIAGNOSTIC
+        c4StartDiag('C4_START_REALTIME', {
+          event: 'SUBSCRIBING',
+          userId: myId,
+          sessionId: s0.id,
+          generation: sessionGenerationRef.current,
+          channelName,
+          reconnectAttempts,
+        })
         const ch = supabase
           .channel(channelName)
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${s0.id}` },
             (payload: any) => {
               const updatedId = payload.new?.id
+              // TEMPORARY DIAGNOSTIC
+              c4StartDiag('C4_START_REALTIME', {
+                event: 'UPDATE_RECEIVED',
+                userId: myId,
+                sessionId: s0.id,
+                updatedRowId: updatedId,
+                generation: sessionGenerationRef.current,
+                channelName,
+                canonicalStatus: payload.new?.state?.status ?? null,
+                canonicalReadyState: payload.new?.state?.readyPlayers ?? null,
+                canonicalCurrentTurn: payload.new?.state?.currentTurn ?? null,
+                ignoredWrongSession: updatedId !== activeSessionRef.current,
+                ignoredStale: isStale(),
+              })
               if (updatedId !== activeSessionRef.current || isStale()) return
               const ns = payload.new?.state
               if (ns && ns.board) {
@@ -304,6 +364,15 @@ export default function Connect4Screen() {
             })
           .subscribe(async (status: string) => {
             console.log('[C4_SUBSCRIPTION_STATUS]', status, 'session:', s0.id)
+            // TEMPORARY DIAGNOSTIC
+            c4StartDiag('C4_START_REALTIME', {
+              event: status, // SUBSCRIBED | CHANNEL_ERROR | TIMED_OUT | CLOSED | (other)
+              userId: myId,
+              sessionId: s0.id,
+              generation: sessionGenerationRef.current,
+              channelName,
+              rawStatus: status,
+            })
             if (isStale() || activeSessionRef.current !== s0.id) return
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
               // A genuinely broken connection (e.g. surfacing after the tab
@@ -329,6 +398,20 @@ export default function Connect4Screen() {
             // for Tic Tac Toe.
             const { data: latest, error: latestErr } = await supabase
               .from('game_sessions').select('state').eq('id', s0.id).single()
+            // TEMPORARY DIAGNOSTIC
+            c4StartDiag('C4_START_REFETCH', {
+              source: 'post-SUBSCRIBED',
+              userId: myId,
+              sessionId: s0.id,
+              generation: sessionGenerationRef.current,
+              fetchedStatus: latest?.state?.status ?? null,
+              fetchedReadyState: latest?.state?.readyPlayers ?? null,
+              fetchedCurrentTurn: latest?.state?.currentTurn ?? null,
+              hadError: !!latestErr,
+              errorMessage: latestErr?.message ?? null,
+              wouldApply: !isStale() && activeSessionRef.current === s0.id && !latestErr && !!latest?.state?.board,
+              rejectReasonIfAny: isStale() ? 'isStale()' : activeSessionRef.current !== s0.id ? 'activeSessionRef mismatch' : (latestErr || !latest?.state?.board) ? 'fetch error or missing board' : null,
+            })
             if (isStale() || activeSessionRef.current !== s0.id) return
             if (latestErr || !latest?.state?.board) return
             applyIfNotStale(latest.state as GameState)
@@ -341,6 +424,23 @@ export default function Connect4Screen() {
             // readiness. The session only becomes canonically 'active'
             // once BOTH participants have made this same call.
             const myRoleDiag = myId === s0.player_one_id ? 'player_one' : myId === s0.player_two_id ? 'player_two' : 'unknown'
+            // TEMPORARY DIAGNOSTIC — CRITICAL: this is the exact point
+            // that decides whether the ready RPC is about to be called.
+            // In this implementation there is NO local "already called
+            // ready for this session" guard/ref — reaching this line at
+            // all (i.e. isStale()/activeSessionRef already checked false
+            // above) is sufficient for willCallReady to be true. This log
+            // makes that fact directly visible in the collected trace,
+            // rather than only inferable from code reading.
+            c4StartDiag('C4_START_GUARD', {
+              userId: myId,
+              sessionId: s0.id,
+              generation: sessionGenerationRef.current,
+              readyGuardRawValue: 'N/A — no local ready-called guard exists in this code path',
+              guardBelongsToSession: s0.id,
+              willCallReady: true,
+              reason: 'no local guard suppresses this call; reached this point because isStale()/activeSessionRef checks above already passed',
+            })
             // TEMPORARY DIAGNOSTIC
             readyDiagLog('before', s0.id, {
               myRole: myRoleDiag,
@@ -348,8 +448,34 @@ export default function Connect4Screen() {
               readyBefore: latest.state?.readyPlayers ?? null,
               rpcStarted: true,
             })
+            // TEMPORARY DIAGNOSTIC
+            c4StartDiag('C4_START_READY', {
+              phase: 'before',
+              userId: myId,
+              sessionId: s0.id,
+              generation: sessionGenerationRef.current,
+              playerRole: myRoleDiag,
+              statusBefore: latest.state?.status ?? null,
+              readyStateBefore: latest.state?.readyPlayers ?? null,
+              currentTurnBefore: latest.state?.currentTurn ?? null,
+            })
             const { data: readyData, error: readyErr } = await supabase.rpc('mark_connect_4_player_ready', {
               p_session_id: s0.id,
+            })
+            // TEMPORARY DIAGNOSTIC
+            c4StartDiag('C4_START_READY', {
+              phase: 'after',
+              userId: myId,
+              sessionId: s0.id,
+              generation: sessionGenerationRef.current,
+              playerRole: myRoleDiag,
+              success: !readyErr && !!readyData?.ok,
+              errorCode: readyErr?.message ?? readyData?.error ?? null,
+              returnedStatus: readyData?.state?.status ?? null,
+              returnedReadyState: readyData?.state?.readyPlayers ?? null,
+              returnedCurrentTurn: readyData?.state?.currentTurn ?? null,
+              willApply: !isStale() && activeSessionRef.current === s0.id && !readyErr && !!readyData?.ok && !!readyData?.state?.board,
+              notAppliedReason: isStale() ? 'isStale()' : activeSessionRef.current !== s0.id ? 'activeSessionRef mismatch' : readyErr ? 'rpc error' : (!readyData?.ok || !readyData?.state?.board) ? 'rpc returned no usable state' : null,
             })
             // TEMPORARY DIAGNOSTIC
             readyDiagLog('after', s0.id, {
@@ -382,11 +508,39 @@ export default function Connect4Screen() {
   // fetch the exact active session's state once.
   useEffect(() => {
     function onVisible() {
+      // TEMPORARY DIAGNOSTIC
+      c4StartDiag('C4_START_VISIBILITY', {
+        event: document.visibilityState === 'visible' ? 'visible' : 'hidden',
+        userId: myId,
+        sessionId: activeSessionRef.current,
+        generation: sessionGenerationRef.current,
+      })
       if (document.visibilityState !== 'visible') return
       const sid = activeSessionRef.current
       if (!sid) return
       const genAtFetch = sessionGenerationRef.current
+      // TEMPORARY DIAGNOSTIC
+      c4StartDiag('C4_START_VISIBILITY', {
+        event: 'reconciliation_started',
+        userId: myId,
+        sessionId: sid,
+        generation: genAtFetch,
+      })
       supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(async ({ data, error }) => {
+        // TEMPORARY DIAGNOSTIC
+        c4StartDiag('C4_START_REFETCH', {
+          source: 'visibility',
+          userId: myId,
+          sessionId: sid,
+          generation: genAtFetch,
+          fetchedStatus: data?.state?.status ?? null,
+          fetchedReadyState: data?.state?.readyPlayers ?? null,
+          fetchedCurrentTurn: data?.state?.currentTurn ?? null,
+          hadError: !!error,
+          errorMessage: error?.message ?? null,
+          wouldApply: !error && !!data?.state?.board && activeSessionRef.current === sid && sessionGenerationRef.current === genAtFetch,
+          rejectReasonIfAny: (error || !data?.state?.board) ? 'fetch error or missing board' : (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) ? 'session/generation changed while fetching' : null,
+        })
         if (error || !data?.state?.board) return
         if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
         applyIfNotStale(data.state as GameState)
@@ -398,11 +552,34 @@ export default function Connect4Screen() {
         // RPC itself is idempotent, so calling it again here is always
         // safe; only actually calling it while genuinely still waiting
         // avoids any extra call for the common, already-active case.
+        // TEMPORARY DIAGNOSTIC
+        c4StartDiag('C4_START_GUARD', {
+          userId: myId,
+          sessionId: sid,
+          generation: genAtFetch,
+          readyGuardRawValue: 'N/A — gated only by canonical state.status === waiting_for_players (fetched fresh above)',
+          guardBelongsToSession: sid,
+          willCallReady: data.state.status === 'waiting_for_players',
+          reason: data.state.status === 'waiting_for_players' ? 'canonical status still waiting_for_players' : 'canonical status is no longer waiting_for_players — no call needed',
+        })
         if (data.state.status === 'waiting_for_players') {
           const myRoleDiag = myId === session?.player_one_id ? 'player_one' : myId === session?.player_two_id ? 'player_two' : 'unknown'
           // TEMPORARY DIAGNOSTIC
           readyDiagLog('before', sid, { myRole: myRoleDiag, statusBefore: data.state.status, readyBefore: data.state.readyPlayers ?? null, rpcStarted: true })
+          // TEMPORARY DIAGNOSTIC
+          c4StartDiag('C4_START_READY', {
+            phase: 'before', source: 'visibility', userId: myId, sessionId: sid, generation: genAtFetch, playerRole: myRoleDiag,
+            statusBefore: data.state.status, readyStateBefore: data.state.readyPlayers ?? null, currentTurnBefore: data.state.currentTurn ?? null,
+          })
           const { data: readyData, error: readyErr } = await supabase.rpc('mark_connect_4_player_ready', { p_session_id: sid })
+          // TEMPORARY DIAGNOSTIC
+          c4StartDiag('C4_START_READY', {
+            phase: 'after', source: 'visibility', userId: myId, sessionId: sid, generation: genAtFetch, playerRole: myRoleDiag,
+            success: !readyErr && !!readyData?.ok, errorCode: readyErr?.message ?? readyData?.error ?? null,
+            returnedStatus: readyData?.state?.status ?? null, returnedReadyState: readyData?.state?.readyPlayers ?? null, returnedCurrentTurn: readyData?.state?.currentTurn ?? null,
+            willApply: activeSessionRef.current === sid && sessionGenerationRef.current === genAtFetch && !readyErr && !!readyData?.ok && !!readyData?.state?.board,
+            notAppliedReason: (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) ? 'session/generation changed' : readyErr ? 'rpc error' : (!readyData?.ok || !readyData?.state?.board) ? 'rpc returned no usable state' : null,
+          })
           // TEMPORARY DIAGNOSTIC
           readyDiagLog('after', sid, {
             myRole: myRoleDiag, rpcOk: !readyErr && !!readyData?.ok, rpcError: readyErr?.message ?? readyData?.error ?? null,
@@ -412,6 +589,13 @@ export default function Connect4Screen() {
           if (readyErr) { console.error('READY RPC error (visibility recovery):', readyErr.message); return }
           if (readyData?.ok && readyData.state?.board) applyIfNotStale(readyData.state as GameState)
         }
+        // TEMPORARY DIAGNOSTIC
+        c4StartDiag('C4_START_VISIBILITY', {
+          event: 'reconciliation_completed',
+          userId: myId,
+          sessionId: sid,
+          generation: genAtFetch,
+        })
       })
     }
     document.addEventListener('visibilitychange', onVisible)
@@ -433,6 +617,20 @@ export default function Connect4Screen() {
       if (!sid) return
       const genAtFetch = sessionGenerationRef.current
       supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(async ({ data, error }) => {
+        // TEMPORARY DIAGNOSTIC
+        c4StartDiag('C4_START_REFETCH', {
+          source: 'polling',
+          userId: myId,
+          sessionId: sid,
+          generation: genAtFetch,
+          fetchedStatus: data?.state?.status ?? null,
+          fetchedReadyState: data?.state?.readyPlayers ?? null,
+          fetchedCurrentTurn: data?.state?.currentTurn ?? null,
+          hadError: !!error,
+          errorMessage: error?.message ?? null,
+          wouldApply: !error && !!data?.state?.board && activeSessionRef.current === sid && sessionGenerationRef.current === genAtFetch,
+          rejectReasonIfAny: (error || !data?.state?.board) ? 'fetch error or missing board' : (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) ? 'session/generation changed while fetching' : null,
+        })
         if (error || !data?.state?.board) return
         if (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) return
         applyIfNotStale(data.state as GameState)
@@ -442,11 +640,34 @@ export default function Connect4Screen() {
         // reconnect attempts), since polling is fully independent of
         // channel status. Only calls the RPC while genuinely still
         // waiting, so this adds no extra call for an already-active game.
+        // TEMPORARY DIAGNOSTIC
+        c4StartDiag('C4_START_GUARD', {
+          userId: myId,
+          sessionId: sid,
+          generation: genAtFetch,
+          readyGuardRawValue: 'N/A — gated only by canonical state.status === waiting_for_players (fetched fresh above)',
+          guardBelongsToSession: sid,
+          willCallReady: data.state.status === 'waiting_for_players',
+          reason: data.state.status === 'waiting_for_players' ? 'canonical status still waiting_for_players' : 'canonical status is no longer waiting_for_players — no call needed',
+        })
         if (data.state.status === 'waiting_for_players') {
           const myRoleDiag = myId === session?.player_one_id ? 'player_one' : myId === session?.player_two_id ? 'player_two' : 'unknown'
           // TEMPORARY DIAGNOSTIC
           readyDiagLog('before', sid, { myRole: myRoleDiag, statusBefore: data.state.status, readyBefore: data.state.readyPlayers ?? null, rpcStarted: true })
+          // TEMPORARY DIAGNOSTIC
+          c4StartDiag('C4_START_READY', {
+            phase: 'before', source: 'polling', userId: myId, sessionId: sid, generation: genAtFetch, playerRole: myRoleDiag,
+            statusBefore: data.state.status, readyStateBefore: data.state.readyPlayers ?? null, currentTurnBefore: data.state.currentTurn ?? null,
+          })
           const { data: readyData, error: readyErr } = await supabase.rpc('mark_connect_4_player_ready', { p_session_id: sid })
+          // TEMPORARY DIAGNOSTIC
+          c4StartDiag('C4_START_READY', {
+            phase: 'after', source: 'polling', userId: myId, sessionId: sid, generation: genAtFetch, playerRole: myRoleDiag,
+            success: !readyErr && !!readyData?.ok, errorCode: readyErr?.message ?? readyData?.error ?? null,
+            returnedStatus: readyData?.state?.status ?? null, returnedReadyState: readyData?.state?.readyPlayers ?? null, returnedCurrentTurn: readyData?.state?.currentTurn ?? null,
+            willApply: activeSessionRef.current === sid && sessionGenerationRef.current === genAtFetch && !readyErr && !!readyData?.ok && !!readyData?.state?.board,
+            notAppliedReason: (activeSessionRef.current !== sid || sessionGenerationRef.current !== genAtFetch) ? 'session/generation changed' : readyErr ? 'rpc error' : (!readyData?.ok || !readyData?.state?.board) ? 'rpc returned no usable state' : null,
+          })
           // TEMPORARY DIAGNOSTIC
           readyDiagLog('after', sid, {
             myRole: myRoleDiag, rpcOk: !readyErr && !!readyData?.ok, rpcError: readyErr?.message ?? readyData?.error ?? null,
@@ -586,6 +807,45 @@ export default function Connect4Screen() {
       setRematchInProgress(false)
     }
   }
+
+  // TEMPORARY DIAGNOSTIC — [C4_START_ACTIVE]. Must be here, before any
+  // conditional return below, so it's always called on every render
+  // (Rules of Hooks). Only fires when a dependency actually changed.
+  useEffect(() => {
+    const canonicalStatus = state?.status ?? null
+    const canonicalReady = state?.readyPlayers ?? null
+    const currentTurn = state?.currentTurn ?? null
+    const bothPlayersReady = !!(
+      state?.readyPlayers &&
+      session &&
+      state.readyPlayers.includes(session.player_one_id) &&
+      state.readyPlayers.includes(session.player_two_id)
+    )
+    const boardEnabled = !!state && state.currentTurn === myId && state.status === 'active' && !moveRequestPending && minWaitElapsed
+    let boardDisabledReason: string | null = null
+    if (!boardEnabled) {
+      if (!state) boardDisabledReason = 'no state loaded yet'
+      else if (state.status !== 'active') boardDisabledReason = `status is ${state.status}`
+      else if (state.currentTurn !== myId) boardDisabledReason = 'not my turn'
+      else if (moveRequestPending) boardDisabledReason = 'move request pending'
+      else if (!minWaitElapsed) boardDisabledReason = 'minimum visual wait not elapsed yet'
+    }
+    c4StartDiag('C4_START_ACTIVE', {
+      userId: myId,
+      sessionId: session?.id ?? null,
+      generation: sessionGenerationRef.current,
+      canonicalStatus,
+      canonicalReadyState: canonicalReady,
+      currentTurn,
+      realtimeSubscribed: !!channelRef.current,
+      initializationComplete: !loading && !!state,
+      bothPlayersReady,
+      boardEnabled,
+      waitingForPlayer,
+      boardDisabledReason,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id, state?.status, state?.currentTurn, state?.readyPlayers, myId, loading, moveRequestPending, minWaitElapsed, waitingForPlayer])
 
   if (!session) {
     if (isExitingRef.current) {

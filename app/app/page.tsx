@@ -9,6 +9,7 @@ import SplashScreen    from '@/components/screens/SplashScreen'
 import GameSelectionScreen from '@/components/screens/GameSelectionScreen'
 import Connect4Screen   from '@/components/screens/Connect4Screen'
 import TicTacToeScreen  from '@/components/screens/TicTacToeScreen'
+import TicTacToeScreenColyseus from '@/components/screens/TicTacToeScreenColyseus'
 import MysteryChoiceGame from '@/components/screens/MysteryChoiceGame'
 import LudoScreen       from '@/components/screens/LudoScreen'
 import ProfileScreen    from '@/components/screens/ProfileScreen'
@@ -35,7 +36,7 @@ const SCREENS = {
   splash:     <SplashScreen />,
   game_select:<GameSelectionScreen />,
   connect4:   <Connect4Screen />,
-  tictactoe:  <TicTacToeScreen />,
+  tictactoe:  process.env.NEXT_PUBLIC_TIC_TAC_TOE_ENGINE === 'colyseus' ? <TicTacToeScreenColyseus /> : <TicTacToeScreen />,
   mystery_choice: <MysteryChoiceGame />,
   ludo:       <LudoScreen />,
   profile:    <ProfileScreen />,
