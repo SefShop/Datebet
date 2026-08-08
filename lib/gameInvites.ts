@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { generateMysteryQuestions, toRoundData } from '@/lib/mysteryChoiceQuestions'
 import { setCurrentMatch, UserProfile } from '@/lib/profiles'
 import { triggerChallengePush } from '@/lib/push'
+import { sessionResolutionDiag } from '@/lib/sessionResolutionDiag'
 
 export interface GameInvite {
   id: string
@@ -47,124 +48,51 @@ export async function sendGameInvite(receiverId: string, gameType = 'mystery', o
       ? `${senderName} invited you to play Mystery Choice`
       : `${senderName} invited you to play`
 
-    // Symmetric check — a pending invite for this pair+game can exist in
-    // EITHER direction (whoever happened to press first), not just from
-    // me. This is the actual fix: the previous version only ever checked
-    // sender_id = me, so a near-simultaneous press from the other user
-    // (whose invite has sender/receiver swapped) was invisible to this
-    // check, and both clients would insert their own separate row.
-    const existingEither = await findPendingInviteEitherDirection(user.id, receiverId, gameType, originalSessionId)
-    if (existingEither) {
-      if (existingEither.sender_id === user.id) {
-        // Mine — refresh it (existing behavior: moves it to the top,
-        // resets its expiry clock).
-        const { error: updErr } = await supabase
-          .from('game_invites')
-          .update({ created_at: new Date().toISOString(), message, original_session_id: originalSessionId ?? null })
-          .eq('id', existingEither.id)
-        if (updErr) { console.error('GAME INVITE refresh error:', updErr); return { ok: false, error: updErr.message } }
-        console.log('EXISTING PENDING INVITE REFRESHED:', existingEither.id)
-        return { ok: true, inviteId: existingEither.id, invite: existingEither }
-      }
-      // Theirs — I must accept it instead of creating a competing one.
-      console.log('OPPONENT ALREADY HAS A PENDING INVITE — ACCEPTING INSTEAD OF SENDING:', existingEither.id)
-      return { ok: true, inviteId: existingEither.id, invite: existingEither, shouldAccept: true }
+    // Single atomic call — replaces the previous "check pending either
+    // direction, then insert, then best-effort post-insert reconcile"
+    // sequence entirely. The RPC itself locks any existing pending
+    // invite row (or races safely against the unique index if none
+    // exists yet) inside one database transaction, so both participants
+    // always converge on exactly one canonical invite — see
+    // migrations/2026-08-08-atomic-invite-resolution.sql for the proven
+    // root cause this replaces and the exact guarantee it provides.
+    const { data: result, error: rpcError } = await supabase.rpc('resolve_game_invite', {
+      p_other_user_id: receiverId,
+      p_game_type: gameType,
+      p_original_session_id: originalSessionId ?? null,
+      p_message: message,
+    })
+
+    if (rpcError || !result?.ok) {
+      console.error('GAME INVITE error:', rpcError?.message || result?.error)
+      return { ok: false, error: rpcError?.message || result?.error || 'unknown error' }
     }
 
-    console.log('PLAY AGAIN PRESSED / sending invite')
-    const { data, error } = await supabase.from('game_invites').insert({
-      sender_id: user.id,
-      receiver_id: receiverId,
-      game_type: gameType,
-      status: 'pending',
-      message,
-      original_session_id: originalSessionId ?? null,
-    }).select().single()
+    const invite = result.invite as GameInvite
+    console.log(result.created ? 'NEW INVITE CREATED' : 'EXISTING PENDING INVITE REFRESHED/FOUND:', invite.id)
+    console.log('NEW INVITE ID:', invite.id)
 
-    if (error) {
-      // Unique-conflict recovery: a database-level partial unique index
-      // (see the accompanying SQL migration) enforces at most one
-      // pending invite per unordered pair + game_type. If the other
-      // user's insert won a genuine simultaneous race, this insert fails
-      // with a unique violation (code 23505) rather than silently
-      // creating a second row — re-fetch the canonical row that won and
-      // continue the correct flow from its actual state, instead of
-      // surfacing this as a fatal error.
-      if (error.code === '23505') {
-        console.log('UNIQUE CONFLICT ON INVITE INSERT — fetching canonical row')
-        const canonical = await findPendingInviteEitherDirection(user.id, receiverId, gameType)
-        if (canonical) {
-          if (canonical.sender_id === user.id) return { ok: true, inviteId: canonical.id, invite: canonical }
-          return { ok: true, inviteId: canonical.id, invite: canonical, shouldAccept: true }
-        }
-      }
-      console.error('GAME INVITE error:', error)
-      return { ok: false, error: error.message }
-    }
-    console.log('NEW INVITE CREATED')
-    console.log('NEW INVITE ID:', data.id)
-    console.log('GAME INVITE SENT:', receiverId, gameType)
-    if (gameType === 'mystery_choice') console.log('MYSTERY CHOICE INVITE CREATED:', data.id)
-
-    if (originalSessionId) {
-      // Rematch reconciliation: my own insert just succeeded, but the
-      // opponent may have independently inserted their own competing
-      // invite (opposite direction, same original session) at nearly
-      // the same moment — the database-level unique index should
-      // already prevent this, but checking here makes the outcome
-      // correct regardless. Both clients run this exact same check with
-      // the exact same comparison, so they always agree on one winner.
-      const { data: competing } = await supabase
-        .from('game_invites')
-        .select('*')
-        .eq('sender_id', receiverId)
-        .eq('receiver_id', user.id)
-        .eq('game_type', gameType)
-        .eq('status', 'pending')
-        .eq('original_session_id', originalSessionId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (competing) {
-        const mineWins = data.created_at < competing.created_at
-          || (data.created_at === competing.created_at && data.id < competing.id)
-        if (mineWins) {
-          // Mine is canonical — decline the other one (I'm its
-          // receiver, so this is a legitimate action) so it stops
-          // showing as a separate pending request.
-          await respondInvite(competing.id, false)
-        } else {
-          // Theirs is canonical — accept it directly instead of
-          // waiting on my own. Before doing so, decline my own
-          // just-inserted (now losing) invite — otherwise it stays
-          // pending forever, and a future, unrelated rematch attempt
-          // could later find this stale row and incorrectly treat it
-          // as an existing request to accept, skipping the normal
-          // waiting/confirmation flow entirely.
-          console.log('REMATCH RECONCILIATION: OPPONENT REQUEST WINS — ACCEPTING:', competing.id)
-          await respondInvite(data.id, false)
-          return { ok: true, inviteId: competing.id, invite: competing as GameInvite, shouldAccept: true }
-        }
-      }
+    if (!result.mine) {
+      // Theirs — I must accept it instead of creating/using a competing
+      // one.
+      console.log('OPPONENT ALREADY HAS A PENDING INVITE — ACCEPTING INSTEAD OF SENDING:', invite.id)
+      return { ok: true, inviteId: invite.id, invite, shouldAccept: true }
     }
 
-    if (!originalSessionId) {
+    if (result.created && !originalSessionId) {
       // Brand-new challenge only (never a rematch, which always has
-      // originalSessionId set). Awaited — not truly fire-and-forget —
-      // because the caller immediately navigates after this function
-      // returns (e.g. to the waiting screen), and an un-awaited fetch
-      // left in flight at that exact moment was being silently dropped
-      // on some mobile browsers before it ever reached the server. This
-      // still cannot block or fail challenge creation: the invite is
-      // already inserted above, and triggerChallengePush() itself never
-      // throws — every error path inside it is already caught and only
-      // logged as a warning.
+      // originalSessionId set) — same existing behavior: awaited, not
+      // fire-and-forget, because the caller immediately navigates after
+      // this function returns. Never blocks/fails challenge creation:
+      // triggerChallengePush() itself never throws.
       const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang') === 'gr') ? 'gr' : 'en'
-      await triggerChallengePush(data.id, lang)
+      await triggerChallengePush(invite.id, lang)
     }
 
-    return { ok: true, inviteId: data.id, invite: data as GameInvite }
+    if (gameType === 'mystery_choice' && result.created) console.log('MYSTERY CHOICE INVITE CREATED:', invite.id)
+    console.log('GAME INVITE SENT:', receiverId, gameType)
+
+    return { ok: true, inviteId: invite.id, invite }
   } catch (e: any) { return { ok: false, error: e.message } }
 }
 
@@ -186,24 +114,7 @@ export async function acceptRematchIfShouldAccept(
   return true
 }
 
-// recovery path — looks for a pending invite between two users for a
-// game type, in either sender/receiver direction, returning the newest
-// non-expired one if more than one somehow exists.
-async function findPendingInviteEitherDirection(userA: string, userB: string, gameType: string, scopeToOriginalSessionId?: string): Promise<GameInvite | null> {
-  let query = supabase
-    .from('game_invites')
-    .select('*')
-    .or(`and(sender_id.eq.${userA},receiver_id.eq.${userB}),and(sender_id.eq.${userB},receiver_id.eq.${userA})`)
-    .eq('game_type', gameType)
-    .eq('status', 'pending')
-  if (scopeToOriginalSessionId) query = query.eq('original_session_id', scopeToOriginalSessionId)
-  const { data } = await query
-    .order('created_at', { ascending: false })
-    .limit(1)
-  const row = data && data.length > 0 ? (data[0] as GameInvite) : null
-  if (row && isExpiredPending(row)) return null
-  return row
-}
+
 
 // Pending invites (not yet responded to) expire 24 hours after creation —
 // they simply stop appearing in either list, can no longer be accepted, and
@@ -523,7 +434,20 @@ let _session: GameSession | null = null
 type SessionListener = (s: GameSession | null) => void
 const _sessionListeners = new Set<SessionListener>()
 
-export function setCurrentSession(s: GameSession) {
+export function setCurrentSession(s: GameSession, source: string = 'unknown') {
+  // TEMPORARY DIAGNOSTIC
+  sessionResolutionDiag({
+    caller: source,
+    previousSessionId: _session?.id ?? null,
+    candidateNewSessionId: s.id,
+    inviteId: s.invite_id ?? null,
+    originalSessionId: (s as any).original_session_id ?? null,
+    playerOneId: s.player_one_id,
+    playerTwoId: s.player_two_id,
+    gameType: s.game_type,
+    candidateStatus: s.state?.status ?? null,
+    accepted: true, // setCurrentSession always applies its argument — see the visibility note below for the one place a *candidate* can be rejected before ever reaching here
+  })
   _session = s
   console.log('SESSION ID:', s.id)
   try { localStorage.setItem('dateduel_active_session_id', s.id) } catch {}
@@ -881,7 +805,7 @@ export async function enterAcceptedGame(
       return { ok: false, error: 'session not valid/active for this user' }
     }
 
-    setCurrentSession(session)
+    setCurrentSession(session, 'enterAcceptedGame')
     // IMPORTANT: do NOT clear _enteringGame here (or in a finally block
     // below). setCurrentSession() synchronously notifies the session
     // subscription in app/app/page.tsx, which calls navigate() — but React

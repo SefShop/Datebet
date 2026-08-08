@@ -44,7 +44,7 @@ export default function AcceptedToast() {
     const session = await loadSessionByInvite(inviteId)
     if (!session) { console.error('No session found'); return }
     console.log('SENDER GAME SESSION LOADED:', session.id)
-    setCurrentSession(session)
+    setCurrentSession(session, 'AcceptedToast')
 
     const { data: { user } } = await supabase.auth.getUser()
     const oppId = user?.id === session.player_one_id ? session.player_two_id : session.player_one_id

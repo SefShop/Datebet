@@ -229,7 +229,7 @@ function AppShell() {
             if (restored) {
               console.log('RESTORED ACTIVE SESSION AFTER REFRESH:', restored.session.id, '→', restored.screen)
               setEnteringGame(true)  // protects this navigation from the screen guard's own check, same as the accept-invite flow
-              setCurrentSession(restored.session)
+              setCurrentSession(restored.session, 'restorePersistedActiveSession')
               navigate(restored.screen as any)
             } else {
               console.log('ONBOARDING COMPLETE — navigating to profile')
