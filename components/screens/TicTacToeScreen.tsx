@@ -243,6 +243,21 @@ export default function TicTacToeScreen() {
       if (raw && validBoard && validTurn) {
         gs = raw as GameState
         console.log('VALID STATE: loaded existing')
+      } else if (raw && raw.status === 'finished') {
+        // The board/currentTurn fetch itself came back malformed, but
+        // the row's own status already says finished — trust and
+        // preserve the existing state entirely rather than risk
+        // destroying a completed game's history. Deliberately does NOT
+        // write anything back to the database: a finished game must
+        // never be downgraded to waiting_for_players, have its board
+        // blanked, or have any other field reset by this repair path.
+        // Failing safely (leaving the row untouched, letting a later
+        // genuine refetch/realtime event self-correct) is strictly
+        // safer than fabricating a repaired state over potentially
+        // valid, already-completed game history. Matches the same
+        // protection already implemented in Connect4Screen.tsx.
+        gs = raw as GameState
+        console.log('FINISHED STATE: preserved as-is, no repair write')
       } else {
         // Preserve whatever readiness progress already exists — board
         // being missing/malformed doesn't mean readyPlayers or an
@@ -340,16 +355,23 @@ export default function TicTacToeScreen() {
           // Idempotent server-side: safe to call again later on a
           // reconnect/visibility-resume for the same session. The session
           // only becomes canonically 'active' once BOTH participants have
-          // made this same call.
-          const { data: readyData, error: readyErr } = await supabase.rpc('mark_tic_tac_toe_player_ready', {
-            p_session_id: sess0.id,
-          })
-          if (isStale() || activeSessionRef.current !== sess0.id) return
-          if (readyErr) { console.error('READY RPC error:', readyErr.message); return }
-          if (readyData?.ok && readyData.state?.board) {
-            const readyState = readyData.state as any
-            readyState.board = Array.from({ length: 9 }, (_, k) => readyState.board?.[k] || '')
-            setState(readyState)
+          // made this same call. Only call it while genuinely still
+          // waiting — a realtime reconnect on an already-active or
+          // -finished session must never re-trigger this call at all,
+          // matching the same guard already used by the visibility and
+          // polling recovery paths below (the RPC itself now also
+          // enforces this same guard server-side, as primary protection).
+          if (latestState.status === 'waiting_for_players') {
+            const { data: readyData, error: readyErr } = await supabase.rpc('mark_tic_tac_toe_player_ready', {
+              p_session_id: sess0.id,
+            })
+            if (isStale() || activeSessionRef.current !== sess0.id) return
+            if (readyErr) { console.error('READY RPC error:', readyErr.message); return }
+            if (readyData?.ok && readyData.state?.board) {
+              const readyState = readyData.state as any
+              readyState.board = Array.from({ length: 9 }, (_, k) => readyState.board?.[k] || '')
+              setState(readyState)
+            }
           }
         })
     }

@@ -271,19 +271,46 @@ export default function Connect4Screen() {
           ? gs.currentTurn === null
           : (gs.currentTurn === s0.player_one_id || gs.currentTurn === s0.player_two_id)
         if (!validTurn) gs.currentTurn = s0.player_one_id
+      } else if (sess?.state && sess.state.status === 'finished') {
+        // The board fetch itself came back malformed/missing, but the
+        // row's own status already says finished — trust and preserve
+        // the existing state entirely rather than risk destroying a
+        // completed game's history. Deliberately does NOT write
+        // anything back to the database: a finished game must never be
+        // converted to waiting_for_players or active by this repair
+        // path, and failing safely (leaving the row untouched, letting
+        // a later genuine refetch/realtime event self-correct) is
+        // strictly safer than fabricating a fresh empty game over
+        // potentially valid, already-completed game history.
+        gs = sess.state as GameState
       } else {
-        // Preserve whatever readiness progress already exists in the row
-        // — board/moves being missing/malformed doesn't mean readyPlayers
-        // or an already-'active' status were also corrupted. Blindly
-        // resetting them here would silently wipe a player's already-
-        // recorded readiness if this rare path ever fired after the
-        // other participant had already marked ready.
-        const staleReady = Array.isArray(sess?.state?.readyPlayers) ? sess!.state.readyPlayers : []
-        const staleStatus = sess?.state?.status === 'active' ? 'active' : 'waiting_for_players'
+        // Genuinely missing/malformed state, and not a finished game —
+        // safe to repair/initialize, but preserve every valid existing
+        // field rather than blindly discarding it. Board/moves being
+        // missing/malformed doesn't mean readyPlayers, winner,
+        // progressCounted, or an already-'active' status were also
+        // corrupted. Blindly resetting them here would silently wipe a
+        // player's already-recorded readiness, or a real winner/move
+        // count, if this rare path ever fired for reasons unrelated to
+        // those specific fields.
+        const existing = sess?.state as any
+        const staleReady = Array.isArray(existing?.readyPlayers) ? existing.readyPlayers : []
+        const staleStatus = existing?.status === 'active' ? 'active' : 'waiting_for_players'
         const staleTurn = staleStatus === 'active'
-          ? (sess?.state?.currentTurn === s0.player_one_id || sess?.state?.currentTurn === s0.player_two_id ? sess.state.currentTurn : s0.player_one_id)
+          ? (existing?.currentTurn === s0.player_one_id || existing?.currentTurn === s0.player_two_id ? existing.currentTurn : s0.player_one_id)
           : null
-        gs = { board: Array(42).fill(''), currentTurn: staleTurn, winner: null, status: staleStatus, readyPlayers: staleReady, moves: 0 }
+        const staleBoard = (existing?.board && Array.isArray(existing.board) && existing.board.length === 42)
+          ? existing.board
+          : Array(42).fill('')
+        gs = {
+          board: staleBoard,
+          currentTurn: staleTurn,
+          winner: existing?.winner ?? null,
+          status: staleStatus,
+          readyPlayers: staleReady,
+          moves: typeof existing?.moves === 'number' ? existing.moves : 0,
+          progressCounted: existing?.progressCounted || false,
+        }
         await supabase.from('game_sessions').update({ state: gs }).eq('id', s0.id)
       }
       if (isStale()) return
@@ -422,7 +449,14 @@ export default function Connect4Screen() {
             // safe to call again on a later reconnect/visibility-resume
             // for the same session without any effect beyond re-confirming
             // readiness. The session only becomes canonically 'active'
-            // once BOTH participants have made this same call.
+            // once BOTH participants have made this same call. Only
+            // call it while genuinely still waiting — a realtime
+            // reconnect on an already-active or -finished session must
+            // never re-trigger this call at all, matching the guard
+            // already used by the visibility/polling recovery paths (the
+            // RPC itself now also enforces this same guard server-side,
+            // as primary protection).
+            if (latest.state?.status === 'waiting_for_players') {
             const myRoleDiag = myId === s0.player_one_id ? 'player_one' : myId === s0.player_two_id ? 'player_two' : 'unknown'
             // TEMPORARY DIAGNOSTIC — CRITICAL: this is the exact point
             // that decides whether the ready RPC is about to be called.
@@ -490,6 +524,7 @@ export default function Connect4Screen() {
             if (readyErr) { console.error('READY RPC error:', readyErr.message); return }
             if (readyData?.ok && readyData.state?.board) {
               applyIfNotStale(readyData.state as GameState)
+            }
             }
           })
         channelRef.current = ch
