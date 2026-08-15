@@ -115,7 +115,7 @@ export default function BrandBoard({ size = 64, showHearts = true, animate = tru
         @keyframes heartBurst {
           0%{opacity:0;transform:translate(-50%,-50%) scale(0)}
           20%{opacity:0.7;transform:translate(-50%,-50%) scale(1.2)}
-          100%{opacity:0;transform:translate(calc(-50% + ${Math.random()>0.5?'':'-'}${10+Math.random()*20}px), calc(-50% - ${30+Math.random()*30}px)) scale(0.6)}
+          100%{opacity:0;transform:translate(calc(-50% + 20px), calc(-50% - 45px)) scale(0.6)}
         }
       `}</style>
     </div>

@@ -512,9 +512,8 @@ function AppShell() {
            breakpoint (mobile, tablet) the shell is completely untouched. */
         @media (min-width: 1024px) {
           .desktop-scroll-shell {
-            height: auto !important;
+            height: 844px !important;
             min-height: 844px !important;
-            max-height: none !important;
             overflow-y: auto !important;
             overflow-x: hidden !important;
             padding-bottom: 48px !important;
@@ -534,6 +533,7 @@ function AppShell() {
              height while still trimming the excess. Every other screen
              keeps the exact same 844px/48px values above, untouched. */
           .desktop-scroll-shell.profile-desktop-fit {
+            height: 616px !important;
             min-height: 616px !important;
             padding-bottom: 18px !important;
           }
