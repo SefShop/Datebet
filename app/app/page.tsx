@@ -459,6 +459,21 @@ function AppShell() {
       runRepaintWorkaround()
     })
 
+    // Direct activation trigger: the signal above only fires once per
+    // genuine session load (loading transitions true->false once per
+    // session.id), not once per screen activation. Since all game
+    // screens stay mounted and are only shown/hidden via CSS, navigating
+    // back into an already-loaded session never re-arms that signal —
+    // this effect re-running on every `screen` change (its own
+    // dependency) is what catches that case: any time the active screen
+    // becomes one of the three game screens, repaint again. Cannot loop
+    // or repeat needlessly, since runRepaintWorkaround never calls a
+    // React state setter, so it can't itself cause `screen` (or anything
+    // else) to change and re-trigger this effect.
+    if (screen === 'tictactoe' || screen === 'connect4' || screen === 'mystery_choice') {
+      runRepaintWorkaround()
+    }
+
     return () => {
       unsubscribe()
       cancelAnimationFrame(raf1)
