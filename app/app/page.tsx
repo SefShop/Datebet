@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { subscribeScreenReady } from '@/lib/screenReadySignal'
 import { startMessagesPolling, stopMessagesPolling, refreshMessagesState } from '@/lib/messagesState'
 import { startNotificationsPolling, stopNotificationsPolling } from '@/lib/notificationsState'
 import { startPresence, stopPresence, setOnline, setOffline, heartbeat } from '@/lib/presence'
@@ -412,9 +413,63 @@ function AppShell() {
     }
   }, [authed, onboardingStatus])
 
+  // Desktop-only workaround for a proven browser paint/composite-layer
+  // bug: a game screen's own subtree can occasionally fail to be
+  // painted correctly on the specific frame where its loading spinner
+  // is replaced by its final board/result UI, despite the DOM itself
+  // being fully correct (confirmed: correct computed height, correct
+  // opacity, correct layout via getBoundingClientRect) — a real browser
+  // resize always recovers it, but neither a synthetic resize event nor
+  // a plain forced-reflow read (offsetHeight alone) do. Verified
+  // manually that temporarily removing and reinserting the shell into
+  // the layout/paint tree (display:none -> reflow -> display:'')
+  // reliably recovers it.
+  //
+  // This must run AFTER the specific screen's own final UI has actually
+  // rendered — not merely after auth/onboarding has settled, since a
+  // game screen's own async loading (profile/progress/state fetches)
+  // finishes well after that point, and the earlier auth-based timing
+  // fired too early, repainting only the loading spinner rather than
+  // the final content that later replaces it. Listens for the
+  // screenReadySignal each game screen can emit once its own loading
+  // genuinely becomes false and that render has committed/painted —
+  // scoped to Tic Tac Toe only for now (screenName === 'tictactoe').
+  const shellRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth < 1024) return
+
+    let raf1 = 0
+    let raf2 = 0
+    const runRepaintWorkaround = () => {
+      const el = shellRef.current
+      if (!el) return
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          const prevDisplay = el.style.display
+          el.style.display = 'none'
+          void el.offsetHeight // force reflow
+          el.style.display = prevDisplay
+        })
+      })
+    }
+
+    const unsubscribe = subscribeScreenReady((screenName) => {
+      if (screenName !== 'tictactoe' && screenName !== 'connect4' && screenName !== 'mystery_choice') return
+      if (screen !== screenName) return // only if this is still the active screen
+      runRepaintWorkaround()
+    })
+
+    return () => {
+      unsubscribe()
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [screen])
+
   return (
     <main className="min-h-screen bg-[#111] flex items-center justify-center">
       <div
+        ref={shellRef}
         className={`desktop-scroll-shell${screen === 'profile' ? ' profile-desktop-fit' : ''} w-[390px] h-[844px] overflow-hidden relative
           shadow-[0_50px_150px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.06)]
           rounded-[52px] max-sm:w-full max-sm:h-dvh max-sm:rounded-none max-sm:shadow-none`}

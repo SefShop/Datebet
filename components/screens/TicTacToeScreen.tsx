@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentSession, setCurrentSession, subscribeCurrentSession, clearCurrentSession, sendGameInvite, setPendingInvite, setChatOrigin, acceptRematchIfShouldAccept } from '@/lib/gameInvites'
 import { incrementPairGames, getPairProgress } from '@/lib/pairProgress'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
+import { emitScreenReady } from '@/lib/screenReadySignal'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
@@ -74,6 +75,9 @@ export default function TicTacToeScreen() {
   const [names, setNames]   = useState<{ one: string; two: string }>({ one: 'Player 1', two: 'Player 2' })
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState<string | null>(null)
+  useEffect(() => {
+    if (!loading) emitScreenReady('tictactoe')
+  }, [loading])
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
   // Tracks whether this device has already refreshed its own pairCount

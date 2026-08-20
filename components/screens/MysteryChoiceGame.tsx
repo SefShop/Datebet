@@ -7,6 +7,7 @@ import { getPairProgress, incrementPairGames } from '@/lib/pairProgress'
 import { getPresence, isOnlineNow } from '@/lib/presence'
 import { setCurrentMatch } from '@/lib/profiles'
 import { fetchGamePlayerPhotoAccess } from '@/lib/gamePlayerPhoto'
+import { emitScreenReady } from '@/lib/screenReadySignal'
 import GamePlayerAvatar from '@/components/ui/GamePlayerAvatar'
 import BackControl from '@/components/ui/BackControl'
 import GamePresenceBanner from '@/components/game/GamePresenceBanner'
@@ -15,10 +16,10 @@ import FloatingRematchNotification from '@/components/game/FloatingRematchNotifi
 import ChatUnlockProgress from '@/components/game/ChatUnlockProgress'
 import RematchDeclinedToast from '@/components/game/RematchDeclinedToast'
 import { getAnswerEmoji } from '@/lib/answerEmoji'
-import { getResultPool, selectRandomResult, getResultById } from '@/lib/mysteryResultLibrary'
+import { selectRandomResult, getResultById } from '@/lib/mysteryResultLibrary'
 import {
-  generateMysteryQuestions, toRoundData, computeRoundScore, computeCompatibilityPercent,
-  RoundData, RoundScoreResult,
+  generateMysteryQuestions, toRoundData, computeCompatibilityPercent,
+  RoundData,
 } from '@/lib/mysteryChoiceQuestions'
 
 // A selection is a single option string (binary / single-select) or an array
@@ -168,6 +169,52 @@ function buildFreshMysteryState(): MysteryChoiceState {
   }
 }
 
+// Shared by both the realtime handler and the polling fallback: merges an
+// incoming canonical fetch/event against the currently-applied local
+// state, preventing an older, in-flight read (started before the other
+// player's own RPC write landed) from visually reverting an already-
+// applied, newer answer/ready/result — without ever blocking a
+// legitimate reset caused by genuinely advancing to a new round (where
+// null choices / false ready flags are the correct, expected state).
+function mergeCanonicalMysteryState(
+  prev: MysteryChoiceState | null,
+  incoming: MysteryChoiceState
+): MysteryChoiceState {
+  if (!prev) return incoming
+
+  // Older round: the canonical state has already moved past this — reject.
+  if (incoming.current_round < prev.current_round) return prev
+  // Never un-finish an already-finished game.
+  if (prev.status === 'finished' && incoming.status !== 'finished') return prev
+  // Newer round: adopt as-is — its null choices / false ready flags are
+  // the legitimate reset for that new round, not a regression.
+  if (incoming.current_round > prev.current_round) return incoming
+
+  // Same round: merge field-by-field, never letting a populated/true
+  // value revert back to null/false — this is the exact gap that
+  // previously allowed a stale, in-flight fetch to undo an already-
+  // applied answer or ready tap.
+  const resultRegresses = !!prev.round_result && !incoming.round_result
+  return {
+    ...incoming,
+    player_one_choice: incoming.player_one_choice ?? prev.player_one_choice,
+    player_two_choice: incoming.player_two_choice ?? prev.player_two_choice,
+    player_one_ready: incoming.player_one_ready || prev.player_one_ready,
+    player_two_ready: incoming.player_two_ready || prev.player_two_ready,
+    // round_result and the fields the RPC always writes atomically
+    // alongside it must regress or hold together, never independently.
+    ...(resultRegresses
+      ? {
+          round_result: prev.round_result,
+          matches: prev.matches,
+          scoreTotal: prev.scoreTotal,
+          scoreMax: prev.scoreMax,
+          history: prev.history,
+        }
+      : {}),
+  }
+}
+
 export default function MysteryChoiceGame() {
   const { navigate, lang, openChat } = useApp()
   // Reactive — was previously `const session = getCurrentSession()`, only
@@ -192,6 +239,31 @@ export default function MysteryChoiceGame() {
   const [loading, setLoading] = useState(true)
   const [preparing, setPreparing] = useState(false)
   const [sessionRetrying, setSessionRetrying] = useState(false)
+  // Tracks completion of the two independent, finished-state-gated
+  // display-refresh operations (the dedicated immediate refresh effect,
+  // and countMysteryProgress's own refresh) — both must genuinely
+  // settle before the signal fires, since the shared pairProgressLoading
+  // flag alone can't distinguish which of the two is done.
+  const [displayRefreshDone, setDisplayRefreshDone] = useState(false)
+  const [countCheckDone, setCountCheckDone] = useState(false)
+  // Signals that this screen's final board/result UI has actually
+  // rendered — fires from an effect (runs after commit/paint), not
+  // synchronously wherever setLoading(false) is called, so listeners
+  // react to the real, painted transition rather than the moment the
+  // state update was merely requested. Same pattern as TicTacToeScreen
+  // and Connect4Screen. Also requires preparing/sessionRetrying to be
+  // false, matching the render gate below exactly (loading || preparing
+  // || sessionRetrying) — loading alone can become false while the
+  // component is still showing the loading UI for one of those two
+  // other reasons. For a finished game, additionally waits for both
+  // independent pair-progress display refreshes to genuinely settle,
+  // since the chat-unlock UI they populate is part of the same result
+  // card and can still change after the loading gate alone has cleared.
+  useEffect(() => {
+    const readyToShow = !loading && !preparing && !sessionRetrying
+      && (state?.status !== 'finished' || (displayRefreshDone && countCheckDone))
+    if (readyToShow) emitScreenReady('mystery_choice')
+  }, [loading, preparing, sessionRetrying, state?.status, displayRefreshDone, countCheckDone])
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
   // Set the instant the user presses back on a finished game, before the
@@ -199,8 +271,6 @@ export default function MysteryChoiceGame() {
   // Connect4. Prevents the "no session found" fallback below from being
   // briefly visible during the CSS opacity fade-out of an intentional exit.
   const isExitingRef = useRef(false)
-  const resultWriteLock = useRef(false)
-  const advanceWriteLock = useRef(false)
   const countLockRef = useRef(false)
   const submittingAnswerRef = useRef(false)  // synchronous guard — blocks a second tap before any async work starts
   const submittingReadyRef = useRef(false)   // same, for the "Next Round" ready button
@@ -247,6 +317,8 @@ export default function MysteryChoiceGame() {
     console.log('LOADING SESSION', sess0.id)
     setState(null)
     setPreparing(false)
+    setDisplayRefreshDone(false)
+    setCountCheckDone(false)
     setLoading(true)  // BUGFIX: must reset to true here — this screen stays mounted permanently,
                        // so without this reset "loading" could still be false from an earlier
                        // render, causing the "Game not found" branch to flash while this fetch runs.
@@ -290,7 +362,7 @@ export default function MysteryChoiceGame() {
             console.log('MYSTERY ERROR:', 'invalid realtime state received', sess0.id)
             return  // ignore malformed broadcasts; local state stays as last-known-good
           }
-          setState(newState)
+          setState((prev) => mergeCanonicalMysteryState(prev, newState))
           // TEMPORARY DIAGNOSTIC
           console.log('[MYSTERY_DIAG] realtime state', JSON.stringify({
             sessionId: sess0.id, currentRound: newState.current_round, questionId: newState.rounds?.[newState.current_round]?.id ?? null,
@@ -379,6 +451,30 @@ export default function MysteryChoiceGame() {
     }
   }, [session?.id])
 
+  // Polling fallback — covers a missed/delayed realtime event (e.g. a
+  // dropped websocket message, or a subscription that wasn't fully
+  // established yet when the other client's write landed), since this
+  // screen otherwise depends entirely on realtime to ever learn that the
+  // other player advanced or finished the game. Same 3s interval already
+  // proven safe in TicTacToeScreen/Connect4Screen. This is a bounded,
+  // read-only backstop — it never calls any RPC, never triggers a round
+  // transition, and never writes anything; it only re-fetches and applies
+  // the canonical state, exactly like the realtime handler already does.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const sid = activeSessionRef.current
+      if (!sid) return
+      supabase.from('game_sessions').select('state').eq('id', sid).maybeSingle().then(({ data, error }) => {
+        if (error || !data?.state) return
+        if (activeSessionRef.current !== sid) return  // session changed while fetching
+        const latest = data.state as any
+        if (!isValidMysteryState(latest)) return
+        setState((prev) => mergeCanonicalMysteryState(prev, latest))
+      })
+    }, 3000)
+    return () => clearInterval(t)
+  }, [])
+
   // ── Fetch-merge-write helpers (never overwrite using stale local React state) ──
   async function fetchLatestState(): Promise<MysteryChoiceState | null> {
     if (!session) return null
@@ -392,52 +488,6 @@ export default function MysteryChoiceGame() {
     if (!session) return
     await supabase.from('game_sessions').update({ state: next }).eq('id', session.id)
     setState(next)
-  }
-
-  // Shared, guarded round-result computation. Always re-checks against a
-  // FRESH read (never the stale local `state`) whether the result was
-  // already calculated by the other client before writing — this is the
-  // single place that ever writes round_result, called from both choose()
-  // (right after an answer is confirmed saved) and the safety-net effect.
-  async function tryComputeRoundResult() {
-    if (resultWriteLock.current) return
-    resultWriteLock.current = true
-    try {
-      const fresh = await fetchLatestState()
-      if (!fresh) return
-      if (!(fresh.player_one_choice && fresh.player_two_choice)) return
-      if (fresh.round_result) {
-        console.log('MYSTERY RESULT ALREADY CALCULATED:', fresh.round_result)
-        return
-      }
-      console.log('BOTH CHOICES READY')
-      const round = fresh.rounds[fresh.current_round]
-      // Normalize both saved answers to stable option ids before comparing —
-      // this is what makes matching correct regardless of which language
-      // either player was viewing when they answered.
-      const p1Id = normalizeAnswer(round, fresh.player_one_choice)
-      const p2Id = normalizeAnswer(round, fresh.player_two_choice)
-      console.log('MYSTERY PLAYER ONE ANSWER ID:', p1Id)
-      console.log('MYSTERY PLAYER TWO ANSWER ID:', p2Id)
-      const scoreResult: RoundScoreResult = computeRoundScore(round, p1Id, p2Id)
-      console.log('MYSTERY CROSS LANGUAGE MATCH:', scoreResult.outcome === 'match')
-      console.log('ROUND RESULT', scoreResult.outcome, 'score', scoreResult.score, '/', scoreResult.maxScore)
-      const matches = (fresh.matches || 0) + (scoreResult.outcome === 'match' ? 1 : 0)
-      const scoreTotal = (fresh.scoreTotal || 0) + scoreResult.score
-      const scoreMax = (fresh.scoreMax || 0) + scoreResult.maxScore
-      const historyEntry: RoundHistoryEntry = {
-        round: fresh.current_round, category: round.category,
-        weight: round.weight, outcome: scoreResult.outcome, question: round.question,
-        playerOneChoice: p1Id, playerTwoChoice: p2Id,
-        playerOneTraits: resolveTraits(round, p1Id),
-        playerTwoTraits: resolveTraits(round, p2Id),
-      }
-      const history = [...(fresh.history || []), historyEntry]
-      await writeState({ ...fresh, round_result: scoreResult.outcome, matches, scoreTotal, scoreMax, history })
-      console.log('MYSTERY ROUND COMPLETE:', session?.id, 'round', fresh.current_round, scoreResult.outcome)
-    } finally {
-      resultWriteLock.current = false
-    }
   }
 
   // Detect + repair an impossible combination: a ready flag stuck true while
@@ -493,69 +543,34 @@ export default function MysteryChoiceGame() {
     console.log('MYSTERY ANSWER SUBMIT START:', choice)
 
     try {
-      const isPlayerOne = myId === session.player_one_id
-      const myField: 'player_one_choice' | 'player_two_choice' = isPlayerOne ? 'player_one_choice' : 'player_two_choice'
-      console.log('MYSTERY PLAYER FIELD:', myField)
-
-      const base = await fetchLatestState()
-      console.log('MYSTERY LATEST STATE BEFORE ANSWER:', base)
-      if (!base || base.status === 'finished') return
-      if (base[myField]) return  // already answered (fresh check, not stale local state)
-
-      // Write my answer, then verify against a fresh read that it actually
-      // stuck — a concurrent write from the other player can otherwise
-      // silently overwrite it (last-write-wins on the full state object).
-      async function attempt(fromState: MysteryChoiceState, attemptNum: number): Promise<MysteryChoiceState | null> {
-        const next: MysteryChoiceState = { ...fromState, [myField]: choice }
-        console.log('MYSTERY ANSWER UPDATE ATTEMPT:', attemptNum, myField, choice)
-        await writeState(next)
-        const verify = await fetchLatestState()
-        console.log('MYSTERY ANSWER VERIFY:', attemptNum, verify ? verify[myField] : null)
-        if (verify && verify[myField] === choice) {
-          console.log('MYSTERY ANSWER UPDATE SUCCESS:', myField, choice)
-          return verify
-        }
-        return null
-      }
-
-      let result = await attempt(base, 1)
-      if (!result) {
-        console.log('MYSTERY ANSWER RETRY:', myField)
-        const fresh = await fetchLatestState()
-        if (fresh && fresh[myField] === choice) {
-          result = fresh  // already saved by the time we re-checked
-        } else if (fresh && fresh.status !== 'finished') {
-          result = await attempt(fresh, 2)
-        }
-      }
-
-      if (!result) {
-        console.error('MYSTERY ANSWER ERROR:', 'failed to save answer after retry', myField, choice)
+      // Atomic, server-side: saves only my own choice, and — if both
+      // players have now answered — computes and saves round_result/
+      // matches/scoreTotal/scoreMax/history within the same row-locked
+      // transaction. Replaces the previous client-side fetch/write/
+      // verify/retry sequence plus a separate, later tryComputeRoundResult()
+      // write — there is no longer any persisted intermediate state where
+      // both answers exist but round_result is still missing, which
+      // previously allowed an out-of-order realtime event to briefly
+      // revert an already-shown result back to "Waiting for opponent".
+      const { data, error } = await supabase.rpc('submit_mystery_choice_answer', {
+        p_session_id: session.id,
+        p_choice: choice,
+      })
+      if (error) {
+        console.error('MYSTERY ANSWER ERROR:', error.message)
         return
       }
-
-      console.log('PLAYER CHOICE SAVED', myField, choice)
-      console.log('MYSTERY CHOICE SAVED:', session.id, myField, choice)
-
-      if (result.player_one_choice && result.player_two_choice && !result.round_result) {
-        console.log('MYSTERY BOTH ANSWERS PRESENT:')
-        await tryComputeRoundResult()
+      if (data?.ok && data.state) {
+        console.log('MYSTERY ANSWER RPC RESULT:', data.noop ? 'noop' : 'applied', data.state)
+        setState(data.state as MysteryChoiceState)
+      } else if (data?.error) {
+        console.error('MYSTERY ANSWER ERROR:', data.error)
       }
     } finally {
       submittingAnswerRef.current = false
       setSubmittingChoice(false)
     }
   }
-
-  // Safety net: if a client ever observes both choices present but no result
-  // yet (e.g. the writer above got interrupted), trigger the same guarded,
-  // fresh-state computation — never the stale local `state`.
-  useEffect(() => {
-    if (!state || !session) return
-    if (state.player_one_choice && state.player_two_choice && !state.round_result) {
-      tryComputeRoundResult()
-    }
-  }, [state?.player_one_choice, state?.player_two_choice])
 
   async function markReady() {
     if (!session || !myId) return
@@ -565,147 +580,29 @@ export default function MysteryChoiceGame() {
     console.log('MYSTERY NEXT ROUND CLICK:', session.id)
 
     try {
-      const isPlayerOne = myId === session.player_one_id
-      const myField: 'player_one_ready' | 'player_two_ready' = isPlayerOne ? 'player_one_ready' : 'player_two_ready'
-      console.log('MYSTERY PLAYER READY FIELD:', myField)
-
-      const base = await fetchLatestState()
-      console.log('MYSTERY LATEST STATE BEFORE READY:', base)
-      if (!base || base.status === 'finished') return
-      if (base[myField]) return  // already marked ready (fresh check, not stale local state)
-
-      // Write my ready flag, then verify against a fresh read that it stuck —
-      // a concurrent write from the other player can otherwise silently
-      // overwrite it (last-write-wins on the full state object).
-      async function attempt(fromState: MysteryChoiceState, attemptNum: number): Promise<MysteryChoiceState | null> {
-        const next: MysteryChoiceState = { ...fromState, [myField]: true }
-        console.log('MYSTERY READY UPDATE ATTEMPT:', attemptNum, myField)
-        await writeState(next)
-        const verify = await fetchLatestState()
-        console.log('MYSTERY READY VERIFY:', attemptNum, verify ? verify[myField] : null)
-        if (verify && verify[myField] === true) {
-          console.log('MYSTERY READY UPDATE SUCCESS:', myField)
-          return verify
-        }
-        return null
-      }
-
-      let result = await attempt(base, 1)
-      if (!result) {
-        console.log('MYSTERY READY RETRY:', myField)
-        const fresh = await fetchLatestState()
-        if (fresh && fresh[myField] === true) {
-          result = fresh  // already saved by the time we re-checked
-        } else if (fresh && fresh.status !== 'finished') {
-          result = await attempt(fresh, 2)
-        }
-      }
-
-      if (!result) {
-        console.error('MYSTERY NEXT ROUND ERROR:', 'failed to save ready flag after retry', myField)
+      // Atomic, server-side: marks only my own ready field, and — if both
+      // players are now ready — performs the entire round-advance/finish
+      // transition within the same row-locked transaction. Replaces the
+      // previous client-side fetch/write/verify/retry sequence, which
+      // could race against the other player's own write (last-write-wins
+      // on the full state object), producing delay and, in some cases, a
+      // stuck "Waiting for opponent..." requiring a second tap.
+      const { data, error } = await supabase.rpc('mark_mystery_choice_ready', {
+        p_session_id: session.id,
+      })
+      if (error) {
+        console.error('MYSTERY NEXT ROUND ERROR:', error.message)
         return
       }
-
-      if (result.player_one_ready && result.player_two_ready) {
-        console.log('MYSTERY BOTH PLAYERS READY:')
-        await performRoundTransition()
+      if (data?.ok && data.state) {
+        console.log('MYSTERY READY RPC RESULT:', data.noop ? 'noop' : 'applied', data.state)
+        setState(data.state as MysteryChoiceState)
+      } else if (data?.error) {
+        console.error('MYSTERY NEXT ROUND ERROR:', data.error)
       }
     } finally {
       submittingReadyRef.current = false
       setSubmittingReady(false)
-    }
-  }
-
-  // When both ready flags are observed true, perform ONE atomic round transition
-  // (always against a freshly refetched row, never the stale local state).
-  useEffect(() => {
-    if (!state || !session) return
-    console.log('MYSTERY CHOICE BOTH READY CHECK', state.player_one_ready, state.player_two_ready)
-    if (state.player_one_ready && state.player_two_ready) {
-      performRoundTransition()
-    }
-  }, [state?.player_one_ready, state?.player_two_ready])
-
-  // Round transition, protected by a shared claim written into the session
-  // state itself (round_transitioning: <claiming player's id>), so that if
-  // BOTH clients observe both ready flags true at the same moment, only the
-  // client whose claim actually lands in the database proceeds.
-  async function performRoundTransition() {
-    if (advanceWriteLock.current || !session || !myId) return
-    advanceWriteLock.current = true
-    try {
-      const latest = await fetchLatestState()
-      if (!latest) return
-      if (!(latest.player_one_ready && latest.player_two_ready)) {
-        console.log('MYSTERY ROUND ALREADY ADVANCED:', 'ready flags no longer both true')
-        return
-      }
-      if (latest.status === 'finished') {
-        console.log('MYSTERY ROUND ALREADY ADVANCED:', 'game already finished')
-        return
-      }
-      if (latest.round_transitioning) {
-        console.log('MYSTERY ROUND ALREADY ADVANCED:', 'transition already claimed by', latest.round_transitioning)
-        return
-      }
-
-      // Claim the transition, then verify the claim actually landed as MINE.
-      const targetRound = latest.current_round
-      await writeState({ ...latest, round_transitioning: myId })
-      const claimVerify = await fetchLatestState()
-      if (!claimVerify || claimVerify.round_transitioning !== myId) {
-        console.log('MYSTERY ROUND ALREADY ADVANCED:', 'claim lost to', claimVerify?.round_transitioning)
-        return
-      }
-      if (!(claimVerify.player_one_ready && claimVerify.player_two_ready) || claimVerify.current_round !== targetRound) {
-        console.log('MYSTERY ROUND ALREADY ADVANCED:', 'state moved on before claim confirmed')
-        return
-      }
-      console.log('MYSTERY TRANSITION CLAIMED:', session.id, 'round', claimVerify.current_round, 'by', myId)
-
-      console.log('MYSTERY CHOICE ROUND TRANSITION START')
-      const isLastRound = claimVerify.current_round + 1 >= (claimVerify.rounds?.length || FALLBACK_ROUNDS.length)
-      let next: MysteryChoiceState
-      if (isLastRound) {
-        console.log('GAME COMPLETE')
-        console.log('MYSTERY GAME COMPLETE:', session.id, 'matches', claimVerify.matches || 0)
-
-        const matchCount = claimVerify.matches || 0
-        console.log('MYSTERY MATCH COUNT:', matchCount)
-
-        const pool = getResultPool(matchCount)
-        console.log('MYSTERY RESULT POOL:', pool.length, 'variations for score', matchCount)
-
-        let resultId = claimVerify.resultId
-        if (!resultId) {
-          const selected = selectRandomResult(matchCount)
-          resultId = selected.id
-          console.log('MYSTERY RESULT SELECTED:', selected.id)
-        } else {
-          console.log('MYSTERY RESULT SELECTED:', resultId, '(already chosen by the other player)')
-        }
-
-        next = { ...claimVerify, status: 'finished', result: 'completed', resultId, round_transitioning: null }
-      } else {
-        console.log('NEXT ROUND STARTED')
-        console.log('MYSTERY NEXT ROUND:', session.id, 'round', claimVerify.current_round + 1)
-        next = {
-          ...claimVerify,
-          current_round: claimVerify.current_round + 1,
-          player_one_choice: null,
-          player_two_choice: null,
-          player_one_ready: false,
-          player_two_ready: false,
-          round_result: null,
-          round_transitioning: null,
-        }
-      }
-      await writeState(next)
-      if (isLastRound) console.log('MYSTERY RESULT SAVED:', next.resultId)
-      console.log('MYSTERY ROUND TRANSITION SUCCESS:', session.id, 'now at round', next.current_round, 'status', next.status)
-      console.log('MYSTERY CHOICE ROUND TRANSITION COMPLETE')
-    } finally {
-      advanceWriteLock.current = false
     }
   }
 
@@ -754,7 +651,9 @@ export default function MysteryChoiceGame() {
   // Refresh the display the moment the game finishes — independent of
   // whether progress counting has already happened for this session.
   useEffect(() => {
-    if (state?.status === 'finished') refreshPairProgressForDisplay()
+    if (state?.status === 'finished') {
+      refreshPairProgressForDisplay().finally(() => setDisplayRefreshDone(true))
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.status, session?.id])
 
@@ -798,6 +697,7 @@ export default function MysteryChoiceGame() {
       }
     } finally {
       countLockRef.current = false
+      setCountCheckDone(true)
     }
   }
 

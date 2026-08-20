@@ -35,9 +35,21 @@ export default function ActivityScreen() {
   useEffect(() => {
     load()
     let channel: any = null
+    // Guards against React Strict Mode's dev-mode double-invocation of
+    // this effect: cleanup can run before the async sub() below ever
+    // reaches the point of assigning `channel` (it happens after an
+    // await), so the cleanup's own `if (channel)` check has nothing to
+    // remove yet for an orphaned first invocation. Checking `cancelled`
+    // immediately after the await resolves ensures that orphaned call
+    // bails out before ever creating/subscribing a channel at all,
+    // rather than racing a second, active invocation to add listeners
+    // to an already-subscribed channel object (which Supabase's client
+    // rejects with "cannot add 'postgres_changes' callbacks ... after
+    // subscribe()").
+    let cancelled = false
     async function sub() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user || cancelled) return
       setMyId(user.id)
       channel = supabase
         .channel(`challenges-${user.id}`)
@@ -66,6 +78,7 @@ export default function ActivityScreen() {
     const poll = setInterval(() => load(), 3000)
 
     return () => {
+      cancelled = true
       if (channel) supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', onVisible)
       clearInterval(poll)

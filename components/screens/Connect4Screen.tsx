@@ -11,6 +11,7 @@ import FloatingRematchNotification from '@/components/game/FloatingRematchNotifi
 import ChatUnlockProgress from '@/components/game/ChatUnlockProgress'
 import RematchDeclinedToast from '@/components/game/RematchDeclinedToast'
 import { c4StartDiag } from '@/lib/c4StartDiag'
+import { emitScreenReady } from '@/lib/screenReadySignal'
 
 const COLS = 7, ROWS = 6
 
@@ -37,6 +38,14 @@ export default function Connect4Screen() {
   const [myId, setMyId]   = useState<string | null>(null)
   const [names, setNames] = useState<{ one: string; two: string }>({ one: 'P1', two: 'P2' })
   const [loading, setLoading] = useState(true)
+  // Signals that this screen's final board/result UI has actually
+  // rendered — fires from an effect (runs after commit/paint), not
+  // synchronously wherever setLoading(false) is called, so listeners
+  // react to the real, painted transition rather than the moment the
+  // state update was merely requested. Same pattern as TicTacToeScreen.
+  useEffect(() => {
+    if (!loading) emitScreenReady('connect4')
+  }, [loading])
   const [pairCount, setPairCount] = useState<number>(0)
   // When both users press Play Again at nearly the same time, the loser
   // of the reconciliation (whose own request wasn't canonical) stays on
