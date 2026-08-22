@@ -75,8 +75,19 @@ export default function TicTacToeScreen() {
   const [names, setNames]   = useState<{ one: string; two: string }>({ one: 'Player 1', two: 'Player 2' })
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState<string | null>(null)
+  // Signals that this screen's final board/result UI has actually
+  // rendered — fires from an effect (runs after commit/paint), not
+  // synchronously inside init() where setLoading(false) is called, so
+  // listeners react to the real, painted transition rather than the
+  // moment the state update was merely requested.
   useEffect(() => {
-    if (!loading) emitScreenReady('tictactoe')
+    // TEMPORARY DIAGNOSTIC
+    console.log('[REPAINT-DIAG]', loading ? 'TTT_LOADING_TRUE' : 'TTT_LOADING_FALSE', JSON.stringify({ timestamp: performance.now() }))
+    if (!loading) {
+      // TEMPORARY DIAGNOSTIC
+      console.log('[REPAINT-DIAG] TTT_EMIT_READY', JSON.stringify({ timestamp: performance.now() }))
+      emitScreenReady('tictactoe')
+    }
   }, [loading])
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
@@ -185,6 +196,8 @@ export default function TicTacToeScreen() {
     function isStale() { return cancelled || sessionGenerationRef.current !== myGeneration }
 
     async function init() {
+      // TEMPORARY DIAGNOSTIC
+      console.log('[REPAINT-DIAG] TTT_INIT_START', JSON.stringify({ timestamp: performance.now() }))
       // Await the old channel's removal (server-acknowledged) before ever
       // creating the new one, instead of firing removeChannel and moving
       // on immediately — sequences the two rather than letting them race,

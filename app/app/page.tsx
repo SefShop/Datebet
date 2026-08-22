@@ -436,27 +436,53 @@ function AppShell() {
   // scoped to Tic Tac Toe only for now (screenName === 'tictactoe').
   const shellRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
+    // TEMPORARY DIAGNOSTIC
+    console.log('[REPAINT-DIAG] SCREEN', JSON.stringify({ timestamp: performance.now(), screen }))
+
     if (typeof window === 'undefined' || window.innerWidth < 1024) return
 
     let raf1 = 0
     let raf2 = 0
-    const runRepaintWorkaround = () => {
+    const runRepaintWorkaround = (source: string) => {
+      // TEMPORARY DIAGNOSTIC
+      console.log('[REPAINT-DIAG] REPAINT_START', JSON.stringify({ timestamp: performance.now(), source, screen }))
       const el = shellRef.current
       if (!el) return
       raf1 = requestAnimationFrame(() => {
+        // TEMPORARY DIAGNOSTIC
+        console.log('[REPAINT-DIAG] RAF1', JSON.stringify({ timestamp: performance.now(), source }))
         raf2 = requestAnimationFrame(() => {
+          // TEMPORARY DIAGNOSTIC
+          console.log('[REPAINT-DIAG] RAF2', JSON.stringify({
+            timestamp: performance.now(),
+            source,
+            shellExists: !!el,
+            shellDisplay: el.style.display,
+            shellOpacity: getComputedStyle(el).opacity,
+            shellWidth: el.getBoundingClientRect().width,
+            shellHeight: el.getBoundingClientRect().height,
+            visibilityState: document.visibilityState,
+          }))
           const prevDisplay = el.style.display
+          // TEMPORARY DIAGNOSTIC
+          console.log('[REPAINT-DIAG] DISPLAY_NONE', JSON.stringify({ timestamp: performance.now(), source }))
           el.style.display = 'none'
           void el.offsetHeight // force reflow
+          // TEMPORARY DIAGNOSTIC
+          console.log('[REPAINT-DIAG] REFLOW', JSON.stringify({ timestamp: performance.now(), source }))
           el.style.display = prevDisplay
+          // TEMPORARY DIAGNOSTIC
+          console.log('[REPAINT-DIAG] DISPLAY_RESTORED', JSON.stringify({ timestamp: performance.now(), source }))
         })
       })
     }
 
     const unsubscribe = subscribeScreenReady((screenName) => {
+      // TEMPORARY DIAGNOSTIC
+      console.log('[REPAINT-DIAG] SCREEN_READY_RECEIVED', JSON.stringify({ timestamp: performance.now(), readyScreen: screenName, activeScreen: screen }))
       if (screenName !== 'tictactoe' && screenName !== 'connect4' && screenName !== 'mystery_choice') return
       if (screen !== screenName) return // only if this is still the active screen
-      runRepaintWorkaround()
+      runRepaintWorkaround('screen-ready')
     })
 
     // Direct activation trigger: the signal above only fires once per
@@ -471,7 +497,9 @@ function AppShell() {
     // React state setter, so it can't itself cause `screen` (or anything
     // else) to change and re-trigger this effect.
     if (screen === 'tictactoe' || screen === 'connect4' || screen === 'mystery_choice') {
-      runRepaintWorkaround()
+      // TEMPORARY DIAGNOSTIC
+      console.log('[REPAINT-DIAG] ACTIVATION_REQUEST', JSON.stringify({ timestamp: performance.now(), screen }))
+      runRepaintWorkaround('activation')
     }
 
     return () => {
