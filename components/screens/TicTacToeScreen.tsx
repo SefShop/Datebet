@@ -81,13 +81,7 @@ export default function TicTacToeScreen() {
   // listeners react to the real, painted transition rather than the
   // moment the state update was merely requested.
   useEffect(() => {
-    // TEMPORARY DIAGNOSTIC
-    console.log('[REPAINT-DIAG]', loading ? 'TTT_LOADING_TRUE' : 'TTT_LOADING_FALSE', JSON.stringify({ timestamp: performance.now() }))
-    if (!loading) {
-      // TEMPORARY DIAGNOSTIC
-      console.log('[REPAINT-DIAG] TTT_EMIT_READY', JSON.stringify({ timestamp: performance.now() }))
-      emitScreenReady('tictactoe')
-    }
+    if (!loading) emitScreenReady('tictactoe')
   }, [loading])
   const channelRef = useRef<any>(null)
   const activeSessionRef = useRef<string | null>(null)
@@ -196,8 +190,6 @@ export default function TicTacToeScreen() {
     function isStale() { return cancelled || sessionGenerationRef.current !== myGeneration }
 
     async function init() {
-      // TEMPORARY DIAGNOSTIC
-      console.log('[REPAINT-DIAG] TTT_INIT_START', JSON.stringify({ timestamp: performance.now() }))
       // Await the old channel's removal (server-acknowledged) before ever
       // creating the new one, instead of firing removeChannel and moving
       // on immediately — sequences the two rather than letting them race,
