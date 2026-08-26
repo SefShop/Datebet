@@ -3,6 +3,8 @@ import Image from 'next/image'
 
 import { useEffect, useRef, useState } from 'react'
 import { COPY, Lang } from '@/lib/copy'
+import DesktopComingSoon from '@/components/DesktopComingSoon'
+import { isMobileDevice } from '@/lib/deviceGate'
 
 // ── Typewriter ──────────────────────────────────────────────────
 function useTypewriter(words: string[], speed = 75, pause = 2400) {
@@ -149,7 +151,7 @@ function LanguageDropdown({ lang, setLang }: { lang: Lang; setLang: (l: Lang) =>
 }
 
 // ── Main page ───────────────────────────────────────────────────
-export default function Landing() {
+function LandingMobile() {
   const [lang, setLang] = useState<Lang>('en')
 
   // 1. First visit: detect browser language if nothing saved
@@ -495,4 +497,31 @@ export default function Landing() {
       `}</style>
     </main>
   )
+}
+
+// Desktop gate: mobile-first launch — desktop/laptop browsers see the
+// same branded holding experience as desktop /app, instead of this
+// mobile-oriented landing page; only actual mobile phones see this
+// landing page. Same tri-state DEVICE-classification gate as
+// app/app/page.tsx (shared via lib/deviceGate.ts, and the same
+// DesktopComingSoon component — not duplicated): null means "not
+// resolved yet", during which neither this mobile landing page nor
+// DesktopComingSoon mounts, only a minimal neutral shell — avoiding both
+// a flash of the wrong experience and any hydration mismatch (server and
+// first client render both use this same null state). This is device
+// classification, not a viewport-width/matchMedia check — a desktop
+// browser window must never be reclassified as mobile just because it's
+// resized narrower.
+export default function Landing() {
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setIsDesktop(!isMobileDevice())
+  }, [])
+
+  if (isDesktop === null) {
+    return <div style={{ minHeight: '100vh', width: '100%', background: '#0a0a10' }} />
+  }
+  if (isDesktop) return <DesktopComingSoon />
+  return <LandingMobile />
 }

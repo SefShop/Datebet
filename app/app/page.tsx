@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { subscribeScreenReady } from '@/lib/screenReadySignal'
+import DesktopComingSoon from '@/components/DesktopComingSoon'
 import { startMessagesPolling, stopMessagesPolling, refreshMessagesState } from '@/lib/messagesState'
 import { startNotificationsPolling, stopNotificationsPolling } from '@/lib/notificationsState'
 import { startPresence, stopPresence, setOnline, setOffline, heartbeat } from '@/lib/presence'
@@ -31,6 +32,7 @@ import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { clearProfileState, setCurrentMatch } from '@/lib/profiles'
 import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, setCurrentSession, clearGameState, isValidActiveGameSession, isRematchInProgress, isEnteringGame, setEnteringGame, restorePersistedActiveSession } from '@/lib/gameInvites'
+import { isMobileDevice } from '@/lib/deviceGate'
 // SocialPresence removed
 
 const SCREENS = {
@@ -614,5 +616,31 @@ function AppShell() {
 }
 
 export default function Page() {
+  // Desktop gate: mobile-first launch — desktop/laptop browsers see a
+  // holding screen instead of the app; only actual mobile phones see the
+  // real app. This is DEVICE classification (see lib/deviceGate.ts), not
+  // a viewport-width/matchMedia check — a desktop browser window must
+  // never be reclassified as mobile just because it's resized narrower.
+  // Tri-state rather than a plain boolean: null means "not resolved yet",
+  // and AppShell must never mount during that state — a plain
+  // `useState(false)` would let AppShell mount first (starting
+  // auth/session/Supabase/game initialization) on a genuine desktop
+  // browser too, only to be replaced by DesktopComingSoon a moment later,
+  // defeating part of the gate's purpose. The server render and the
+  // client's first render both use this same null state (so there's no
+  // hydration mismatch); only after mount is the device classified, once,
+  // and it does not change again for the life of the page.
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setIsDesktop(!isMobileDevice())
+  }, [])
+
+  if (isDesktop === null) {
+    // Viewport not resolved yet — minimal, neutral shell only. No
+    // Supabase, no AppProvider, no AppShell, no game/session logic.
+    return <div style={{ minHeight: '100vh', width: '100%', background: '#0a0a10' }} />
+  }
+  if (isDesktop) return <DesktopComingSoon />
   return <AppProvider><AppShell /></AppProvider>
 }
