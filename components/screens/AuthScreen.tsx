@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
 import { supabase } from '@/lib/supabase'
 
 interface Props { onAuth: () => void; lang?: 'en' | 'gr' }
@@ -28,6 +29,20 @@ const C = {
     footerBack: 'Already have an account?', footerActionBack: 'Sign in',
     connecting: 'connecting...',
     legalPre: 'By continuing, you agree to our ', legalTerms: 'Terms of Service', legalAnd: ' and ', legalPrivacy: 'Privacy Policy',
+    // ── Sign Up MASTER intro screen (approved reference, separate from the
+    // Sign In copy above — this screen has its own headline/copy) ──
+    suHeading0: 'Create your', suHeadingAccent: 'account',
+    suSub: 'It all starts with a match',
+    suGoogle: 'Continue with Google', suFacebook: 'Continue with Facebook', suOr: 'OR', suEmail: 'Continue with email',
+    suAgeNotice: 'You must be 18 or older to use DateDuel.',
+    suLegalPre: 'By continuing, you agree to our ', suLegalTerms: 'Terms of Service', suLegalAnd: ' and acknowledge our ', suLegalPrivacy: 'Privacy Policy', suLegalPost: '.',
+    suAlready: 'Already have an account?', suLogin: 'Log in',
+    // ── NEW Sign In "main" screen — same visual design system as the
+    // approved Sign Up main screen above, own headline/copy ──
+    siHeading: 'Welcome back!',
+    siSubPre: 'Continue your ', siSubAccent: 'DateDuel', siSubPost: ' journey',
+    siNewHere: 'New to DateDuel?', siSignUp: 'Sign up',
+    back: 'Back',
   },
   gr: {
     tabIn: 'Σύνδεση', tabUp: 'Δημιουργία',
@@ -46,7 +61,217 @@ const C = {
     footerBack: 'Έχεις ήδη λογαριασμό;', footerActionBack: 'Σύνδεση',
     connecting: 'σύνδεση...',
     legalPre: 'Συνεχίζοντας, αποδέχεσαι τους ', legalTerms: 'Όρους Χρήσης', legalAnd: ' και την ', legalPrivacy: 'Πολιτική Απορρήτου',
+    // ── Sign Up MASTER intro screen (approved reference, separate from the
+    // Sign In copy above — this screen has its own headline/copy) ──
+    suHeading0: 'Δημιούργησε τον', suHeadingAccent: 'λογαριασμό σου',
+    suSub: 'Όλα ξεκινούν με ένα match',
+    suGoogle: 'Συνέχεια με Google', suFacebook: 'Συνέχεια με Facebook', suOr: 'Ή', suEmail: 'Συνέχεια με email',
+    suAgeNotice: 'Πρέπει να είσαι 18+ για να χρησιμοποιήσεις το DateDuel.',
+    suLegalPre: 'Συνεχίζοντας, αποδέχεσαι τους ', suLegalTerms: 'Όρους Χρήσης', suLegalAnd: ' και αναγνωρίζεις την ', suLegalPrivacy: 'Πολιτική Απορρήτου', suLegalPost: '.',
+    suAlready: 'Έχεις ήδη λογαριασμό;', suLogin: 'Σύνδεση',
+    // ── NEW Sign In "main" screen — same visual design system as the
+    // approved Sign Up main screen above, own headline/copy ──
+    siHeading: 'Καλώς ήρθες πίσω!',
+    siSubPre: 'Συνέχισε το ταξίδι σου στο ', siSubAccent: 'DateDuel', siSubPost: '',
+    siNewHere: 'Καινούριος/α στο DateDuel;', siSignUp: 'Εγγραφή',
+    back: 'Πίσω',
   },
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AuthMain — the main-screen entry point for BOTH Sign In and Sign Up,
+// sharing one visual design system (this is the approved Sign Up MASTER
+// composition: logo → headline → Google → Facebook → OR → email → [18+
+// notice, Sign Up only] → legal/footer link). `kind` selects which
+// headline/footer copy renders; the header art, buttons and layout system
+// are identical for both, per "NEW Sign In Main must use the SAME visual
+// design system as the already-approved NEW Sign Up" — no new MASTER image
+// was required or used for Sign In.
+//
+// Decorative artwork (corner heart / chat-bubble / star / game-controller,
+// the bottom ring glow) is extracted raster crops from the approved Sign
+// Up MASTER image (public/brand/dateduel-signup-*-master.png) — reused
+// here unchanged for Sign In too, since no new master exists for it and
+// none was requested. The faint corner sparkle dust remains simple SVG
+// (falls under "simple UI shapes may remain SVG").
+// ─────────────────────────────────────────────────────────────────────────
+function AuthMain({ kind, t, lang, show, onGoogle, onEmail, onSwitch }: {
+  kind: 'signin' | 'signup'; t: typeof C['en']; lang: 'en' | 'gr'; show: boolean
+  onGoogle: () => void; onEmail: () => void; onSwitch: () => void
+}) {
+  const stop = (e: ReactMouseEvent) => e.preventDefault()
+  return (
+    <div className="dd-auth-master relative z-10 flex flex-col h-full justify-center px-4 mx-auto w-full"
+      style={{ maxWidth: 390, paddingTop: 'var(--su-outer-pad-top)', paddingBottom: 'var(--su-outer-pad-bottom)' }}>
+
+      {/* ── Header: DD mark + wordmark + tagline, with the larger corner
+          decorative artwork from the MASTER positioned around it. The
+          decorations are absolutely positioned (non-flow) so they never
+          add to the vertical space budget the no-scroll requirement has
+          to fit inside. ── */}
+      <div className="relative text-center flex-shrink-0" style={{ opacity: show ? 1 : 0, transform: show ? 'translateY(0)' : 'translateY(-10px)', transition: 'all 0.6s ease' }}>
+
+        {/* A wide "ambient arcs" MASTER crop (orbital lines + particle dust
+            behind the whole header) was tried here and extracted cleanly,
+            but was reverted: the erased "hole" needed for the live
+            mark/wordmark/tagline only lines up with them at the MASTER's
+            own exact scale, and this screen's header uses its own tuned
+            CSS-variable sizing (not a 1:1 scale copy of the MASTER) to hit
+            the no-scroll budget across three viewport tiers — so the crop
+            visibly drifted out of alignment with the live text at
+            non-native sizes (ghosting under "PLAY · CONNECT · MATCH").
+            Rather than risk a visible artifact, the ambient background was
+            left out of this pass; the sparkle dust below remains simple
+            SVG (justified: "simple UI shapes may remain SVG"). See the
+            implementation report for this as a disclosed, deliberate
+            trade-off. */}
+        {[{ l: '20%', t: '0%', s: 7 }, { l: '80%', t: '4%', s: 6 }, { l: '10%', t: '46%', s: 5 }, { l: '90%', t: '50%', s: 6 }].map((s, i) => (
+          <span key={i} aria-hidden className="absolute" style={{ left: s.l, top: s.t, fontSize: s.s, color: 'rgba(255,255,255,0.4)' }}>✦</span>
+        ))}
+
+        {/* Heart / chat bubble / star / game controller — exact pixel crops
+            extracted directly from the approved Sign Up MASTER image (not
+            redrawn), alpha-keyed against the MASTER's own near-black
+            background so they composite cleanly onto this screen's
+            background. Absolutely positioned (non-flow) so they never add
+            to the vertical space budget the no-scroll requirement has to
+            fit inside. */}
+        <img aria-hidden src="/brand/dateduel-signup-heart-master.png" alt="" className="absolute"
+          style={{ left: 'var(--su-heart-l)', top: 'var(--su-heart-t)', width: 'var(--su-heart-s)', height: 'auto', aspectRatio: '150/135', opacity: 0.92 }} />
+        <img aria-hidden src="/brand/dateduel-signup-chat-master.png" alt="" className="absolute"
+          style={{ right: 'var(--su-chat-r)', top: 'var(--su-chat-t)', width: 'var(--su-chat-s)', height: 'auto', aspectRatio: '178/135', opacity: 0.9 }} />
+        <img aria-hidden src="/brand/dateduel-signup-star-master.png" alt="" className="absolute"
+          style={{ left: 'var(--su-star-l)', top: 'var(--su-star-t)', width: 'var(--su-star-s)', height: 'auto', aspectRatio: '137/125', opacity: 0.85 }} />
+        <img aria-hidden src="/brand/dateduel-signup-controller-master.png" alt="" className="absolute"
+          style={{ right: 'var(--su-ctrl-r)', top: 'var(--su-ctrl-t)', width: 'var(--su-ctrl-s)', height: 'auto', aspectRatio: '197/175', opacity: 0.85 }} />
+
+        {/* NOTE: the MASTER has no ring drawn behind the DD mark itself
+            (confirmed by direct pixel inspection) — only ambient glow. The
+            previous inline-SVG ring here was an invented element not
+            present in the MASTER, so it has been removed rather than
+            converted to raster, per "do not redesign / match the MASTER
+            exactly". */}
+        <div className="relative mx-auto" style={{ width: 'var(--su-ring)', height: 'var(--su-ring)' }}>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <img src={LOGO_MARK_SRC} alt="DateDuel" style={{ display: 'block', height: 'var(--su-mark)', width: `calc(var(--su-mark) * ${LOGO_MARK_RATIO})`, objectFit: 'contain' }} />
+          </div>
+        </div>
+
+        <h2 className="font-extrabold tracking-[-0.5px]" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 'var(--su-wm-size)', marginTop: 'var(--su-gap-mw)' }}>
+          <span className="text-white">Date</span><span style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
+        </h2>
+        <p className="font-bold tracking-[3px] uppercase" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 'var(--su-tag-size)', marginTop: 'var(--su-gap-wt)' }}>
+          PLAY · CONNECT · MATCH
+        </p>
+      </div>
+
+      {/* ── Headline: kind-aware. Sign Up: "Create your account" / "It all
+          starts with a match" (approved MASTER copy, unchanged). Sign In:
+          "Welcome back!" / "Continue your DateDuel journey" — same type
+          treatment/sizing, new copy, no new master image required. ── */}
+      <div className="text-center flex-shrink-0" style={{ marginTop: 'var(--su-headline-mt)', opacity: show ? 1 : 0, transform: show ? 'translateY(0)' : 'translateY(16px)', transition: 'all 0.7s 0.1s cubic-bezier(0.16,1,0.3,1)' }}>
+        {kind === 'signup' ? (
+          <>
+            <h1 className="font-extrabold leading-tight tracking-[-0.5px]" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 'var(--su-h1-size)' }}>
+              <span className="text-white">{t.suHeading0} </span>
+              <span style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{t.suHeadingAccent}</span>
+            </h1>
+            <p className="font-semibold leading-snug" style={{ color: 'rgba(255,255,255,0.6)', fontSize: 'var(--su-sub-size)', marginTop: 'var(--su-gap-h1h2)' }}>
+              {t.suSub} <span style={{ color: '#ff3384' }}>♥</span>
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="font-extrabold leading-tight tracking-[-0.5px]" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 'var(--su-h1-size)' }}>
+              <span className="text-white">{t.siHeading}</span>
+            </h1>
+            <p className="font-semibold leading-snug" style={{ color: 'rgba(255,255,255,0.6)', fontSize: 'var(--su-sub-size)', marginTop: 'var(--su-gap-h1h2)' }}>
+              {t.siSubPre}<span style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: 700 }}>{t.siSubAccent}</span>{t.siSubPost}
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* ── Google / Facebook / OR / email ── */}
+      <div className="flex-shrink-0" style={{ marginTop: 'var(--su-buttons-mt)', opacity: show ? 1 : 0, transform: show ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.7s 0.2s cubic-bezier(0.16,1,0.3,1)' }}>
+        <button onClick={onGoogle} aria-label={t.suGoogle}
+          className="w-full rounded-2xl flex items-center justify-center gap-2.5 font-bold transition-all active:scale-[0.97] cursor-pointer"
+          style={{ paddingTop: 'var(--su-btn-pad-y)', paddingBottom: 'var(--su-btn-pad-y)', fontSize: 'var(--su-btn-size)', background: '#fff', color: '#1a1a1a', boxShadow: '0 10px 28px rgba(0,0,0,0.25)' }}>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 001 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          {t.suGoogle}
+        </button>
+
+        {/* Facebook — visual parity with the approved MASTER, but NOT wired
+            to a real auth provider: no Facebook app is configured in
+            Supabase for this project yet. Disabled/inert rather than a
+            fake working button — no OAuth request is triggered, no fake
+            success state. Configuring real Facebook auth is a separate,
+            future task. */}
+        <button type="button" disabled aria-label={t.suFacebook} title={lang === 'gr' ? 'Σύντομα διαθέσιμο' : 'Coming soon'}
+          className="w-full rounded-2xl flex items-center justify-center gap-2.5 font-bold cursor-not-allowed"
+          style={{ marginTop: 'var(--su-btn-gap)', paddingTop: 'var(--su-btn-pad-y)', paddingBottom: 'var(--su-btn-pad-y)', fontSize: 'var(--su-btn-size)', background: '#1877F2', color: '#fff', opacity: 0.55 }}>
+          <svg width="19" height="19" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#fff" fillOpacity="0.15"/><path d="M15.1 12.7h-2v7.1h-2.9v-7.1H8.6v-2.5h1.6V8.6c0-1.6.8-3.1 3.2-3.1h2.1v2.4h-1.5c-.3 0-.7.2-.7.9v1.4h2.2l-.4 2.5Z" fill="#fff"/></svg>
+          {t.suFacebook}
+        </button>
+
+        <div className="flex items-center gap-3" style={{ marginTop: 'var(--su-btn-gap)' }}>
+          <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg,transparent,rgba(255,51,132,0.4))' }} />
+          <span className="font-bold tracking-[2px]" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 'var(--su-or-size)' }}>{t.suOr}</span>
+          <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg,rgba(139,123,255,0.4),transparent)' }} />
+        </div>
+
+        <button onClick={onEmail} aria-label={t.suEmail}
+          className="w-full rounded-2xl flex items-center justify-center gap-2.5 font-bold transition-all active:scale-[0.97] cursor-pointer"
+          style={{ marginTop: 'var(--su-btn-gap)', paddingTop: 'var(--su-btn-pad-y)', paddingBottom: 'var(--su-btn-pad-y)', fontSize: 'var(--su-btn-size)', background: 'rgba(255,255,255,0.059)', color: '#fff', border: '1.5px solid rgba(255,255,255,0.14)' }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          {t.suEmail}
+        </button>
+      </div>
+
+      {/* ── 18+ notice — Sign Up only, text-only per the approved MASTER:
+          NO real age verification happens on this screen. Real DOB/age
+          enforcement is deferred to a future "About You" onboarding step.
+          Not part of Sign In — an existing user already passed this check
+          at signup, so re-showing it here would be redundant. ── */}
+      {kind === 'signup' && (
+        <div className="flex-shrink-0" style={{ marginTop: 'var(--su-box-mt)', opacity: show ? 1 : 0, transition: 'opacity 0.6s 0.3s ease' }}>
+          <div className="flex items-start" style={{ gap: 'var(--su-box-gap)', padding: 'var(--su-box-pad)', borderRadius: 18, background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <svg aria-hidden viewBox="0 0 30 28" fill="none" style={{ width: 'var(--su-shield-s)', height: 'calc(var(--su-shield-s) * 0.93)', flexShrink: 0, marginTop: 1 }}>
+              <path d="M15 1 27 5v7c0 7-5.4 11.6-12 14C8.4 23.6 3 19 3 12V5Z" stroke="#ff3384" strokeWidth="1.6" strokeLinejoin="round"/>
+              <text x="15" y="16.5" textAnchor="middle" fontSize="9" fontWeight="800" fill="#ff3384" fontFamily="'Plus Jakarta Sans',sans-serif">18+</text>
+            </svg>
+            <p style={{ fontSize: 'var(--su-notice-size)', lineHeight: 'var(--su-notice-lh)' }}>
+              <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.75)' }}>{t.suAgeNotice}</span>{' '}
+              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 'var(--su-legal-size)' }}>
+                {t.suLegalPre}
+                <a href="#" onClick={stop} style={{ color: '#ff3384', fontWeight: 600 }}>{t.suLegalTerms}</a>
+                {t.suLegalAnd}
+                <a href="#" onClick={stop} style={{ color: '#a996ff', fontWeight: 600 }}>{t.suLegalPrivacy}</a>
+                {t.suLegalPost}
+              </span>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Footer link — kind-aware: "Already have an account? Log in"
+          (Sign Up) / "New to DateDuel? Sign up" (Sign In) — with the bottom
+          neon ring composition positioned behind it. This is an exact
+          MASTER crop (public/brand/dateduel-signup-bottomring-master.png),
+          not a redrawn approximation — the login text and the
+          home-indicator strip were alpha-erased (feathered) out of the
+          crop since the link text renders live on top and the home
+          indicator is an iOS system element, not app content. ── */}
+      <div className="relative text-center flex-shrink-0" style={{ marginTop: 'var(--su-login-mt)', opacity: show ? 1 : 0, transition: 'opacity 0.6s 0.4s ease' }}>
+        <img aria-hidden src="/brand/dateduel-signup-bottomring-master.png" alt=""
+          className="absolute pointer-events-none" style={{ left: '50%', bottom: -14, transform: 'translateX(-50%)', width: 'var(--su-ringglow-w)', height: 'auto', aspectRatio: '852/246', zIndex: -1 }} />
+        <button onClick={onSwitch} className="active:opacity-60 transition-opacity cursor-pointer" style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'var(--su-login-size)', background: 'none', border: 'none', padding: 0 }}>
+          {kind === 'signup' ? t.suAlready : t.siNewHere}{' '}
+          <span style={{ color: '#ff3384', fontWeight: 700 }}>{kind === 'signup' ? t.suLogin : t.siSignUp}</span>
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
@@ -58,8 +283,13 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
   const [email, setEmail]     = useState('')
   const [pass, setPass]       = useState('')
   const [name, setName]       = useState('')
-  const [age, setAge]         = useState('')
   const [mode, setMode]       = useState<'signin'|'signup'>('signin')
+  // 'main' = the branded choice screen (Google/Facebook/OR/email) for
+  // whichever mode is active; 'email' = the reused email/password form,
+  // reached via "Continue with email" on either main screen. Defaults to
+  // 'main' so /app opens on the NEW Sign In Main for an unauthenticated
+  // user, never on the old immediate email/password card.
+  const [step, setStep] = useState<'main'|'email'>('main')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string|null>(null)
   const [successMsg, setSuccessMsg] = useState<string|null>(null)
@@ -76,7 +306,11 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
     setLoading(true); setError(null); setSuccessMsg(null)
     try {
       if (mode === 'signup') {
-        if (!name || !age) { setError(lang==='gr'?'Συμπλήρωσε όνομα και ηλικία':'Fill in name and age'); setLoading(false); return }
+        // Age is intentionally NOT collected on this screen — the 18+
+        // requirement is stated as a notice only here (no real age
+        // verification on Sign Up); real DOB/age enforcement is deferred to
+        // a future "About You" onboarding step, not part of this task.
+        if (!name) { setError(lang==='gr'?'Συμπλήρωσε το όνομά σου':'Fill in your name'); setLoading(false); return }
         console.log('AUTH SIGNUP START')
         // Pass the entered name into auth metadata too — this closes a race
         // condition where the app-shell's own onAuthStateChange listener
@@ -88,7 +322,7 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
         // to a generic default.
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email, password: pass,
-          options: { data: { full_name: name, age: parseInt(age) || 0 } },
+          options: { data: { full_name: name } },
         })
         if (authError) { setError(authError.message); setLoading(false); return }
         console.log('SIGNUP AUTH USER CREATED:', authData.user?.id)
@@ -96,7 +330,7 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
         const userId = authData.user?.id
         if (userId) {
           try {
-            await ensureProfile(userId, { name, age: parseInt(age) || 0 })
+            await ensureProfile(userId, { name })
             const { data: verify } = await supabase.from('profiles').select('id, name, age').eq('id', userId).maybeSingle()
             console.log('ONBOARDING PROFILE VERIFY:', verify)
             if (!verify || !verify.name || verify.name !== name) {
@@ -253,8 +487,41 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
           height-responsive CSS variables (see the <style> block) so the
           whole composition fits the real dynamic viewport without
           scrolling, instead of relying on overflow-y to reach lower
-          content. ── */}
+          content. ──
+          Both Sign In and Sign Up now open on their own "main" screen
+          (AuthMain, above): logo/headline/Google/Facebook/OR/email/[18+
+          notice for Sign Up]/legal/footer-link — the same visual design
+          system for both, matching the approved Sign Up MASTER. This is
+          the default screen an unauthenticated user sees at /app (mode
+          starts 'signin', step starts 'main'); the OLD immediate
+          email/password card is no longer the entry screen for either
+          mode. The shared card below (its own CSS-variable tiers,
+          untouched) is reused — without tabs and without the divider/
+          social row (those choices now live on the main screen), plus a
+          "Back" link — as the Email Sign In / Email Sign Up sub-step
+          reached via "Continue with email" on either main screen. This
+          keeps Google auth, email auth and the Sign In password logic
+          wired to the exact same tested code paths. */}
+      {step === 'main' ? (
+        <AuthMain
+          kind={mode} t={t} lang={lang} show={show}
+          onGoogle={googleLogin}
+          onEmail={() => { setStep('email'); setError(null); setSuccessMsg(null) }}
+          onSwitch={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setStep('main'); setError(null); setSuccessMsg(null) }}
+        />
+      ) : (
       <div className="relative z-10 flex flex-col h-full px-4 mx-auto w-full" style={{ maxWidth:390, paddingTop:'var(--outer-pad-top)', paddingBottom:'var(--outer-pad-bottom)' }}>
+
+        {/* ── Back — returns to the main screen for whichever mode is
+            active (Sign In Main or Sign Up Main), without switching mode.
+            Replaces the old tabs, which are no longer needed here now that
+            both main screens own the Sign In / Sign Up choice. ── */}
+        <button type="button" onClick={() => { setStep('main'); setError(null); setSuccessMsg(null) }}
+          className="inline-flex items-center gap-1 cursor-pointer active:opacity-60 transition-opacity self-start"
+          style={{ color:'rgba(255,255,255,0.5)', fontSize:13, fontWeight:600, background:'none', border:'none', padding:0, marginBottom:10 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          {t.back}
+        </button>
 
         {/* ── Brand header: DD mark in an orbital ring + wordmark + tagline ── */}
         <div className="relative text-center" style={{ opacity:show?1:0, transform:show?'translateY(0)':'translateY(-10px)', transition:'all 0.6s ease' }}>
@@ -339,47 +606,26 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
           transition:'all 0.7s 0.2s cubic-bezier(0.16,1,0.3,1)',
         }}>
 
-          {/* Tabs */}
-          <div className="flex rounded-2xl overflow-hidden" style={{ marginBottom:'var(--tab-mb)', background:'rgba(255,255,255,0.047)', border:'1px solid rgba(255,255,255,0.071)' }}>
-            {(['signin','signup'] as const).map(m => (
-              <button key={m} onClick={() => { setMode(m); setError(null); setSuccessMsg(null) }}
-                className="flex-1 text-[13px] font-bold transition-all duration-300 cursor-pointer relative"
-                style={{ color: mode===m ? '#fff' : 'rgba(255,255,255,0.413)', paddingTop:'var(--tab-pad-y)', paddingBottom:'var(--tab-pad-y)' }}>
-                {m==='signin' ? t.tabIn : t.tabUp}
-                {mode===m && <div className="absolute bottom-0 left-[20%] right-[20%] h-[2px] rounded-full" style={{ background:'linear-gradient(90deg,#ff3384,#d84dd8)' }} />}
-              </button>
-            ))}
-          </div>
+          {/* Tabs removed — Sign In / Sign Up are now chosen on the main
+              screens (AuthMain, above), reached via "Back". This card is
+              only ever shown for the mode the user already picked. */}
 
-          {/* Name + Age (signup only) */}
+          {/* Name (signup only — Age is intentionally NOT collected on this
+              screen; see the 18+ notice further down and the code comment
+              on submit() for why). */}
           {mode === 'signup' && (
-            <div className="flex gap-2.5" style={{ marginBottom:'var(--field-mb)' }}>
-              <div className="relative flex-1">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px]" style={{ color: focus==='n' ? '#ff3384' : 'rgba(255,255,255,0.295)', transition:'color 0.3s' }}>👤</div>
-                <input value={name} onChange={e=>setName(e.target.value)}
-                  type="text" placeholder={lang==='gr'?'Όνομα':'Name'}
-                  onFocus={()=>setFocus('n')} onBlur={()=>setFocus(null)}
-                  className="w-full rounded-2xl pl-10 pr-4 text-[14px] outline-none transition-all duration-300"
-                  style={{
-                    paddingTop:'var(--field-pad-y)', paddingBottom:'var(--field-pad-y)',
-                    background:'rgba(255,255,255,0.059)', color:'#fff', caretColor:'#ff3384',
-                    border: focus==='n' ? '1.5px solid rgba(253,41,123,0.59)' : '1.5px solid rgba(255,255,255,0.083)',
-                    boxShadow: focus==='n' ? '0 0 24px rgba(253,41,123,0.142)' : 'none',
-                  }} />
-              </div>
-              <div className="relative" style={{ width: 90 }}>
-                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px]" style={{ color: focus==='a' ? '#ff3384' : 'rgba(255,255,255,0.295)', transition:'color 0.3s' }}>🎂</div>
-                <input value={age} onChange={e=>setAge(e.target.value.replace(/\D/g,''))}
-                  type="text" placeholder={lang==='gr'?'Ηλικία':'Age'} inputMode="numeric" maxLength={2}
-                  onFocus={()=>setFocus('a')} onBlur={()=>setFocus(null)}
-                  className="w-full rounded-2xl pl-10 pr-3 text-[14px] outline-none transition-all duration-300"
-                  style={{
-                    paddingTop:'var(--field-pad-y)', paddingBottom:'var(--field-pad-y)',
-                    background:'rgba(255,255,255,0.059)', color:'#fff', caretColor:'#ff3384',
-                    border: focus==='a' ? '1.5px solid rgba(253,41,123,0.59)' : '1.5px solid rgba(255,255,255,0.083)',
-                    boxShadow: focus==='a' ? '0 0 24px rgba(253,41,123,0.142)' : 'none',
-                  }} />
-              </div>
+            <div className="relative" style={{ marginBottom:'var(--field-mb)' }}>
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px]" style={{ color: focus==='n' ? '#ff3384' : 'rgba(255,255,255,0.295)', transition:'color 0.3s' }}>👤</div>
+              <input value={name} onChange={e=>setName(e.target.value)}
+                type="text" placeholder={lang==='gr'?'Όνομα':'Name'}
+                onFocus={()=>setFocus('n')} onBlur={()=>setFocus(null)}
+                className="w-full rounded-2xl pl-10 pr-4 text-[14px] outline-none transition-all duration-300"
+                style={{
+                  paddingTop:'var(--field-pad-y)', paddingBottom:'var(--field-pad-y)',
+                  background:'rgba(255,255,255,0.059)', color:'#fff', caretColor:'#ff3384',
+                  border: focus==='n' ? '1.5px solid rgba(253,41,123,0.59)' : '1.5px solid rgba(255,255,255,0.083)',
+                  boxShadow: focus==='n' ? '0 0 24px rgba(253,41,123,0.142)' : 'none',
+                }} />
             </div>
           )}
 
@@ -479,50 +725,20 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
             ) : t.ctaUp)}
           </button>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3" style={{ marginTop:'var(--divider-my)', marginBottom:'var(--divider-my)' }}>
-            <div className="flex-1 h-px" style={{ background:'rgba(255,255,255,0.094)' }} />
-            <span className="text-[11px] font-medium" style={{ color:'rgba(255,255,255,0.236)' }}>{t.or}</span>
-            <div className="flex-1 h-px" style={{ background:'rgba(255,255,255,0.094)' }} />
-          </div>
-
-          {/* Social row — Google is the real, working provider already
-              configured in this project. Apple/Facebook are shown for
-              visual parity with the approved reference but are not wired
-              to a real auth provider (none is configured in Supabase for
-              this project), so they are inert/disabled rather than fake
-              working buttons. */}
-          <div className="flex items-center gap-2.5">
-            <button onClick={googleLogin} aria-label={t.google}
-              className="flex-1 rounded-2xl flex items-center justify-center transition-all active:scale-[0.97] cursor-pointer"
-              style={{ paddingTop:'var(--social-pad-y)', paddingBottom:'var(--social-pad-y)', background:'rgba(255,255,255,0.047)', border:'1px solid rgba(255,255,255,0.094)' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 001 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-            </button>
-            <button type="button" disabled aria-label={t.apple} title={t.apple}
-              className="flex-1 rounded-2xl flex items-center justify-center cursor-not-allowed"
-              style={{ paddingTop:'var(--social-pad-y)', paddingBottom:'var(--social-pad-y)', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', opacity:0.4 }}>
-              <svg width="16" height="18" viewBox="0 0 17 20" fill="#fff"><path d="M13.9 10.6c0-2 1.6-3 1.7-3.1-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.2.8-.6 0-1.7-.7-2.8-.7-1.4 0-2.8.8-3.5 2.1-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.8 2.1 1.1 0 1.5-.7 2.9-.7s1.7.7 2.9.7c1.2 0 2-1 2.7-2 .9-1.2 1.2-2.3 1.2-2.4-.1 0-2.3-.9-2.8-3.8ZM11.7 4.4c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 1.9-.5 2.5-1.2Z"/></svg>
-            </button>
-            <button type="button" disabled aria-label={t.facebook} title={t.facebook}
-              className="flex-1 rounded-2xl flex items-center justify-center cursor-not-allowed"
-              style={{ paddingTop:'var(--social-pad-y)', paddingBottom:'var(--social-pad-y)', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', opacity:0.4 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.1 12.7h-2v7.1h-2.9v-7.1H8.6v-2.5h1.6V8.6c0-1.6.8-3.1 3.2-3.1h2.1v2.4h-1.5c-.3 0-.7.2-.7.9v1.4h2.2l-.4 2.5Z" fill="#fff"/></svg>
-            </button>
-          </div>
+          {/* Divider + social row removed from this card — Google /
+              Facebook / email are already offered as the primary choice on
+              the main screen (AuthMain, above) for both Sign In and Sign
+              Up; this inner card is now reached only via "Continue with
+              email", so repeating the social row here would duplicate it.
+              "Back" (top of this card) returns to that main screen. */}
         </div>
 
-        {/* Footer toggle — mode-aware, Sign-In direction copy matches MASTER */}
-        <div className="text-center" style={{ marginTop:'var(--footer-mt)', marginBottom:'var(--footer-mb)' }}>
-          <button onClick={() => { setMode(mode==='signin'?'signup':'signin'); setError(null); setSuccessMsg(null) }}
-            className="active:opacity-60 transition-opacity cursor-pointer"
-            style={{ color:'rgba(255,255,255,0.354)', fontSize:'var(--create-size)' }}>
-            {mode==='signin' ? t.newHere : t.footerBack}{' '}
-            <span style={{ color:'#ff3384', fontWeight:600 }}>{mode==='signin' ? t.createAccount : t.footerActionBack}</span>
-          </button>
-        </div>
+        {/* Footer toggle removed — replaced by "Back" (top of this card),
+            which returns to the main screen for the active mode; that main
+            screen carries its own Sign In ⇄ Sign Up cross-link. */}
 
         {/* ── Bottom brand art: neon double-heart horizon glow (decorative only) ── */}
-        <div className="flex justify-center" style={{ opacity:show?1:0, transition:'opacity 0.6s 0.5s ease' }}>
+        <div className="flex justify-center" style={{ marginTop:'var(--footer-mt)', opacity:show?1:0, transition:'opacity 0.6s 0.5s ease' }}>
           <svg viewBox="0 0 72 52" aria-hidden style={{ width:'var(--hearts-w)', height:'var(--hearts-h)' }}>
             <defs>
               <filter id="authHeartGlow" x="-60%" y="-60%" width="220%" height="220%">
@@ -547,16 +763,31 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
         </div>
 
       </div>
+      )}
 
       <style>{`
         /* ── Three height MODES (no redesign — sizing/spacing only) ──
-           MODE A — LARGE MOBILE   : viewport height >= 820px (base values below, no query needed)
-           MODE B — NORMAL MOBILE  : 700px – 819px  → @media (max-height: 819px)  [primary safe layout, ref ~390x740]
+           MODE A — LARGE MOBILE   : viewport height >= 900px (base values below, no query needed)
+           MODE B — NORMAL MOBILE  : 700px – 899px  → @media (max-height: 899px)  [primary safe layout, ref ~390x740..393x852]
            MODE C — SHORT MOBILE   : < 700px         → @media (max-height: 699px)
            Sizes are tuned to fill the screen (no giant empty band under the
            legal text) while still guaranteeing zero scroll — verified via
            forced-scroll + getBoundingClientRect measurement, not just
-           scrollHeight<=clientHeight. */
+           scrollHeight<=clientHeight.
+           COMPACT FIT REFINEMENT (real-phone pass): the MODE A/B boundary
+           was moved from 819px up to 899px. Real Android phones in Chrome
+           commonly report a 100dvh viewport height in the ~830-860px band
+           (e.g. 844, 852) once the address bar auto-hides — under the old
+           819px cutoff those devices landed in the spacious MODE A tier,
+           which is what made the composition read "too tall / vertically
+           spread out" on the real-device test. Widening MODE B's range to
+           899px brings that exact real-phone band into the already-tuned,
+           already-verified-zero-scroll compact tier without touching any
+           of its values (MODE B was proven safe down to 700px height, so
+           it only gets *more* comfortable at 844-852px, never tighter).
+           Devices taller than 899px (e.g. 430x932) still get the spacious
+           MODE A treatment untouched, per "when height is larger, preserve
+           the current approved spacious design". */
         .dd-auth-root {
           height: 100vh; height: 100dvh;
           min-height: 100vh; min-height: 100dvh;
@@ -605,8 +836,8 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
           --legal-size: 11px;
           --create-size: 14px;
         }
-        @media (max-height: 819px) {
-          /* MODE B — NORMAL (700–819px), reference viewport ~390x740 */
+        @media (max-height: 899px) {
+          /* MODE B — NORMAL (700–899px), reference viewport ~390x740..393x852 */
           .dd-auth-root {
             --outer-pad-top: 8px;
             --outer-pad-bottom: 8px;
@@ -677,6 +908,141 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
             --legal-mt: 4px;
             --legal-size: 10px;
             --create-size: 13px;
+          }
+        }
+        /* ── AuthMain (Sign In Main + Sign Up Main) — own, independent
+           CSS-variable tier system (distinct names, .dd-auth-master scope
+           only, var names still "su-" prefixed for historical reasons —
+           they are shared by both main screens now) so it can never
+           interact with or drift the existing .dd-auth-root tiers above,
+           which continue to govern the reused email sub-step (both Sign In
+           and Sign Up) untouched. Same 3-MODE approach: MODE A (>=900px),
+           MODE B (700-899px), MODE C (<700px, covers the 375x667
+           hard-requirement case). Tuned then verified with real browser
+           measurement (getBoundingClientRect / scrollHeight vs
+           clientHeight) across 375x667, 390x844, 393x852 and 430x932.
+           COMPACT FIT REFINEMENT (real-phone pass): the MODE A/B boundary
+           moved from 819px to 899px so the real Android Chrome viewport
+           band (~830-860px, e.g. 390x844 / 393x852) now gets the compact
+           MODE B treatment instead of spacious MODE A — this is what was
+           reported as "too tall / vertically spread out" on the real
+           device. MODE B's own values are unchanged (already verified
+           zero-scroll down to 700px height, so they only get *more*
+           comfortable, never tighter, at the taller 844-852px heights now
+           routed into this tier). 430x932 stays above 899px and keeps the
+           spacious MODE A layout untouched, per "preserve the current
+           approved spacious design" for larger devices.
+           FINAL POSITIONING REFINEMENT: on real 390x844 / 393x852 devices,
+           the shorter MODE B composition (see above) is centered via
+           justify-center, so the height it freed up landed as roughly
+           equal empty space above AND below the logo — reported as "too
+           much empty space above the logo". Fix: --su-shift-y nudges the
+           whole composition upward with a transform (paint-time only, does
+           not change layout/scroll height) so it stays visually centered
+           overall while sitting closer to its old position. Defaults to
+           0px (no shift) here and is only set to a negative value inside
+           the MODE B media query below — MODE C (<700px) explicitly resets
+           it back to 0px since that tier already has near-zero spare space
+           to safely absorb a shift without risking clipping. */
+        .dd-auth-master {
+          --su-shift-y: 0px;
+          transform: translateY(var(--su-shift-y));
+          --su-outer-pad-top: 24px;
+          --su-outer-pad-bottom: 16px;
+          --su-ring: 92px;
+          --su-mark: 76px;
+          --su-gap-mw: 10px;
+          --su-wm-size: 30px;
+          --su-gap-wt: 6px;
+          --su-tag-size: 11px;
+          --su-heart-l: 4px;  --su-heart-t: 2px;  --su-heart-s: 40px;
+          --su-chat-r: 2px;   --su-chat-t: 8px;   --su-chat-s: 46px;
+          --su-star-l: 6px;   --su-star-t: 48%;   --su-star-s: 34px;
+          --su-ctrl-r: 0px;   --su-ctrl-t: 50%;   --su-ctrl-s: 50px;
+          --su-headline-mt: 30px;
+          --su-h1-size: 27px;
+          --su-gap-h1h2: 8px;
+          --su-sub-size: 15px;
+          --su-buttons-mt: 26px;
+          --su-btn-pad-y: 16px;
+          --su-btn-size: 14.5px;
+          --su-btn-gap: 13px;
+          --su-or-size: 12px;
+          --su-box-mt: 18px;
+          --su-box-pad: 15px;
+          --su-box-gap: 12px;
+          --su-shield-s: 24px;
+          --su-notice-size: 13px;
+          --su-notice-lh: 1.42;
+          --su-legal-size: 11.5px;
+          --su-login-mt: 18px;
+          --su-login-size: 13.5px;
+          --su-ringglow-w: 220px;
+        }
+        @media (max-height: 899px) {
+          .dd-auth-master {
+            --su-shift-y: -50px;
+            --su-outer-pad-top: 14px;
+            --su-outer-pad-bottom: 10px;
+            --su-ring: 76px;
+            --su-mark: 62px;
+            --su-gap-mw: 7px;
+            --su-wm-size: 26px;
+            --su-gap-wt: 4px;
+            --su-tag-size: 10px;
+            --su-heart-s: 32px; --su-chat-s: 37px; --su-star-s: 27px; --su-ctrl-s: 40px;
+            --su-headline-mt: 18px;
+            --su-h1-size: 23px;
+            --su-gap-h1h2: 5px;
+            --su-sub-size: 13px;
+            --su-buttons-mt: 16px;
+            --su-btn-pad-y: 13px;
+            --su-btn-size: 13.5px;
+            --su-btn-gap: 9px;
+            --su-or-size: 11px;
+            --su-box-mt: 12px;
+            --su-box-pad: 12px;
+            --su-box-gap: 9px;
+            --su-shield-s: 20px;
+            --su-notice-size: 12px;
+            --su-notice-lh: 1.3;
+            --su-legal-size: 10.5px;
+            --su-login-mt: 12px;
+            --su-login-size: 13px;
+            --su-ringglow-w: 190px;
+          }
+        }
+        @media (max-height: 699px) {
+          .dd-auth-master {
+            --su-shift-y: 0px;
+            --su-outer-pad-top: 10px;
+            --su-outer-pad-bottom: 8px;
+            --su-ring: 62px;
+            --su-mark: 52px;
+            --su-gap-mw: 5px;
+            --su-wm-size: 22px;
+            --su-gap-wt: 3px;
+            --su-tag-size: 9.5px;
+            --su-heart-s: 26px; --su-chat-s: 30px; --su-star-s: 22px; --su-ctrl-s: 32px;
+            --su-headline-mt: 12px;
+            --su-h1-size: 20px;
+            --su-gap-h1h2: 4px;
+            --su-sub-size: 12px;
+            --su-buttons-mt: 12px;
+            --su-btn-pad-y: 11px;
+            --su-btn-size: 12.5px;
+            --su-btn-gap: 7px;
+            --su-or-size: 10px;
+            --su-box-mt: 9px;
+            --su-box-pad: 10px;
+            --su-box-gap: 8px;
+            --su-shield-s: 18px;
+            --su-notice-size: 11px;
+            --su-notice-lh: 1.25;
+            --su-legal-size: 10px;
+            --su-login-mt: 9px;
+            --su-login-size: 12px;
+            --su-ringglow-w: 160px;
           }
         }
         @keyframes bgPan { from{transform:scale(1) translate(0,0)} to{transform:scale(1.08) translate(-1%,-1%)} }
