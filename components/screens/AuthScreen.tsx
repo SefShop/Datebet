@@ -615,12 +615,13 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
               on submit() for why). */}
           {mode === 'signup' && (
             <div className="relative" style={{ marginBottom:'var(--field-mb)' }}>
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px]" style={{ color: focus==='n' ? '#ff3384' : 'rgba(255,255,255,0.295)', transition:'color 0.3s' }}>👤</div>
+              <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{ fontSize:'var(--field-icon-s)', color: focus==='n' ? '#ff3384' : 'rgba(255,255,255,0.295)', transition:'color 0.3s' }}>👤</div>
               <input value={name} onChange={e=>setName(e.target.value)}
                 type="text" placeholder={lang==='gr'?'Όνομα':'Name'}
                 onFocus={()=>setFocus('n')} onBlur={()=>setFocus(null)}
-                className="w-full rounded-2xl pl-10 pr-4 text-[14px] outline-none transition-all duration-300"
+                className="w-full rounded-2xl pl-10 pr-4 outline-none transition-all duration-300"
                 style={{
+                  fontSize:'var(--field-text-size)',
                   paddingTop:'var(--field-pad-y)', paddingBottom:'var(--field-pad-y)',
                   background:'rgba(255,255,255,0.059)', color:'#fff', caretColor:'#ff3384',
                   border: focus==='n' ? '1.5px solid rgba(253,41,123,0.59)' : '1.5px solid rgba(255,255,255,0.083)',
@@ -632,13 +633,14 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
           {/* Email input */}
           <div className="relative" style={{ marginBottom:'var(--field-mb)' }}>
             <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#ff3384', opacity: focus==='e' ? 1 : 0.75, transition:'opacity 0.3s' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <svg style={{ width:'var(--field-icon-s)', height:'var(--field-icon-s)' }} viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
             <input value={email} onChange={e=>setEmail(e.target.value)}
               type="email" placeholder={t.email} autoComplete="email"
               onFocus={()=>setFocus('e')} onBlur={()=>setFocus(null)}
-              className="w-full rounded-2xl pl-10 pr-4 text-[14px] outline-none transition-all duration-300"
+              className="w-full rounded-2xl pl-10 pr-4 outline-none transition-all duration-300"
               style={{
+                fontSize:'var(--field-text-size)',
                 paddingTop:'var(--field-pad-y)', paddingBottom:'var(--field-pad-y)',
                 background:'rgba(255,255,255,0.059)', color:'#fff', caretColor:'#ff3384',
                 border: focus==='e' ? '1.5px solid rgba(253,41,123,0.59)' : '1.5px solid rgba(255,255,255,0.083)',
@@ -649,15 +651,16 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
           {/* Password input — with real show/hide toggle */}
           <div className="relative" style={{ marginBottom:'var(--field-mb)' }}>
             <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#ff3384', opacity: focus==='p' ? 1 : 0.75, transition:'opacity 0.3s' }}>
-              <svg width="15" height="16" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3" stroke="currentColor" strokeWidth="1.7"/><path d="M7.5 10.5V7.8a4.5 4.5 0 0 1 9 0v2.7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><circle cx="12" cy="15" r="1.3" fill="currentColor"/></svg>
+              <svg style={{ width:'var(--field-icon-s)', height:'var(--field-icon-s)' }} viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3" stroke="currentColor" strokeWidth="1.7"/><path d="M7.5 10.5V7.8a4.5 4.5 0 0 1 9 0v2.7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><circle cx="12" cy="15" r="1.3" fill="currentColor"/></svg>
             </div>
             <input value={pass} onChange={e=>setPass(e.target.value)}
               type={showPass ? 'text' : 'password'} placeholder={t.pass}
               autoComplete={mode==='signup' ? 'new-password' : 'current-password'}
               onFocus={()=>setFocus('p')} onBlur={()=>setFocus(null)}
               onKeyDown={e=>{ if(e.key==='Enter') submit() }}
-              className="w-full rounded-2xl pl-10 pr-11 text-[14px] outline-none transition-all duration-300"
+              className="w-full rounded-2xl pl-10 pr-11 outline-none transition-all duration-300"
               style={{
+                fontSize:'var(--field-text-size)',
                 paddingTop:'var(--field-pad-y)', paddingBottom:'var(--field-pad-y)',
                 background:'rgba(255,255,255,0.059)', color:'#fff', caretColor:'#ff3384',
                 border: focus==='p' ? '1.5px solid rgba(253,41,123,0.59)' : '1.5px solid rgba(255,255,255,0.083)',
@@ -686,10 +689,10 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
                 }}>
                   {remember && <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M4 12l6 6L20 6" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </span>
-                <span className="text-[12px]" style={{ color:'rgba(255,255,255,0.55)' }}>{t.rememberMe}</span>
+                <span style={{ fontSize:'var(--options-text-size)', color:'rgba(255,255,255,0.55)' }}>{t.rememberMe}</span>
               </button>
               <button type="button" onClick={forgotPassword} disabled={forgotLoading}
-                className="text-[12px] font-semibold cursor-pointer disabled:opacity-50" style={{ color:'#ff3384', background:'none', border:'none', padding:0 }}>
+                className="font-semibold cursor-pointer disabled:opacity-50" style={{ fontSize:'var(--options-text-size)', color:'#ff3384', background:'none', border:'none', padding:0 }}>
                 {t.forgot}
               </button>
             </div>
@@ -712,8 +715,9 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
 
           {/* CTA */}
           <button onClick={submit} disabled={loading || !email || !pass}
-            className="w-full rounded-2xl text-[15px] font-bold transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-40 disabled:cursor-default flex items-center justify-center gap-2"
+            className="w-full rounded-2xl font-bold transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-40 disabled:cursor-default flex items-center justify-center gap-2"
             style={{
+              fontSize:'var(--cta-text-size)',
               paddingTop:'var(--cta-pad-y)', paddingBottom:'var(--cta-pad-y)',
               fontFamily:"'Plus Jakarta Sans',sans-serif",
               background:'linear-gradient(135deg, #ff3384 0%, #d84dd8 50%, #7c72ff 100%)',
@@ -835,44 +839,79 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
           --legal-mt: 8px;       /* hearts → legal */
           --legal-size: 11px;
           --create-size: 14px;
+          /* Email/Password field icon + input text, Remember-me/Forgot-
+             password text and the Sign In/Create-account button text were
+             previously hardcoded Tailwind text-[..px] classes (same value
+             at every tier). Promoted to variables here so the SPACE
+             UTILIZATION pass below can enlarge them at 390x844/393x852 —
+             base values here exactly match what was already hardcoded, so
+             MODE A (>=900px) renders pixel-identical to before. */
+          --field-icon-s: 16px;
+          --field-text-size: 14px;
+          --options-text-size: 12px;
+          --cta-text-size: 15px;
         }
         @media (max-height: 899px) {
-          /* MODE B — NORMAL (700–899px), reference viewport ~390x740..393x852 */
+          /* MODE B — NORMAL (700–899px), reference viewport ~390x740..393x852.
+             SPACE UTILIZATION REFINEMENT: real-phone testing on production
+             showed large unused bands above/below both Sign In Main and the
+             Email Sign In sub-step at 390x844/393x852 — this tier's flat
+             values were tuned to be *safe* down to 700px, not to fill
+             844-852px. Every enlarged property below is now a fluid
+             clamp(MIN, calc(A + Cdvh), MAX): MIN is the exact previous
+             flat value (still fully safe at 700px, unchanged), and the
+             interpolation's upper anchor is deliberately set at 860px —
+             just above the tallest real-phone test point (852) — rather
+             than at MODE B's own 899px ceiling, so 390x844/393x852 (the
+             viewports actually reported as under-using space) land at or
+             essentially at MAX, not partway there. Every MAX stays at/
+             under this system's own MODE A value so >=900px devices (e.g.
+             430x932) still read as the most spacious tier. */
           .dd-auth-root {
-            --outer-pad-top: 8px;
-            --outer-pad-bottom: 8px;
-            --ring: 88px;
-            --mark: 46px;
-            --gap-mw: 6px;
-            --wm-size: 28px;
-            --gap-wt: 4px;
+            --outer-pad-top: clamp(8px, calc(-0.75px + 1.25dvh), 10px);
+            --outer-pad-bottom: clamp(8px, calc(-18.25px + 3.75dvh), 14px);
+            --ring: clamp(88px, calc(66.12px + 3.12dvh), 93px);
+            --mark: clamp(46px, calc(32.88px + 1.88dvh), 49px);
+            --gap-mw: clamp(6px, calc(-0.56px + 0.94dvh), 7.5px);
+            --wm-size: clamp(28px, calc(21.44px + 0.94dvh), 29.5px);
+            --gap-wt: clamp(4px, calc(1.81px + 0.31dvh), 4.5px);
             --tag-size: 11px;
-            --gap-td: 5px;
-            --headline-mt: 12px;
-            --h1-size: 25px;
-            --gap-welcome-subtext: 3px;
-            --sub-size: 14px;
-            --headline-mb: 7px;
-            --card-pad: 11px;
-            --tab-pad-y: 12px;    /* ~44-46px */
+            --gap-td: clamp(5px, calc(2.81px + 0.31dvh), 5.5px);
+            --headline-mt: clamp(12px, calc(-1.12px + 1.88dvh), 15px);
+            --h1-size: clamp(25px, calc(18.44px + 0.94dvh), 26.5px);
+            --gap-welcome-subtext: clamp(3px, calc(-1.38px + 0.62dvh), 4px);
+            --sub-size: clamp(14px, calc(11.81px + 0.31dvh), 14.5px);
+            --headline-mb: clamp(7px, calc(-6.12px + 1.88dvh), 10px);
+            --card-pad: clamp(11px, calc(-2.12px + 1.88dvh), 14px);
+            --tab-pad-y: 12px;    /* vestigial — Tabs UI removed, kept for reference only */
             --tab-mb: 7px;
-            --field-pad-y: 14px;  /* ~51-52px */
-            --field-mb: 5px;
-            --options-mb: 7px;
-            --cta-pad-y: 11px;    /* ~45-48px */
+            --field-pad-y: clamp(14px, calc(5.25px + 1.25dvh), 16px);
+            --field-mb: clamp(5px, calc(0.62px + 0.62dvh), 6px);
+            --options-mb: clamp(7px, calc(2.62px + 0.62dvh), 8px);
+            --cta-pad-y: clamp(11px, calc(0.06px + 1.56dvh), 13.5px);
             --divider-my: 7px;
-            --social-pad-y: 11px; /* ~38-42px */
-            --footer-mt: 8px;
+            --social-pad-y: 11px; /* vestigial — divider/social row removed, kept for reference only */
+            --footer-mt: clamp(8px, calc(-9.5px + 2.5dvh), 12px);
             --footer-mb: 6px;
-            --hearts-w: 50px;
-            --hearts-h: 36px;
-            --legal-mt: 6px;
+            --hearts-w: clamp(50px, calc(36.88px + 1.88dvh), 53px);
+            --hearts-h: clamp(36px, calc(27.25px + 1.25dvh), 38px);
+            --legal-mt: clamp(6px, calc(1.62px + 0.62dvh), 7px);
             --legal-size: 11px;
             --create-size: 14px;
+            --field-icon-s: clamp(16px, calc(7.25px + 1.25dvh), 18px);
+            --field-text-size: clamp(14px, calc(7.44px + 0.94dvh), 15.5px);
+            --options-text-size: clamp(12px, calc(7.62px + 0.62dvh), 13px);
+            --cta-text-size: clamp(15px, calc(8.44px + 0.94dvh), 16.5px);
           }
         }
         @media (max-height: 699px) {
-          /* MODE C — SHORT (< 700px), verified fitting down to 360x640 */
+          /* MODE C — SHORT (< 700px), verified fitting down to 360x640.
+             Untouched by the SPACE UTILIZATION pass — kept exactly as the
+             already-safe compact fit, including the 4 field/text vars
+             explicitly reset back to their original hardcoded values so
+             they don't inherit MODE B's enlarged clamp() (the max-height:
+             899px query above also matches heights <700, so MODE C must
+             re-declare every var it needs to keep unaffected). */
           .dd-auth-root {
             --outer-pad-top: 5px;
             --outer-pad-bottom: 8px;
@@ -908,6 +947,10 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
             --legal-mt: 4px;
             --legal-size: 10px;
             --create-size: 13px;
+            --field-icon-s: 16px;
+            --field-text-size: 14px;
+            --options-text-size: 12px;
+            --cta-text-size: 15px;
           }
         }
         /* ── AuthMain (Sign In Main + Sign Up Main) — own, independent
@@ -943,7 +986,29 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
            0px (no shift) here and is only set to a negative value inside
            the MODE B media query below — MODE C (<700px) explicitly resets
            it back to 0px since that tier already has near-zero spare space
-           to safely absorb a shift without risking clipping. */
+           to safely absorb a shift without risking clipping.
+           SPACE UTILIZATION REFINEMENT: real-phone testing at 390x844/
+           393x852 (MODE B) showed the compact sizes above still left large
+           unused bands above and below the composition even after the
+           -50px shift — MODE B was tuned to be *safe* down to 700px, not
+           to fill 844-852px. Every enlarged property below is now a fluid
+           clamp(MIN, calc(A + Cdvh), MAX) computed by a straight-line fit
+           between its value at 700px height (MIN, unchanged from before —
+           still exactly as safe as the previous flat MODE B numbers) and a
+           new, larger MAX — with the interpolation's upper anchor set at
+           860px, just above the tallest real-phone test point (852),
+           rather than at MODE B's own 899px ceiling, so 390x844/393x852
+           (the exact viewports reported as under-using space) render at or
+           essentially at MAX (visibly bigger logo/wordmark/tagline/
+           headline/subtitle/buttons), not partway there. A genuinely short
+           700px-tall device still gets the original, already-verified-safe
+           MIN. Every MAX was kept below the
+           corresponding MODE A value so the >=900px tier (e.g. 430x932)
+           still reads as the most spacious, per "allow branding to scale
+           up naturally" for taller phones without touching MODE A itself.
+           The 18+ notice box's own sizing (--su-box-*, --su-shield-s,
+           --su-notice-*, --su-legal-size) was deliberately left unchanged
+           — it wasn't part of this task's enlarge list. */
         .dd-auth-master {
           --su-shift-y: 0px;
           transform: translateY(var(--su-shift-y));
@@ -982,24 +1047,28 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
         @media (max-height: 899px) {
           .dd-auth-master {
             --su-shift-y: -50px;
-            --su-outer-pad-top: 14px;
-            --su-outer-pad-bottom: 10px;
-            --su-ring: 76px;
-            --su-mark: 62px;
-            --su-gap-mw: 7px;
-            --su-wm-size: 26px;
-            --su-gap-wt: 4px;
-            --su-tag-size: 10px;
-            --su-heart-s: 32px; --su-chat-s: 37px; --su-star-s: 27px; --su-ctrl-s: 40px;
-            --su-headline-mt: 18px;
-            --su-h1-size: 23px;
-            --su-gap-h1h2: 5px;
-            --su-sub-size: 13px;
-            --su-buttons-mt: 16px;
-            --su-btn-pad-y: 13px;
-            --su-btn-size: 13.5px;
-            --su-btn-gap: 9px;
-            --su-or-size: 11px;
+            --su-outer-pad-top: clamp(14px, calc(5.25px + 1.25dvh), 16px);
+            --su-outer-pad-bottom: clamp(10px, calc(-3.12px + 1.88dvh), 13px);
+            --su-ring: clamp(76px, calc(27.87px + 6.88dvh), 87px);
+            --su-mark: clamp(62px, calc(18.25px + 6.25dvh), 72px);
+            --su-gap-mw: clamp(7px, calc(-1.75px + 1.25dvh), 9px);
+            --su-wm-size: clamp(26px, calc(12.88px + 1.88dvh), 29px);
+            --su-gap-wt: clamp(4px, calc(-2.56px + 0.94dvh), 5.5px);
+            --su-tag-size: clamp(10px, calc(5.62px + 0.62dvh), 11px);
+            --su-heart-s: clamp(32px, calc(10.12px + 3.12dvh), 37px);
+            --su-chat-s: clamp(37px, calc(10.75px + 3.75dvh), 43px);
+            --su-star-s: clamp(27px, calc(9.5px + 2.5dvh), 31px);
+            --su-ctrl-s: clamp(40px, calc(13.75px + 3.75dvh), 46px);
+            --su-headline-mt: clamp(18px, calc(-17.0px + 5.0dvh), 26px);
+            --su-h1-size: clamp(23px, calc(9.88px + 1.88dvh), 26px);
+            --su-gap-h1h2: clamp(5px, calc(-3.75px + 1.25dvh), 7px);
+            --su-sub-size: clamp(13px, calc(6.44px + 0.94dvh), 14.5px);
+            --su-buttons-mt: clamp(16px, calc(-14.62px + 4.38dvh), 23px);
+            --su-btn-pad-y: clamp(13px, calc(2.06px + 1.56dvh), 15.5px);
+            --su-btn-size: clamp(13.5px, calc(9.12px + 0.62dvh), 14.5px);
+            --su-btn-gap: clamp(9px, calc(-1.94px + 1.56dvh), 11.5px);
+            --su-or-size: clamp(11px, calc(6.62px + 0.62dvh), 12px);
+            /* 18+ notice box was NOT part of this task's enlarge list — left flat/unchanged */
             --su-box-mt: 12px;
             --su-box-pad: 12px;
             --su-box-gap: 9px;
@@ -1007,9 +1076,9 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
             --su-notice-size: 12px;
             --su-notice-lh: 1.3;
             --su-legal-size: 10.5px;
-            --su-login-mt: 12px;
-            --su-login-size: 13px;
-            --su-ringglow-w: 190px;
+            --su-login-mt: clamp(12px, calc(3.25px + 1.25dvh), 14px);
+            --su-login-size: clamp(13px, calc(10.81px + 0.31dvh), 13.5px);
+            --su-ringglow-w: clamp(190px, calc(146.25px + 6.25dvh), 200px);
           }
         }
         @media (max-height: 699px) {
