@@ -53,7 +53,10 @@ export default function GameRoomScreen() {
         // on refresh, which only restores the session, not the match).
         // Same UserProfile shape enterAcceptedGame() already builds
         // elsewhere, so Chat resolves the identical opponent/conversation.
-        const { data: opp } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
+        // Explicit safe column list (not select('*')) — profiles.latitude/
+        // longitude are revoked at the database level for every role, so a
+        // wildcard select would fail; this only ever needed these fields.
+        const { data: opp } = await supabase.from('profiles').select('id, name, age, photo, location, bio').eq('id', oppId).maybeSingle()
         if (opp) {
           const profile: UserProfile = {
             id: opp.id, name: opp.name || 'Player', age: opp.age || 0,

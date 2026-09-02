@@ -26,17 +26,129 @@ import InboxScreen       from '@/components/screens/InboxScreen'
 import ActivityScreen    from '@/components/screens/ActivityScreen'
 import GameRoomScreen    from '@/components/screens/GameRoomScreen'
 import WaitingScreen     from '@/components/screens/WaitingScreen'
+import OnboardingWelcomeScreen from '@/components/screens/OnboardingWelcomeScreen'
+import OnboardingAboutYouScreen from '@/components/screens/OnboardingAboutYouScreen'
+import OnboardingInterestedInScreen from '@/components/screens/OnboardingInterestedInScreen'
+import OnboardingLocationInterestsScreen from '@/components/screens/OnboardingLocationInterestsScreen'
+import OnboardingPhotosScreen from '@/components/screens/OnboardingPhotosScreen'
+import OnboardingBioScreen from '@/components/screens/OnboardingBioScreen'
+import OnboardingPreferencesScreen from '@/components/screens/OnboardingPreferencesScreen'
 // ReturnScreen removed
 import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { clearProfileState, setCurrentMatch } from '@/lib/profiles'
+import { clearProfileState, setCurrentMatch, fetchOwnPrivateProfile, signalDiscoveryRefreshNeeded } from '@/lib/profiles'
 import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, setCurrentSession, clearGameState, isValidActiveGameSession, isRematchInProgress, isEnteringGame, setEnteringGame, restorePersistedActiveSession } from '@/lib/gameInvites'
 import { isMobileDevice } from '@/lib/deviceGate'
 // SocialPresence removed
 
+// Wraps the approved onboarding STEP 1 "Welcome" screen (components/
+// screens/OnboardingWelcomeScreen.tsx — unchanged, still a pure prop-driven
+// component) with a real navigation hookup. Every other entry in SCREENS
+// follows this same shape — each screen component calls useApp() itself
+// (e.g. SplashScreen) rather than being handed navigate() as a prop from
+// here — so this wrapper is the one place that pattern is applied for a
+// screen that was originally built prop-driven for its isolated preview
+// route.
+//
+// The locked onboarding sequence is: 1 Welcome, 2 About You, 3 Who You're
+// Interested In, 4 Location + Interests, 5 Photos, 6 About You (Bio), 7
+// Preferences. "Let's go!" advances to the real Step 2 "About You" screen
+// (components/screens/OnboardingAboutYouScreen.tsx) via the wrapper below.
+// SplashScreen ("Play a game together") has been removed from this path
+// entirely; it is not redesigned, deleted, or treated as any onboarding
+// step, and remains reachable from wherever else it's used in the app.
+function OnboardingWelcomeStep() {
+  const { navigate } = useApp()
+  return <OnboardingWelcomeScreen onNext={() => navigate('onboarding_about_you')} />
+}
+
+// Wraps the real Step 2 "About You" screen with a real navigation hookup,
+// the same pattern as OnboardingWelcomeStep above. "Continue" advances to
+// the real Step 3 "Who You're Interested In" screen. Name / Date of Birth
+// / Gender are kept in OnboardingAboutYouScreen's own local state and are
+// NOT written to Supabase from here — persistence is a separate,
+// explicitly-approved task.
+function OnboardingAboutYouStep() {
+  const { navigate } = useApp()
+  return <OnboardingAboutYouScreen onNext={() => navigate('onboarding_interested_in')} />
+}
+
+// Wraps the real Step 3 "Who You're Interested In" screen with a real
+// navigation hookup, the same pattern as the wrappers above. "Continue"
+// advances to the real Step 4 "Location + Interests" screen. The
+// selected interest is kept in OnboardingInterestedInScreen's own local
+// state and is NOT written to Supabase from here — persistence is a
+// separate, explicitly-approved task.
+function OnboardingInterestedInStep() {
+  const { navigate } = useApp()
+  return <OnboardingInterestedInScreen onNext={() => navigate('onboarding_location_interests')} />
+}
+
+// Wraps the real Step 4 "Location + Interests" screen with a real
+// navigation hookup, the same pattern as the wrappers above. Continue
+// advances to the real Step 5 "Photos" screen.
+// Location and the selected interests are kept in
+// OnboardingLocationInterestsScreen's own local state and are NOT
+// written to Supabase from here — persistence is a separate,
+// explicitly-approved task.
+function OnboardingLocationInterestsStep() {
+  const { navigate } = useApp()
+  return <OnboardingLocationInterestsScreen onNext={() => navigate('onboarding_photos')} />
+}
+
+// Wraps the real Step 5 "Photos" screen with a real navigation hookup,
+// the same pattern as the wrappers above. This screen reuses the
+// existing Supabase-backed profile-photo system (profile-photos bucket,
+// profiles.photos / profiles.photo columns, lib/photoCompress.ts) — see
+// OnboardingPhotosScreen.tsx for the full architecture notes. "Continue"
+// uploads/saves photos to the user's existing profile row, then advances
+// to the Step 6 placeholder below.
+function OnboardingPhotosStep() {
+  const { navigate } = useApp()
+  return <OnboardingPhotosScreen onNext={() => navigate('onboarding_bio')} />
+}
+
+// Wraps the real Step 6 "About You / Bio" screen with a real navigation
+// hookup, the same pattern as the wrappers above. This screen writes only
+// to the existing `profiles.bio` column (see OnboardingBioScreen.tsx for
+// the full architecture notes). "Continue" saves the bio, then advances to
+// the real Step 7 "Preferences" screen below.
+function OnboardingBioStep() {
+  const { navigate } = useApp()
+  return <OnboardingBioScreen onNext={() => navigate('onboarding_preferences')} />
+}
+
+// Wraps the real, final Step 7 "Preferences" screen. There is no Step 8:
+// on a successful final save (see OnboardingPreferencesScreen.tsx for what
+// it actually writes, and why) this navigates straight into the existing
+// profiles/discovery screen, the same destination app/app/page.tsx's own
+// post-sign-in "onboarding already complete" path uses.
+//
+// DISCOVERY CONSISTENCY FIX: signalDiscoveryRefreshNeeded() runs first,
+// synchronously, before navigate('profile'). OnboardingPreferencesScreen
+// only calls onNext() after its own show_me/age/distance UPDATE has
+// already succeeded and been re-verified (see that file's handleContinue),
+// so by the time this fires the just-saved preferences are guaranteed
+// committed — telling the already-mounted Discover screen (see
+// lib/profiles.ts's comment on signalDiscoveryRefreshNeeded for why it's
+// already mounted with stale data at this point) to re-run the exact same
+// canonical fetchProfiles()/discover_profiles() call it already uses,
+// instead of showing whatever it fetched back at the start of onboarding.
+function OnboardingPreferencesStep() {
+  const { navigate } = useApp()
+  return <OnboardingPreferencesScreen onNext={() => { signalDiscoveryRefreshNeeded(); navigate('profile') }} />
+}
+
 const SCREENS = {
   splash:     <SplashScreen />,
+  onboarding_welcome: <OnboardingWelcomeStep />,
+  onboarding_about_you: <OnboardingAboutYouStep />,
+  onboarding_interested_in: <OnboardingInterestedInStep />,
+  onboarding_location_interests: <OnboardingLocationInterestsStep />,
+  onboarding_photos: <OnboardingPhotosStep />,
+  onboarding_bio: <OnboardingBioStep />,
+  onboarding_preferences: <OnboardingPreferencesStep />,
   game_select:<GameSelectionScreen />,
   connect4:   <Connect4Screen />,
   tictactoe:  process.env.NEXT_PUBLIC_TIC_TAC_TOE_ENGINE === 'colyseus' ? <TicTacToeScreenColyseus /> : <TicTacToeScreen />,
@@ -59,7 +171,11 @@ const SCREENS = {
 async function ensureProfileExists(user: any): Promise<boolean> {
   console.log('PROFILE ENSURE START')
   try {
-    const { data: existing } = await supabase.from('profiles').select('id, name, age, onboarding_completed').eq('id', user.id).maybeSingle()
+    // id/name/age are safe columns (plain select); onboarding_completed
+    // is owner-only-private and revoked at the database level for
+    // direct SELECT, so it's read back via the RPC instead.
+    const { data: existing } = await supabase.from('profiles').select('id, name, age').eq('id', user.id).maybeSingle()
+    const { data: existingPriv } = existing ? await fetchOwnPrivateProfile() : { data: null }
     const meta = user.user_metadata || {}
     const metaName = meta.full_name || meta.name || ''
 
@@ -79,10 +195,11 @@ async function ensureProfileExists(user: any): Promise<boolean> {
         console.log('PROFILE ENSURE SUCCESS (exists)')
       }
       // onboarding_completed is intentionally never written here — only
-      // read. Never reset it for a returning user; a legacy row with no
-      // value at all is treated as already-completed (see requirement 7 —
-      // an existing account should never be forced through Play Together).
-      return existing.onboarding_completed !== false
+      // read (via the owner-only RPC — see comment above). Never reset it
+      // for a returning user; a legacy row with no value at all is
+      // treated as already-completed (see requirement 7 — an existing
+      // account should never be forced through Play Together).
+      return existingPriv?.onboarding_completed !== false
     }
 
     await supabase.from('profiles').insert({
@@ -126,6 +243,7 @@ function AppShell() {
   const [onboardingStatus, setOnboardingStatus] = useState<'loading' | 'incomplete' | 'complete'>(
     isSupabaseConfigured() ? 'loading' : 'complete'
   )
+
   // Always reflects the LATEST authKey, readable from inside async
   // callbacks (which otherwise only see the value captured when the
   // effect first ran) — used to detect "auth changed again since this
@@ -239,8 +357,14 @@ function AppShell() {
               navigate('profile')
             }
           } else {
-            console.log('ONBOARDING INCOMPLETE — navigating to play-together')
-            navigate('splash')
+            // Onboarding STEP 1 (Welcome) is the entry point for a
+            // brand-new incomplete-onboarding user. Welcome's "Let's go!"
+            // now advances to the Step 2 placeholder (see
+            // OnboardingWelcomeStep above) — the old Splash/"Play
+            // Together" screen is no longer part of this path at all,
+            // though it remains unchanged and reachable elsewhere.
+            console.log('ONBOARDING INCOMPLETE — navigating to onboarding welcome (step 1)')
+            navigate('onboarding_welcome')
           }
           setOnboardingStatus(completed ? 'complete' : 'incomplete')
         })
@@ -362,7 +486,10 @@ function AppShell() {
         // building a parallel one. Same profile shape
         // restorePersistedActiveSession() already builds for its own
         // opponent lookup.
-        const { data: sender } = await supabase.from('profiles').select('*').eq('id', senderId).maybeSingle()
+        // Explicit safe column list (not select('*')) — profiles.latitude/
+        // longitude are revoked at the database level for every role, so a
+        // wildcard select would fail; this only ever needed these fields.
+        const { data: sender } = await supabase.from('profiles').select('id, name, age, photo, location, bio').eq('id', senderId).maybeSingle()
         if (sender) {
           setCurrentMatch({
             id: sender.id, name: sender.name || 'Player', age: sender.age || 0,

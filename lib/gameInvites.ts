@@ -563,7 +563,10 @@ export async function restorePersistedActiveSession(currentUserId: string): Prom
     // reuses the existing current-match architecture rather than adding a
     // second one.
     const opponentId = currentUserId === session.player_one_id ? session.player_two_id : session.player_one_id
-    const { data: opp } = await supabase.from('profiles').select('*').eq('id', opponentId).maybeSingle()
+    // Explicit safe column list (not select('*')) — profiles.latitude/
+    // longitude are revoked at the database level for every role, so a
+    // wildcard select would fail; this only ever needed these fields.
+    const { data: opp } = await supabase.from('profiles').select('id, name, age, photo, location, bio').eq('id', opponentId).maybeSingle()
     if (opp) {
       const profile: UserProfile = {
         id: opp.id, name: opp.name || 'Player', age: opp.age || 0,
@@ -820,7 +823,10 @@ export async function enterAcceptedGame(
     // React's batching/render timing.
 
     const opponentId = currentUserId === session.player_one_id ? session.player_two_id : session.player_one_id
-    const { data: opp } = await supabase.from('profiles').select('*').eq('id', opponentId).maybeSingle()
+    // Explicit safe column list (not select('*')) — profiles.latitude/
+    // longitude are revoked at the database level for every role, so a
+    // wildcard select would fail; this only ever needed these fields.
+    const { data: opp } = await supabase.from('profiles').select('id, name, age, photo, location, bio').eq('id', opponentId).maybeSingle()
     if (opp) {
       const profile: UserProfile = {
         id: opp.id, name: opp.name || 'Player', age: opp.age || 0,

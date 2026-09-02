@@ -2,6 +2,13 @@ export type Screen =
   | 'splash' | 'result'
   | 'bet_locked'
   | 'activity'
+  | 'onboarding_welcome'
+  | 'onboarding_about_you'
+  | 'onboarding_interested_in'
+  | 'onboarding_location_interests'
+  | 'onboarding_photos'
+  | 'onboarding_bio'
+  | 'onboarding_preferences'
   | 'game_select' | 'connect4' | 'tictactoe' | 'ludo' | 'mystery_choice'
   | 'inbox' | 'profile' | 'match' | 'post_game' | 'chat' | 'lock_date' | 'edit_profile' | 'game_room' | 'waiting' | 'settings'
 

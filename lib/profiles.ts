@@ -90,6 +90,15 @@ export function subscribeToNewProfiles(
 }
 
 // ── Fetch OTHER users (for Discover) ────────────────────────────
+// ARCHITECTURE (privacy): candidate matching (show-me/age/distance) is
+// performed entirely SERVER-SIDE by the `discover_profiles` Postgres
+// RPC (SECURITY DEFINER, derives the viewer from auth.uid() — never a
+// client-supplied id). No client code computes Haversine distance and
+// no client code ever receives another user's raw latitude/longitude;
+// the database itself revokes SELECT on those two columns for every
+// role reachable from this client, so even a raw ad-hoc query against
+// `profiles` cannot retrieve them for any row. See the migration file
+// and the implementation report's privacy audit for the full detail.
 export type FetchResult = { profiles: UserProfile[]; error: string | null }
 
 export async function fetchProfiles(): Promise<FetchResult> {
@@ -101,11 +110,14 @@ export async function fetchProfiles(): Promise<FetchResult> {
     const { data: { user } } = await supabase.auth.getUser()
     console.log('AUTH USER:', user?.id, user?.email)
 
-    let query = supabase.from('profiles').select('*').limit(50)
-    if (user?.id) query = query.neq('id', user.id)
+    if (!user?.id) {
+      // Discovery requires an authenticated viewer — the RPC derives
+      // auth.uid() itself and has no signed-out behavior to fall back to.
+      return { profiles: [], error: null }
+    }
 
-    const { data, error } = await query
-    console.log('DISCOVER PROFILES:', data?.map(p => ({ id: p.id, name: p.name })))
+    const { data, error } = await supabase.rpc('discover_profiles', { p_limit: 50 })
+    console.log('DISCOVER PROFILES (RPC):', data?.map((p: any) => ({ id: p.id, name: p.name })))
 
     if (error) { console.error('PROFILES error:', error); return { profiles: [], error: error.message } }
     if (!data || data.length === 0) return { profiles: [], error: null }
@@ -117,6 +129,39 @@ export async function fetchProfiles(): Promise<FetchResult> {
   } catch (e: any) {
     console.error('PROFILES catch:', e)
     return { profiles: [], error: e?.message || 'Unknown error' }
+  }
+}
+
+// ── Own private profile fields (date_of_birth, gender, show_me,
+// preferences, coordinates, onboarding_completed) ────────────────
+// ARCHITECTURE (privacy): these columns are revoked at the database
+// level for direct SELECT by every role (including a row's own owner)
+// — see the migration's Part 2 comment. The ONLY way to read them back,
+// even for your own row, is this SECURITY DEFINER RPC, which derives
+// the caller strictly from auth.uid() (no id parameter exists to
+// target anyone else's row). Every onboarding screen that previously
+// read one of these columns directly now calls this helper instead.
+export type OwnPrivateProfile = {
+  date_of_birth: string | null
+  gender: string | null
+  show_me: string | null
+  preferred_age_min: number | null
+  preferred_age_max: number | null
+  max_distance_km: number | null
+  latitude: number | null
+  longitude: number | null
+  onboarding_completed: boolean | null
+}
+
+export async function fetchOwnPrivateProfile(): Promise<{ data: OwnPrivateProfile | null; error: string | null }> {
+  try {
+    const { data, error } = await supabase.rpc('get_own_private_profile')
+    if (error) { console.error('OWN PRIVATE PROFILE error:', error); return { data: null, error: error.message } }
+    const row = Array.isArray(data) ? data[0] : data
+    return { data: row || null, error: null }
+  } catch (e: any) {
+    console.error('OWN PRIVATE PROFILE catch:', e)
+    return { data: null, error: e?.message || 'Unknown error' }
   }
 }
 
@@ -146,6 +191,45 @@ export function getCurrentMatch(): UserProfile | null {
 export function subscribeCurrentMatch(listener: MatchListener): () => void {
   _matchListeners.add(listener)
   return () => { _matchListeners.delete(listener) }
+}
+
+// ── Discovery refresh signal ──────────────────────────────────────
+// FIX (discovery consistency after onboarding vs. after re-login): every
+// top-level screen in app/app/page.tsx — including the Discover/Profile
+// screen — mounts ONCE, together, the moment onboarding status first
+// resolves (i.e. right as a brand-new user lands on onboarding Step 1),
+// and then stays mounted (hidden via CSS) for the rest of that session;
+// it only remounts on an actual sign-in/sign-out/account-switch (see
+// app/app/page.tsx's `authKey`). That means Discover's own one-time
+// mount-time fetchProfiles() call runs BEFORE onboarding Step 3/Step 7
+// ever write this user's real show_me/age/distance preferences, and nothing
+// previously told it to fetch again once those preferences were actually
+// saved — so a user who finished onboarding and landed straight on
+// Discover was looking at whatever discover_profiles() happened to return
+// back at the very start of onboarding, not their just-saved final
+// preferences. A subsequent logout/login DID show the correct, fresh
+// result (that remounts everything), which is what made the two look
+// inconsistent. This signal lets onboarding Step 7's wrapper (the only
+// caller — see app/app/page.tsx's OnboardingPreferencesStep) tell an
+// already-mounted Discover screen to re-run the exact same canonical
+// fetchProfiles()/discover_profiles() call it already uses, right after
+// the final preferences save is confirmed committed — no second
+// filtering path, no new discovery source, just a trigger to re-run the
+// existing one. Mirrors the _match/setCurrentMatch/subscribeCurrentMatch
+// pattern above.
+type DiscoveryRefreshListener = () => void
+const _discoveryRefreshListeners = new Set<DiscoveryRefreshListener>()
+
+export function signalDiscoveryRefreshNeeded() {
+  console.log('DISCOVERY REFRESH SIGNALED')
+  _discoveryRefreshListeners.forEach(fn => {
+    try { fn() } catch (e) { console.error('discovery refresh listener error:', e) }
+  })
+}
+
+export function subscribeDiscoveryRefreshNeeded(listener: DiscoveryRefreshListener): () => void {
+  _discoveryRefreshListeners.add(listener)
+  return () => { _discoveryRefreshListeners.delete(listener) }
 }
 
 // ── Clear ALL profile state (call on logout / auth change) ──────

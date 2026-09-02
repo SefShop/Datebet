@@ -379,6 +379,22 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
   // the root cause of profiles permanently showing "Player" after signup.
   // A genuinely different existing name (set later via Edit Profile) is
   // never overwritten.
+  //
+  // RACE-CONDITION SAFETY (AUTH ensureProfile race-condition fix): the
+  // SELECT above and the INSERT below are two separate round trips, so
+  // app/app/page.tsx's own onAuthStateChange/ensureProfileExists listener
+  // (or a DB trigger) can create the same profiles row in the gap between
+  // them. Previously that made the INSERT below fail outright with a
+  // "duplicate key value violates unique constraint profiles_pkey" error,
+  // which this function re-threw — turning a harmless race into a hard
+  // signup/login failure. The INSERT below now recovers narrowly from
+  // exactly that one error (Postgres unique-violation code '23505' on
+  // profiles_pkey) by re-fetching the row the other path created and
+  // reconciling it with the exact same logic used for the "already
+  // existing" branch above — never touching onboarding_completed, photo,
+  // location, or bio, and never overwriting a real name with a generic one.
+  // Any other error (network, permissions, an unrelated constraint) is
+  // rethrown unchanged, exactly as before.
   async function ensureProfile(userId: string, fields: { name?: string; age?: number }) {
     console.log('PROFILE ENSURE START')
     console.log('ONBOARDING PROFILE SAVE START:')
@@ -388,18 +404,8 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
       const hasRealName = !!fields.name && fields.name.trim().length > 0
 
       if (existing) {
-        const existingIsGeneric = !existing.name || existing.name.trim() === '' || existing.name === 'Player'
-        if (hasRealName && existingIsGeneric) {
-          console.log('ONBOARDING PROFILE UPSERT:', userId)
-          const { error } = await supabase.from('profiles').update({
-            name: fields.name,
-            age: fields.age || existing.age || 0,
-          }).eq('id', userId)
-          if (error) throw error
-          console.log('ONBOARDING PROFILE SAVE SUCCESS:')
-        } else {
-          console.log('PROFILE ENSURE SUCCESS (exists)')
-        }
+        await reconcileExistingProfile(userId, existing, fields, hasRealName)
+        console.log('PROFILE ENSURE SUCCESS (exists)')
         return
       }
 
@@ -417,12 +423,56 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
         bio: '', photo: gPhoto, location: '',
         onboarding_completed: false,
       })
-      if (error) throw error
+
+      if (error) {
+        const isDuplicateKey = (error as any).code === '23505'
+          || (typeof error.message === 'string' && error.message.includes('profiles_pkey'))
+        if (!isDuplicateKey) throw error
+
+        // Narrow duplicate-key recovery: another process won the race and
+        // created this row first. That is not a failure — a profiles row
+        // now exists for this user, which is what this function exists to
+        // guarantee. Re-fetch whatever that other path wrote and reconcile
+        // it exactly as the "already existing" branch above would have.
+        console.warn('ONBOARDING PROFILE INSERT RACE: row already created by another path, reconciling instead of failing:', error.message)
+        const { data: winner, error: refetchError } = await supabase.from('profiles').select('id, name, age').eq('id', userId).maybeSingle()
+        if (refetchError) throw refetchError
+        if (!winner) throw error // row vanished between the conflict and the re-fetch — surface the original error rather than guessing
+
+        await reconcileExistingProfile(userId, winner, fields, hasRealName)
+        console.log('PROFILE ENSURE SUCCESS (race-recovered)')
+        return
+      }
+
       console.log('ONBOARDING PROFILE SAVE SUCCESS:')
       console.log('PROFILE ENSURE SUCCESS')
     } catch (e: any) {
       console.error('ONBOARDING PROFILE SAVE ERROR:', e.message)
       throw e
+    }
+  }
+
+  // Shared reconciliation for a profiles row that already exists, whether
+  // found by ensureProfile's initial SELECT or discovered via the
+  // duplicate-key race recovery above. Only ever writes name/age, and only
+  // when the existing name is genuinely empty/generic ('' or 'Player') AND
+  // a real signup name is available — otherwise it's a no-op. Never resets
+  // onboarding_completed, photo, location, bio, or any other existing field.
+  async function reconcileExistingProfile(
+    userId: string,
+    existing: { id: string; name: string | null; age: number | null },
+    fields: { name?: string; age?: number },
+    hasRealName: boolean,
+  ) {
+    const existingIsGeneric = !existing.name || existing.name.trim() === '' || existing.name === 'Player'
+    if (hasRealName && existingIsGeneric) {
+      console.log('ONBOARDING PROFILE UPSERT:', userId)
+      const { error } = await supabase.from('profiles').update({
+        name: fields.name,
+        age: fields.age || existing.age || 0,
+      }).eq('id', userId)
+      if (error) throw error
+      console.log('ONBOARDING PROFILE SAVE SUCCESS:')
     }
   }
 

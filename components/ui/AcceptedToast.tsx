@@ -48,7 +48,10 @@ export default function AcceptedToast() {
 
     const { data: { user } } = await supabase.auth.getUser()
     const oppId = user?.id === session.player_one_id ? session.player_two_id : session.player_one_id
-    const { data: oppProfile } = await supabase.from('profiles').select('*').eq('id', oppId).maybeSingle()
+    // Explicit safe column list (not select('*')) — profiles.latitude/
+    // longitude are revoked at the database level for every role, so a
+    // wildcard select would fail; this only ever needed these fields.
+    const { data: oppProfile } = await supabase.from('profiles').select('id, name, age, photo, location, bio').eq('id', oppId).maybeSingle()
     if (oppProfile) {
       const profile: UserProfile = {
         id: oppProfile.id, name: oppProfile.name || 'Player', age: oppProfile.age || 0,

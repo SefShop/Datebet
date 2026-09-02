@@ -47,8 +47,12 @@ export default function EditProfileScreen() {
       console.log('AUTH USER EMAIL:', user.email)
       setUserId(user.id)
 
+      // Explicit safe column list (not select('*')) — profiles.latitude/
+      // longitude are revoked at the database level for every role
+      // (including a profile's own owner, since no shipped UI ever reads
+      // them back), so a wildcard select would fail here.
       const { data, error: e } = await supabase
-        .from('profiles').select('*').eq('id', user.id).maybeSingle()
+        .from('profiles').select('id, name, age, location, bio, photo, photos, interests').eq('id', user.id).maybeSingle()
 
       if (e && e.code !== 'PGRST116') {
         console.error('PROFILE LOAD ERROR:', e)
@@ -178,7 +182,38 @@ export default function EditProfileScreen() {
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  const ALL_INTERESTS = ['☕ Coffee','✈️ Travel','🎬 Movies','🎵 Music','🍔 Food','🏋️ Gym','🏖️ Beach','🐾 Pets','🎮 Gaming','📚 Books','🌃 Night Out','🌿 Nature','⚽ Sports','🎨 Art','💃 Dancing']
+  // Canonical, language-neutral interest keys — the SAME vocabulary
+  // onboarding Step 4 (components/screens/OnboardingLocationInterestsScreen.tsx)
+  // writes to profiles.interests, so an interest picked during onboarding
+  // is correctly recognized/highlighted here, and vice versa. Replaces
+  // the previous emoji-labeled, onboarding-incompatible list. The
+  // existing 5-selection cap below is unrelated Edit-Profile-only
+  // behavior and is intentionally left unchanged.
+  const ALL_INTERESTS: { key: string; label: string }[] = [
+    { key: 'gaming', label: 'Gaming' },
+    { key: 'music', label: 'Music' },
+    { key: 'travel', label: 'Travel' },
+    { key: 'movies', label: 'Movies' },
+    { key: 'sports', label: 'Sports' },
+    { key: 'food', label: 'Food' },
+    { key: 'art', label: 'Art' },
+    { key: 'books', label: 'Books' },
+    { key: 'photography', label: 'Photography' },
+    { key: 'hiking', label: 'Hiking' },
+    { key: 'fitness', label: 'Fitness' },
+    { key: 'dancing', label: 'Dancing' },
+    { key: 'cooking', label: 'Cooking' },
+    { key: 'animals', label: 'Animals' },
+    { key: 'technology', label: 'Technology' },
+    { key: 'startups', label: 'Startups' },
+    { key: 'reading', label: 'Reading' },
+    { key: 'writing', label: 'Writing' },
+    { key: 'nature', label: 'Nature' },
+    { key: 'spirituality', label: 'Spirituality' },
+    { key: 'cars', label: 'Cars' },
+    { key: 'diy_crafts', label: 'DIY & Crafts' },
+    { key: 'history', label: 'History' },
+  ]
 
   function toggleInterest(tag: string) {
     setInterests(prev => {
@@ -213,8 +248,9 @@ export default function EditProfileScreen() {
       console.log('INTERESTS SAVED', interests.length)
       console.log('BIO LANGUAGE SAVED:', bioLanguage)
 
-      // Immediately refetch to confirm save
-      const { data: verify } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+      // Immediately refetch to confirm save — explicit column list, not
+      // select('*') (see loadProfile's comment above for why).
+      const { data: verify } = await supabase.from('profiles').select('id, name, photo').eq('id', user.id).maybeSingle()
       console.log('EDIT PROFILE: verified after save', verify?.id, verify?.name, verify?.photo ? '(has photo)' : '(no photo)')
 
       setSaved(true); setState('ready')
@@ -387,11 +423,11 @@ export default function EditProfileScreen() {
                 {lang==='gr' ? `Ενδιαφέροντα (${interests.length}/5)` : `Interests (${interests.length}/5)`}
               </label>
               <div className="flex flex-wrap gap-2">
-                {ALL_INTERESTS.map(tag => {
-                  const active = interests.includes(tag)
+                {ALL_INTERESTS.map(item => {
+                  const active = interests.includes(item.key)
                   const disabled = !active && interests.length >= 5
                   return (
-                    <button key={tag} type="button" onClick={() => toggleInterest(tag)} disabled={disabled}
+                    <button key={item.key} type="button" onClick={() => toggleInterest(item.key)} disabled={disabled}
                       className="px-3 py-2 rounded-full text-[12px] font-bold transition-all active:scale-95 cursor-pointer"
                       style={{
                         background: active ? 'linear-gradient(135deg,#ff3384,#d84dd8)' : 'rgba(255,255,255,0.047)',
@@ -399,7 +435,7 @@ export default function EditProfileScreen() {
                         border: `1px solid ${active ? 'rgba(253,41,123,0.472)' : 'rgba(255,255,255,0.094)'}`,
                         opacity: disabled ? 0.4 : 1,
                       }}>
-                      {tag}
+                      {item.label}
                     </button>
                   )
                 })}

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useApp } from '@/lib/AppContext'
 import { APP_COPY } from '@/lib/copy'
-import { setCurrentMatch, fetchProfiles, subscribeToNewProfiles, UserProfile } from '@/lib/profiles'
+import { setCurrentMatch, fetchProfiles, subscribeToNewProfiles, subscribeDiscoveryRefreshNeeded, UserProfile } from '@/lib/profiles'
 import { appLangToIso } from '@/lib/langDetect'
 import DesktopProfileDetails from '@/components/ui/DesktopProfileDetails'
 import { sendGameInvite, setPendingInvite, setChatOrigin } from '@/lib/gameInvites'
@@ -108,6 +108,25 @@ export default function ProfileScreenNew() {
 
   useEffect(() => {
     loadProfiles()
+  }, [])
+
+  // DISCOVERY CONSISTENCY FIX: this screen mounts once, together with
+  // every other top-level screen, back at the very start of onboarding
+  // (see lib/profiles.ts's comment on signalDiscoveryRefreshNeeded for
+  // the full why) and then stays mounted for the rest of the session — so
+  // the loadProfiles() mount effect above only ever reflects whatever the
+  // user's show_me/age/distance preferences were AT THAT EARLY MOMENT.
+  // Onboarding Step 7's wrapper fires this signal once its final
+  // preferences save is confirmed committed; re-running loadProfiles()
+  // here re-fetches the exact same canonical discover_profiles() result
+  // this screen already shows on every other path (fresh login, reload),
+  // so Discover is consistent everywhere instead of stuck on stale
+  // pre-onboarding-preferences data.
+  useEffect(() => {
+    return subscribeDiscoveryRefreshNeeded(() => {
+      console.log('DISCOVER: reloading after discovery-refresh signal')
+      loadProfiles()
+    })
   }, [])
 
   // Realtime: new profiles appear for everyone on Discover without a
