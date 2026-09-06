@@ -139,7 +139,7 @@ export default function UserMenu({ onLogout }: Props) {
               👤
             </div>
             <div>
-              <div className="text-[15px] font-extrabold text-white">DateDuel</div>
+              <div className="text-[15px] font-extrabold text-white">DesireDuel</div>
               <div className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
                 {lang==='gr'?'Ο λογαριασμός μου':'My Account'}
               </div>
@@ -174,7 +174,7 @@ export default function UserMenu({ onLogout }: Props) {
 
         {/* Footer accent */}
         <div className="px-6 py-4 text-center text-[10px]" style={{ color: 'rgba(255,255,255,0.25)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          DateDuel · v1
+          DesireDuel · v1
         </div>
       </div>
     </>

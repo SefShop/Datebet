@@ -1,6 +1,6 @@
 {
-  "name": "DateDuel — Play a game. Win a date.",
-  "short_name": "DateDuel",
+  "name": "DesireDuel — Play a game. Win a date.",
+  "short_name": "DesireDuel",
   "start_url": "/app",
   "display": "standalone",
   "background_color": "#08080f",

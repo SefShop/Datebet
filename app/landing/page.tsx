@@ -286,7 +286,7 @@ function LandingMobile() {
       {/* ── WHY DATEDUEL ── */}
       <section style={{ padding: '60px 24px', maxWidth: 680, margin: '0 auto' }}>
         <h2 style={{ fontSize: 'clamp(22px,5vw,32px)', fontWeight: 900, textAlign: 'center' as const, color: '#fff', letterSpacing: '-1px', marginBottom: 32 }}>
-          {lang === 'gr' ? 'Γιατί DateDuel;' : 'Why DateDuel?'}
+          {lang === 'gr' ? 'Γιατί DesireDuel;' : 'Why DesireDuel?'}
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
           {[

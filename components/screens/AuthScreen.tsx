@@ -16,7 +16,7 @@ const C = {
     tabIn: 'Sign In', tabUp: 'Sign Up',
     h1: ['No photos first.', 'Just', 'connection.'],
     welcomeTitle: 'Welcome back!',
-    welcomeSubPre: 'Sign in to continue your ', welcomeSubAccent: 'DateDuel', welcomeSubPost: ' journey',
+    welcomeSubPre: 'Sign in to continue your ', welcomeSubAccent: 'DesireDuel', welcomeSubPost: ' journey',
     email: 'Email', pass: 'Password',
     cta: 'Sign In', ctaUp: 'Create account →',
     or: 'or continue with', google: 'Continue with Google',
@@ -25,7 +25,7 @@ const C = {
     forgotSent: 'Check your email for a reset link.',
     forgotNeedEmail: 'Enter your email above first.',
     tagline: 'No ghosting. Just show up.',
-    newHere: 'New to DateDuel?', createAccount: 'Create account',
+    newHere: 'New to DesireDuel?', createAccount: 'Create account',
     footerBack: 'Already have an account?', footerActionBack: 'Sign in',
     connecting: 'connecting...',
     legalPre: 'By continuing, you agree to our ', legalTerms: 'Terms of Service', legalAnd: ' and ', legalPrivacy: 'Privacy Policy',
@@ -34,21 +34,21 @@ const C = {
     suHeading0: 'Create your', suHeadingAccent: 'account',
     suSub: 'It all starts with a match',
     suGoogle: 'Continue with Google', suFacebook: 'Continue with Facebook', suOr: 'OR', suEmail: 'Continue with email',
-    suAgeNotice: 'You must be 18 or older to use DateDuel.',
+    suAgeNotice: 'You must be 18 or older to use DesireDuel.',
     suLegalPre: 'By continuing, you agree to our ', suLegalTerms: 'Terms of Service', suLegalAnd: ' and acknowledge our ', suLegalPrivacy: 'Privacy Policy', suLegalPost: '.',
     suAlready: 'Already have an account?', suLogin: 'Log in',
     // ── NEW Sign In "main" screen — same visual design system as the
     // approved Sign Up main screen above, own headline/copy ──
     siHeading: 'Welcome back!',
-    siSubPre: 'Continue your ', siSubAccent: 'DateDuel', siSubPost: ' journey',
-    siNewHere: 'New to DateDuel?', siSignUp: 'Sign up',
+    siSubPre: 'Continue your ', siSubAccent: 'DesireDuel', siSubPost: ' journey',
+    siNewHere: 'New to DesireDuel?', siSignUp: 'Sign up',
     back: 'Back',
   },
   gr: {
     tabIn: 'Σύνδεση', tabUp: 'Δημιουργία',
     h1: ['Όχι φωτογραφίες πρώτα.', 'Μόνο', 'σύνδεση.'],
     welcomeTitle: 'Καλώς ήρθες πίσω!',
-    welcomeSubPre: 'Συνδέσου για να συνεχίσεις το ταξίδι σου στο ', welcomeSubAccent: 'DateDuel', welcomeSubPost: '',
+    welcomeSubPre: 'Συνδέσου για να συνεχίσεις το ταξίδι σου στο ', welcomeSubAccent: 'DesireDuel', welcomeSubPost: '',
     email: 'Email', pass: 'Κωδικός',
     cta: 'Σύνδεση', ctaUp: 'Δημιούργησε →',
     or: 'ή συνέχισε με', google: 'Συνέχεια με Google',
@@ -57,7 +57,7 @@ const C = {
     forgotSent: 'Έλεγξε το email σου για τον σύνδεσμο επαναφοράς.',
     forgotNeedEmail: 'Συμπλήρωσε πρώτα το email σου.',
     tagline: 'Χωρίς ghosting. Απλά εμφανίσου.',
-    newHere: 'Καινούριος/α στο DateDuel;', createAccount: 'Δημιούργησε λογαριασμό',
+    newHere: 'Καινούριος/α στο DesireDuel;', createAccount: 'Δημιούργησε λογαριασμό',
     footerBack: 'Έχεις ήδη λογαριασμό;', footerActionBack: 'Σύνδεση',
     connecting: 'σύνδεση...',
     legalPre: 'Συνεχίζοντας, αποδέχεσαι τους ', legalTerms: 'Όρους Χρήσης', legalAnd: ' και την ', legalPrivacy: 'Πολιτική Απορρήτου',
@@ -66,14 +66,14 @@ const C = {
     suHeading0: 'Δημιούργησε τον', suHeadingAccent: 'λογαριασμό σου',
     suSub: 'Όλα ξεκινούν με ένα match',
     suGoogle: 'Συνέχεια με Google', suFacebook: 'Συνέχεια με Facebook', suOr: 'Ή', suEmail: 'Συνέχεια με email',
-    suAgeNotice: 'Πρέπει να είσαι 18+ για να χρησιμοποιήσεις το DateDuel.',
+    suAgeNotice: 'Πρέπει να είσαι 18+ για να χρησιμοποιήσεις το DesireDuel.',
     suLegalPre: 'Συνεχίζοντας, αποδέχεσαι τους ', suLegalTerms: 'Όρους Χρήσης', suLegalAnd: ' και αναγνωρίζεις την ', suLegalPrivacy: 'Πολιτική Απορρήτου', suLegalPost: '.',
     suAlready: 'Έχεις ήδη λογαριασμό;', suLogin: 'Σύνδεση',
     // ── NEW Sign In "main" screen — same visual design system as the
     // approved Sign Up main screen above, own headline/copy ──
     siHeading: 'Καλώς ήρθες πίσω!',
-    siSubPre: 'Συνέχισε το ταξίδι σου στο ', siSubAccent: 'DateDuel', siSubPost: '',
-    siNewHere: 'Καινούριος/α στο DateDuel;', siSignUp: 'Εγγραφή',
+    siSubPre: 'Συνέχισε το ταξίδι σου στο ', siSubAccent: 'DesireDuel', siSubPost: '',
+    siNewHere: 'Καινούριος/α στο DesireDuel;', siSignUp: 'Εγγραφή',
     back: 'Πίσω',
   },
 }
@@ -153,7 +153,7 @@ function AuthMain({ kind, t, lang, show, onGoogle, onEmail, onSwitch }: {
             exactly". */}
         <div className="relative mx-auto" style={{ width: 'var(--su-ring)', height: 'var(--su-ring)' }}>
           <div className="absolute inset-0 flex items-center justify-center">
-            <img src={LOGO_MARK_SRC} alt="DateDuel" style={{ display: 'block', height: 'var(--su-mark)', width: `calc(var(--su-mark) * ${LOGO_MARK_RATIO})`, objectFit: 'contain' }} />
+            <img src={LOGO_MARK_SRC} alt="DesireDuel" style={{ display: 'block', height: 'var(--su-mark)', width: `calc(var(--su-mark) * ${LOGO_MARK_RATIO})`, objectFit: 'contain' }} />
           </div>
         </div>
 
@@ -603,7 +603,7 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
               <path d="M48 3 A45 45 0 0 1 48 93" stroke="url(#authRingR)" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <img src={LOGO_MARK_SRC} alt="DateDuel" style={{ display:'block', height:'var(--mark)', width:`calc(var(--mark) * ${LOGO_MARK_RATIO})`, objectFit:'contain' }} />
+              <img src={LOGO_MARK_SRC} alt="DesireDuel" style={{ display:'block', height:'var(--mark)', width:`calc(var(--mark) * ${LOGO_MARK_RATIO})`, objectFit:'contain' }} />
             </div>
           </div>
 

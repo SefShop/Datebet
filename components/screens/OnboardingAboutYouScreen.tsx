@@ -335,7 +335,7 @@ export default function OnboardingAboutYouScreen({ onNext }: Props) {
                   marginTop: 6, fontSize: 12,
                   background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.12)',
                 }}>
-                You must be 18 or older to use DateDuel.
+                You must be 18 or older to use DesireDuel.
               </div>
             )}
           </div>

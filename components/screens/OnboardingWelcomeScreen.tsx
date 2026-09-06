@@ -102,7 +102,7 @@ export default function OnboardingWelcomeScreen({ onNext }: Props) {
                   stay SVG" convention rather than a raster crop. */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
                 style={{ width: 'var(--ow-ring)', height: 'var(--ow-ring)', border: '1px solid rgba(255,90,150,0.35)' }} />
-              <img src={LOGO_MARK_SRC} alt="DateDuel" className="relative mx-auto"
+              <img src={LOGO_MARK_SRC} alt="DesireDuel" className="relative mx-auto"
                 style={{ display: 'block', height: 'var(--ow-mark)', width: `calc(var(--ow-mark) * ${LOGO_MARK_RATIO})`, objectFit: 'contain' }} />
             </div>
 
@@ -114,7 +114,7 @@ export default function OnboardingWelcomeScreen({ onNext }: Props) {
               background: 'linear-gradient(100deg,#ff3384 15%,#c04ee0 55%,#8b7bff 90%)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>
-              DateDuel
+              DesireDuel
             </h1>
             <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'var(--ow-tag-size)', marginTop: 'var(--ow-gap-bt)' }}>
               Play<span style={{ color: '#ff3384' }}>.</span> Connect<span style={{ color: '#ff3384' }}>.</span> Match<span style={{ color: '#ff3384' }}>.</span>

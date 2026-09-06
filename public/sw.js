@@ -17,7 +17,7 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'DateDuel', body: 'Test notification', data: { type: 'test', target: '/app' }, tag: undefined, renotify: undefined }
+  let payload = { title: 'DesireDuel', body: 'Test notification', data: { type: 'test', target: '/app' }, tag: undefined, renotify: undefined }
   try {
     if (event.data) {
       const parsed = event.data.json()

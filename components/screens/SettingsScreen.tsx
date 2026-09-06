@@ -62,8 +62,8 @@ export default function SettingsScreen() {
     notifUnsupported: lang === 'gr' ? 'Οι ειδοποιήσεις δεν υποστηρίζονται σε αυτόν τον browser.' : 'Notifications aren\'t supported in this browser.',
     notifDisable: lang === 'gr' ? 'Απενεργοποίηση για αυτή τη συσκευή' : 'Disable notifications for this device',
     notifIos: lang === 'gr'
-      ? 'Για ειδοποιήσεις στο iPhone, πρόσθεσε πρώτα το DateDuel στην Αρχική Οθόνη και άνοιξέ το από εκεί.'
-      : 'To receive notifications on iPhone, first add DateDuel to your Home Screen and open it from there.',
+      ? 'Για ειδοποιήσεις στο iPhone, πρόσθεσε πρώτα το DesireDuel στην Αρχική Οθόνη και άνοιξέ το από εκεί.'
+      : 'To receive notifications on iPhone, first add DesireDuel to your Home Screen and open it from there.',
     testSend:    lang === 'gr' ? 'Αποστολή δοκιμαστικής ειδοποίησης' : 'Send test notification',
     testSending: lang === 'gr' ? 'Αποστολή…' : 'Sending…',
     testSuccess: lang === 'gr' ? 'Η δοκιμαστική ειδοποίηση στάλθηκε.' : 'Test notification sent.',

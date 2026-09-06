@@ -7,8 +7,8 @@ export const runtime = 'nodejs'
 // Fixed, server-owned copy — the client can only select which of these
 // two entries to use (via `lang`), never supply its own title/body text.
 const TEST_PAYLOADS: Record<'en' | 'gr', PushPayload> = {
-  en: { title: 'DateDuel', body: 'Push notifications are working.', data: { type: 'test', target: '/app' } },
-  gr: { title: 'DateDuel', body: 'Οι ειδοποιήσεις λειτουργούν σωστά.', data: { type: 'test', target: '/app' } },
+  en: { title: 'DesireDuel', body: 'Push notifications are working.', data: { type: 'test', target: '/app' } },
+  gr: { title: 'DesireDuel', body: 'Οι ειδοποιήσεις λειτουργούν σωστά.', data: { type: 'test', target: '/app' } },
 }
 
 export async function POST(req: NextRequest) {

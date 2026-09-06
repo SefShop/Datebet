@@ -61,7 +61,7 @@ function BrandLogoFull({ height }: { height: number }) {
   return (
     <img
       src={LOGO_FULL_SRC}
-      alt="DateDuel — Play · Connect · Match"
+      alt="DesireDuel — Play · Connect · Match"
       style={{ display: 'block', height, width: height * LOGO_FULL_RATIO, objectFit: 'contain' }}
     />
   )
@@ -252,7 +252,7 @@ function MobileAccessPanel() {
         Scan to get
       </div>
       <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.15, marginTop: 8 }}>
-        <GradientText>DateDuel</GradientText>
+        <GradientText>DesireDuel</GradientText>
       </div>
       <div style={{ fontSize: 22, color: 'rgba(255,255,255,0.88)', lineHeight: 1.25, marginTop: 8 }}>
         on your phone
@@ -399,7 +399,7 @@ export default function DesktopComingSoon() {
           </div>
 
           <div style={{ fontSize: 21, color: 'rgba(255,255,255,0.72)', marginTop: 30, lineHeight: 1.55, maxWidth: 480 }}>
-            For the best <GradientText style={{ fontWeight: 700 }}>DateDuel</GradientText> experience,<br />continue on your phone.
+            For the best <GradientText style={{ fontWeight: 700 }}>DesireDuel</GradientText> experience,<br />continue on your phone.
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 26, marginTop: 50 }}>
@@ -427,7 +427,7 @@ export default function DesktopComingSoon() {
             layered on top of the asset. */}
         <img
           src={PHONE_MASTER_SRC}
-          alt="DateDuel app preview on phone"
+          alt="DesireDuel app preview on phone"
           style={{
             position: 'absolute',
             left: PHONE_MASTER_LEFT,
@@ -449,7 +449,7 @@ export default function DesktopComingSoon() {
           position: 'absolute', left: 0, top: 967, width: MASTER_W,
           textAlign: 'center', fontSize: 14, color: 'rgba(255,255,255,0.32)',
         }}>
-          &copy; {new Date().getFullYear()} <span style={{ color: PINK }}>DateDuel</span>. All rights reserved.
+          &copy; {new Date().getFullYear()} <span style={{ color: PINK }}>DesireDuel</span>. All rights reserved.
         </div>
       </div>
     </main>

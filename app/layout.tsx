@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'DateDuel — Play a game. Win a date.',
+  title: 'DesireDuel — Play a game. Win a date.',
   description: 'The dating app where you play before you chat.',
   manifest: '/manifest.webmanifest',
   icons: {

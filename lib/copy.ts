@@ -109,7 +109,7 @@ const en: Copy = {
   },
 
   why: {
-    label:    'why dateduel',
+    label:    'why desireduel',
     headline: 'Curiosity comes\nbefore appearance.',
     cards: [
       {
@@ -170,7 +170,7 @@ const en: Copy = {
 
   footer: {
     tagline: 'No exit strategy..',
-    copy:    '© 2026 DateDuel',
+    copy:    '© 2026 DesireDuel',
   },
 }
 
@@ -205,7 +205,7 @@ const gr: Copy = {
   },
 
   why: {
-    label:    'γιατί dateduel',
+    label:    'γιατί desireduel',
     headline: 'Η περιέργεια έρχεται\nπριν την εμφάνιση.',
     cards: [
       {
@@ -266,7 +266,7 @@ const gr: Copy = {
 
   footer: {
     tagline: 'Παίξε. Συνδέσου. Ανακάλυψε.',
-    copy:    '© 2026 DateDuel',
+    copy:    '© 2026 DesireDuel',
   },
 }
 
