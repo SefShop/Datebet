@@ -255,11 +255,28 @@ export default function OnboardingPreferencesScreen({ onNext }: Props) {
       return
     }
 
+    // LOCATION COMPLETION FIX: Step 4 (OnboardingLocationInterestsScreen)
+    // treats device geolocation and a manual city as ALTERNATIVE valid
+    // ways to satisfy its own location requirement — a user who allowed
+    // device location and left the manual city empty legitimately has an
+    // empty `profiles.location` (never a fabricated city/country string;
+    // see that screen's handleContinue). Requiring `existing.location` to
+    // be non-empty here unconditionally wrongly treated that valid,
+    // device-location-only profile as incomplete and blocked
+    // onboarding_completed from ever becoming true. Location is valid at
+    // this final check whenever EITHER a real manual city was saved OR
+    // real device coordinates were (mirrors Step 4's own
+    // deviceLocationSuccess || manualCityValid gating) — coordinates are
+    // owner-only-private, so they're read via existingPriv (the same RPC
+    // result already fetched above), never fabricated or defaulted here.
+    const hasValidLocation = !!existing.location
+      || (typeof existingPriv.latitude === 'number' && typeof existingPriv.longitude === 'number')
+
     const missing: string[] = []
     if (!existing.name) missing.push('name')
     if (!existingPriv.date_of_birth) missing.push('date_of_birth')
     if (!existingPriv.gender) missing.push('gender')
-    if (!existing.location) missing.push('location')
+    if (!hasValidLocation) missing.push('location')
     if (!Array.isArray(existing.interests) || existing.interests.length === 0) missing.push('interests')
     if (!Array.isArray(existing.photos) || existing.photos.length === 0) missing.push('photos')
     if (!existing.bio) missing.push('bio')
