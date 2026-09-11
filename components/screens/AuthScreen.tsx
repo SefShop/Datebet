@@ -158,7 +158,7 @@ function AuthMain({ kind, t, lang, show, onGoogle, onEmail, onSwitch }: {
         </div>
 
         <h2 className="font-extrabold tracking-[-0.5px]" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 'var(--su-wm-size)', marginTop: 'var(--su-gap-mw)' }}>
-          <span className="text-white">Date</span><span style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
+          <span className="text-white">Desire</span><span style={{ background: 'linear-gradient(135deg,#ff3384,#d84dd8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
         </h2>
         <p className="font-bold tracking-[3px] uppercase" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 'var(--su-tag-size)', marginTop: 'var(--su-gap-wt)' }}>
           PLAY · CONNECT · MATCH
@@ -608,7 +608,7 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
           </div>
 
           <h2 className="font-extrabold tracking-[-0.5px]" style={{ fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:'var(--wm-size)', marginTop:'var(--gap-mw)' }}>
-            <span className="text-white">Date</span><span style={{ background:'linear-gradient(135deg,#ff3384,#d84dd8)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>Duel</span>
+            <span className="text-white">Desire</span><span style={{ background:'linear-gradient(135deg,#ff3384,#d84dd8)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>Duel</span>
           </h2>
           <p className="font-bold tracking-[3px] uppercase" style={{ color:'rgba(255,255,255,0.4)', fontSize:'var(--tag-size)', marginTop:'var(--gap-wt)' }}>
             PLAY · CONNECT · MATCH

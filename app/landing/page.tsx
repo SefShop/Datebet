@@ -196,7 +196,7 @@ function LandingMobile() {
       {/* ── NAV ── */}
       <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 28px', background: 'rgba(7,7,9,0.8)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.5px', color: '#fff' }}>
-          Date<span style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
+          Desire<span style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <LanguageDropdown lang={lang} setLang={setLang} />
@@ -222,7 +222,7 @@ function LandingMobile() {
           {/* Logo */}
           <div style={{ marginBottom: 16, animation: 'fadeUp 0.6s ease both' }}>
             <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.3px' }}>
-              <span style={{ color: '#fff' }}>Date</span><span style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
+              <span style={{ color: '#fff' }}>Desire</span><span style={{ background: 'linear-gradient(135deg,#fd297b,#c850c0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
             </span>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fd297b', boxShadow: '0 0 12px rgba(253,41,123,0.9)', animation: 'dotPulse 2s ease-in-out infinite' }} />
@@ -473,7 +473,7 @@ function LandingMobile() {
       <footer style={{ padding: '32px 24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: 10 }}>
           <div style={{ fontSize: 18, fontWeight: 900 }}>
-            Date<span style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
+            Desire<span style={{ background: 'linear-gradient(135deg,#fd297b,#ff655b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Duel</span>
           </div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.22)', fontStyle: 'italic' }}>{c.footer.tagline}</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.15)' }}>{c.footer.copy}</div>
