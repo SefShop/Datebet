@@ -2,27 +2,25 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fetchOwnPrivateProfile } from '@/lib/profiles'
 
 interface Props {
-  /** Called only after location/interests/coordinates have been written
-   * to the existing `profiles` row and confirmed via a re-select. The
-   * locked onboarding sequence is Welcome (1) → About You (2) → Who
-   * You're Interested In (3) → Location + Interests (this screen, Step
-   * 4) → Photos (5) → About You/Bio (6) → Preferences (7).
+  /** Called only after interests have been written to the existing
+   * `profiles` row and confirmed via a re-select. The locked onboarding
+   * sequence is Welcome (1, now also handling location + notification
+   * permission setup internally) → About You (2) → Who You're
+   * Interested In (3) → Interests (this screen, Step 4) → Photos (5) →
+   * About You/Bio (6) → Preferences (7).
    *
-   * Location handling: pressing "Use my location" is the ONLY thing that
-   * ever calls navigator.geolocation.getCurrentPosition — never
-   * automatically on mount/load. On success the REAL returned
-   * latitude/longitude are persisted as-is (never rendered, never
-   * logged, never geocoded/fabricated); on denial/unavailability the
-   * manual city field still works and coordinates are simply omitted
-   * from the save (never faked). `profiles.interests` is written using
-   * the same canonical, language-neutral keys used throughout this
-   * screen — this is now the ONE shared interests vocabulary, also
-   * consumed by EditProfileScreen.tsx. On mount, any already-saved city
-   * and interests are hydrated back in (never overwriting a selection
-   * already made this session). */
+   * ROUND E1 CHANGE: this screen used to also collect location (device
+   * geolocation or manual city). That entire flow has MOVED to Step 1
+   * (components/screens/OnboardingWelcomeScreen.tsx) — it still exists,
+   * unchanged in mechanism, just earlier in onboarding. This screen is
+   * now interests-only. `profiles.interests` is written using the same
+   * canonical, language-neutral keys used throughout this screen — this
+   * is still the ONE shared interests vocabulary, also consumed by
+   * EditProfileScreen.tsx. On mount, any already-saved interests are
+   * hydrated back in (never overwriting a selection already made this
+   * session). */
   onNext: () => void
 }
 
@@ -42,27 +40,10 @@ type ExtraInterestKey =
 // naturally covers both groups without any special-casing.
 type AnyInterestKey = InterestKey | ExtraInterestKey
 
-// Every terminal state the "Use my location" control can be in.
-// 'idle' → nothing tried yet (the ONLY state on load — no auto-request).
-// 'loading' → getCurrentPosition() is in flight for this press.
-// 'success' → coordinates were obtained (stored locally only).
-// 'denied' | 'unavailable' | 'timeout' | 'unsupported' → all rendered
-// with the same single friendly fallback message; the manual city field
-// stays usable in every one of these states.
-type LocStatus = 'idle' | 'loading' | 'success' | 'denied' | 'unavailable' | 'timeout' | 'unsupported'
-
 // ── Icons — plain inline SVG line-art, no emoji, matching the thin-stroke
-// treatment already established on Steps 2/3. Self-contained here (not
-// imported from the locked Step 2/3 files) even though the style echoes
+// treatment already established on Steps 1-3. Self-contained here (not
+// imported from the locked Step 1/2/3 files) even though the style echoes
 // them. ──
-function PinIcon({ color }: { color: string }) {
-  return (
-    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 21s-7-6.2-7-11.5C5 5.9 8.13 3 12 3s7 2.9 7 6.5C19 14.8 12 21 12 21z" />
-      <circle cx="12" cy="9.5" r="2.2" />
-    </svg>
-  )
-}
 function GamingIcon({ color }: { color: string }) {
   return (
     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -156,24 +137,6 @@ function CheckIcon({ color }: { color: string }) {
   return (
     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 12.5 9.5 18 20 6.5" />
-    </svg>
-  )
-}
-function SpinnerIcon({ color }: { color: string }) {
-  // Simple rotating ring — animation is applied via the .ol-spin class
-  // (see the <style> block) on the wrapping span, not here, so this stays
-  // a plain static SVG.
-  return (
-    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
-      <path d="M12 3a9 9 0 1 1-9 9" />
-    </svg>
-  )
-}
-function LockIcon({ color }: { color: string }) {
-  return (
-    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="5.5" y="10.5" width="13" height="9" rx="2" />
-      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
     </svg>
   )
 }
@@ -366,7 +329,6 @@ const EXTRA_INTERESTS: { key: ExtraInterestKey; label: string; icon: (c: string)
 ]
 
 export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
-  const [manualCity, setManualCity] = useState('')
   // ONE combined Set for the main 8 chips AND the "More interests" panel's
   // 15 extra options — see AnyInterestKey above.
   const [selected, setSelected] = useState<Set<AnyInterestKey>>(new Set())
@@ -376,50 +338,26 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
   // re-opening it later in the same Step 4 session shows the same
   // checked items.
   const [panelOpen, setPanelOpen] = useState(false)
-  const [locStatus, setLocStatus] = useState<LocStatus>('idle')
-  // UI-only: whether the minimal "Enter city manually" link has revealed
-  // its compact input. Purely local presentation state — never affects
-  // what gets saved (that's still `manualCity`, unchanged below).
-  const [manualOpen, setManualOpen] = useState(false)
-  // Raw coordinates — the REAL values returned by
-  // navigator.geolocation, kept in state only long enough to persist
-  // them on Continue. Never rendered in the UI (the UI only ever shows
-  // "Location enabled"), never logged, never geocoded into a
-  // city/country string.
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
-  // Extra guard (on top of the button's own `disabled`) against firing a
-  // second geolocation request while one is already resolving.
-  const geoInFlightRef = useRef(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const manualCityRef = useRef(manualCity); manualCityRef.current = manualCity
   const selectedRef = useRef(selected); selectedRef.current = selected
 
-  // ── Resume safety: hydrate city + interests from the EXISTING profile
-  // (if any) so leaving mid-Step-4 and coming back doesn't lose them.
-  // Read-only — no write happens until Continue. Coordinates are
-  // intentionally NOT hydrated here — they are only ever set from a
-  // fresh, real geolocation result during this session. ──
+  // ── Resume safety: hydrate interests from the EXISTING profile (if
+  // any) so leaving mid-Step-4 and coming back doesn't lose them.
+  // Read-only — no write happens until Continue. ──
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (cancelled || !user) return
-        const { data } = await supabase.from('profiles').select('location, interests').eq('id', user.id).maybeSingle()
+        const { data } = await supabase.from('profiles').select('interests').eq('id', user.id).maybeSingle()
         if (cancelled || !data) return
-        if (typeof data.location === 'string' && data.location.length > 0 && manualCityRef.current === '') {
-          setManualCity(data.location)
-          // A previously-saved city exists — reveal the compact manual
-          // input pre-filled rather than hiding an already-set value
-          // behind the collapsed link (UI-only; no persistence change).
-          setManualOpen(true)
-        }
         if (Array.isArray(data.interests) && data.interests.length > 0 && selectedRef.current.size === 0) {
           setSelected(new Set(data.interests as AnyInterestKey[]))
         }
       } catch (err) {
-        console.error('ONBOARDING LOCATION: load existing failed', err)
+        console.error('ONBOARDING INTERESTS: load existing failed', err)
       }
     })()
     return () => { cancelled = true }
@@ -434,58 +372,10 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
     })
   }
 
-  // Only ever called from the "Use my location" button's onClick — never
-  // on mount, never in a useEffect — so the browser's permission prompt
-  // is guaranteed to appear only after that explicit user action.
-  function handleUseLocation() {
-    if (geoInFlightRef.current) return
-    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
-      setLocStatus('unsupported')
-      return
-    }
-    geoInFlightRef.current = true
-    setLocStatus('loading')
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        geoInFlightRef.current = false
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setLocStatus('success')
-      },
-      (err) => {
-        geoInFlightRef.current = false
-        // 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
-        // (the standard, stable GeolocationPositionError codes).
-        if (err.code === 1) setLocStatus('denied')
-        else if (err.code === 2) setLocStatus('unavailable')
-        else if (err.code === 3) setLocStatus('timeout')
-        else setLocStatus('denied')
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
-    )
-  }
-
-  const deviceLocationSuccess = locStatus === 'success'
-  const manualCityValid = manualCity.trim().length > 0
   // selected.size already covers BOTH the main 8 and the panel's 15 extra
   // interests, since they share one combined Set — no special-casing
   // needed for Continue's gating.
-  const canContinue = (deviceLocationSuccess || manualCityValid) && selected.size > 0 && !submitting
-
-  // ── Minimal single-row Location card (redesign) ──────────────────────
-  // A location counts as "resolved" for display purposes the same way
-  // Continue's own gating already treats it: either a successful device
-  // geolocation this session, or a non-empty manual city (freshly typed
-  // OR hydrated from an earlier session) — never a fabricated value.
-  const locationResolved = deviceLocationSuccess || manualCityValid
-  const locationSecondaryText = locationResolved
-    ? (manualCity.trim() || 'Location set')
-    : locStatus === 'loading'
-    ? 'Finding your location…'
-    : locStatus === 'unsupported'
-    ? 'Not available on this device'
-    : (locStatus === 'denied' || locStatus === 'unavailable' || locStatus === 'timeout')
-    ? "Couldn't detect — tap to try again"
-    : 'Set current location'
+  const canContinue = selected.size > 0 && !submitting
   const extraSelectedCount = EXTRA_INTERESTS.reduce((n, item) => n + (selected.has(item.key) ? 1 : 0), 0)
 
   async function handleContinue() {
@@ -500,57 +390,34 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
       return
     }
 
-    const finalCity = manualCity.trim()
     const finalInterests = Array.from(selected)
-
-    // Only ever the REAL coordinates returned by navigator.geolocation
-    // this session (see handleUseLocation above) — never geocoded from
-    // the city string, never fabricated. If geolocation wasn't used or
-    // didn't succeed this session, latitude/longitude are simply left
-    // out of the update entirely, so any previously-saved coordinates
-    // from an earlier session are preserved rather than overwritten
-    // with NULL.
-    const payload: { location: string; interests: string[]; latitude?: number; longitude?: number } = {
-      location: finalCity,
-      interests: finalInterests,
-    }
-    if (deviceLocationSuccess && coords) {
-      payload.latitude = coords.lat
-      payload.longitude = coords.lng
-    }
 
     const { error: updateErr } = await supabase
       .from('profiles')
-      .update(payload)
+      .update({ interests: finalInterests })
       .eq('id', user.id)
 
     if (updateErr) {
-      console.error('ONBOARDING LOCATION: profile update failed', updateErr)
-      setSubmitError("We couldn't save your details. Please check your connection and try again.")
+      console.error('ONBOARDING INTERESTS: profile update failed', updateErr)
+      setSubmitError("We couldn't save your interests. Please check your connection and try again.")
       setSubmitting(false)
       return
     }
 
-    // Verify, the same way Steps 5/6 confirm their own saves — an
-    // immediate re-select rather than trusting the update call alone.
-    // location/interests are safe columns (plain select); latitude/
-    // longitude are owner-only-private and revoked at the database level
-    // for direct SELECT, so they're verified via the RPC instead.
+    // Verify, the same way this screen has always confirmed its own
+    // save — an immediate re-select rather than trusting the update call
+    // alone. `interests` is a safe/public column (plain select) — no
+    // privacy-locked field is involved on this screen anymore.
     const { data: verify, error: verifyErr } = await supabase
-      .from('profiles').select('location, interests').eq('id', user.id).maybeSingle()
-    const { data: privVerify, error: privVerifyErr } = payload.latitude !== undefined
-      ? await fetchOwnPrivateProfile()
-      : { data: null, error: null }
+      .from('profiles').select('interests').eq('id', user.id).maybeSingle()
 
     const verifiedInterests: string[] = Array.isArray(verify?.interests) ? verify.interests : []
     const interestsMatch = verifiedInterests.length === finalInterests.length &&
       finalInterests.every(k => verifiedInterests.includes(k))
-    const coordsMatch = payload.latitude === undefined ||
-      (!privVerifyErr && privVerify?.latitude === payload.latitude && privVerify?.longitude === payload.longitude)
 
-    if (verifyErr || !verify || verify.location !== finalCity || !interestsMatch || !coordsMatch) {
-      console.error('ONBOARDING LOCATION: post-save verification failed', verifyErr, verify)
-      setSubmitError("We couldn't confirm your details saved. Please try again.")
+    if (verifyErr || !verify || !interestsMatch) {
+      console.error('ONBOARDING INTERESTS: post-save verification failed', verifyErr, verify)
+      setSubmitError("We couldn't confirm your interests saved. Please try again.")
       setSubmitting(false)
       return
     }
@@ -595,11 +462,10 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
         style={{ maxWidth: 390, paddingTop: 'var(--ol-outer-pad-top)', paddingBottom: 'var(--ol-outer-pad-bottom)' }}>
 
         {/* Step badge + 7-segment progress — same design system and same
-            single-highlight convention as Steps 1-3 (fixed in the
-            previous round): only the current step's own segment (index
-            3, the 4th) is filled pink; every other segment — including
-            steps already passed — stays inactive gray. No cumulative
-            fill, no glow. */}
+            single-highlight convention as every other onboarding screen:
+            only the current step's own segment (index 3, the 4th) is
+            filled pink; every other segment — including steps already
+            passed — stays inactive gray. No cumulative fill, no glow. */}
         <div className="flex items-center flex-shrink-0" style={{ gap: 'var(--ol-badge-gap)' }}>
           <div className="flex items-center justify-center flex-shrink-0 font-extrabold text-white"
             style={{
@@ -617,126 +483,24 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
           </div>
         </div>
 
-        {/* Form content — top-anchored like Steps 2/3, with Continue
-            pinned to the bottom of the remaining space via
+        {/* Form content — top-anchored like the other onboarding steps,
+            with Continue pinned to the bottom of the remaining space via
             marginTop:auto. */}
         <div className="flex-1 flex flex-col min-h-0" style={{ marginTop: 'var(--ol-gap-tc)' }}>
 
           <div className="text-center flex-shrink-0">
             <h1 className="font-extrabold text-white" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 'var(--ol-title-size)' }}>
-              Location &amp; interests
+              Interests
             </h1>
             <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'var(--ol-sub-size)', lineHeight: 1.4, marginTop: 'var(--ol-gap-ts)' }}>
-              Πού βρίσκεσαι και τι<br />σε ενδιαφέρει;
-            </p>
-          </div>
-
-          {/* Location — redesigned to one clean, minimal, native-feeling
-              row (approved: "Step 4 Location — clean Tinder-like UX"
-              round), not a large branded composition. A single primary
-              action shows either the real, already-available resolved
-              location or a low-friction prompt to set one; manual entry
-              is a secondary, collapsed-by-default link rather than a
-              second competing card. Geolocation is still requested ONLY
-              on a tap of this row (handleUseLocation, unchanged below) —
-              never automatically on mount/load. Everything here is local
-              component state; no geocoding/maps API, no new dependency,
-              no raw coordinates ever rendered. Visual redesign only — the
-              underlying geolocation request/storage, manual-city
-              persistence, and Interests section below are all untouched. */}
-          <div className="flex-shrink-0" style={{ marginTop: 'var(--ol-gap-sl)' }}>
-            <label className="block font-bold text-white" style={{ fontSize: 'var(--ol-label-size)', marginBottom: 'var(--ol-gap-lf)' }}>
-              Location
-            </label>
-
-            {/* Main location row — the ONE primary action. Tapping it
-                (when not already loading/unsupported) always calls the
-                existing handleUseLocation geolocation mechanism, whether
-                setting a location for the first time or re-detecting to
-                refresh an already-set one — no separate "Change" control
-                needed. Title text never changes; only the secondary line
-                and accent state do. */}
-            <button type="button" onClick={handleUseLocation}
-              disabled={locStatus === 'loading' || locStatus === 'unsupported'}
-              aria-live="polite"
-              className="w-full flex items-center transition-all active:scale-[0.97] cursor-pointer disabled:cursor-not-allowed"
-              style={{
-                borderRadius: 16, gap: 12,
-                paddingLeft: 16, paddingRight: 16,
-                paddingTop: 'var(--ol-field-pad-y)', paddingBottom: 'var(--ol-field-pad-y)',
-                fontFamily: "'Plus Jakarta Sans',sans-serif",
-                background: locationResolved ? 'rgba(255,51,132,0.12)' : 'rgba(255,51,132,0.07)',
-                border: locationResolved ? '1.5px solid #ff3384' : '1.5px solid rgba(255,51,132,0.35)',
-                boxShadow: locationResolved ? '0 0 16px rgba(255,51,132,0.3)' : 'none',
-              }}>
-              <span className={locStatus === 'loading' ? 'ol-spin' : ''}
-                style={{ fontSize: 'var(--ol-chip-icon)', display: 'flex', flexShrink: 0, color: locationResolved ? '#ff5fa0' : '#ff3384' }}>
-                {locStatus === 'loading' ? <SpinnerIcon color="#ff3384" /> : <PinIcon color={locationResolved ? '#ff5fa0' : '#ff3384'} />}
-              </span>
-              <span className="text-left" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <span style={{ fontSize: 'var(--ol-field-size)', fontWeight: 700, color: locStatus === 'unsupported' ? 'rgba(255,255,255,0.35)' : '#fff' }}>
-                  Current location
-                </span>
-                <span className="truncate" style={{ fontSize: 'var(--ol-chip-label-size)', fontWeight: 600, color: locationResolved ? '#ff5fa0' : 'rgba(255,255,255,0.5)' }}>
-                  {locationSecondaryText}
-                </span>
-              </span>
-              {locationResolved && (
-                <span style={{ flexShrink: 0, display: 'flex', fontSize: '1.1em', color: '#ff5fa0' }}>
-                  <CheckIcon color="#ff5fa0" />
-                </span>
-              )}
-            </button>
-
-            {/* Manual fallback — secondary and minimal: a plain text
-                link, never a second large card. Reveals the exact same
-                `manualCity` input/state as before; only when it's shown
-                and how it's styled changed. */}
-            <div style={{ marginTop: 'var(--ol-gap-lf)' }}>
-              <button type="button" onClick={() => setManualOpen(o => !o)}
-                className="cursor-pointer active:opacity-60 transition-opacity"
-                style={{
-                  fontSize: 'var(--ol-chip-label-size)', fontWeight: 600,
-                  color: 'rgba(255,255,255,0.5)', textDecoration: 'underline',
-                  background: 'transparent', border: 'none', padding: 0,
-                }}>
-                {manualCityValid ? 'Edit city manually' : 'Enter city manually'}
-              </button>
-
-              {manualOpen && (
-                <div className="relative" style={{ marginTop: 'var(--ol-gap-lf)' }}>
-                  <input value={manualCity} onChange={e => setManualCity(e.target.value)}
-                    placeholder="Η πόλη σου" autoComplete="off"
-                    className="w-full outline-none transition-all duration-200"
-                    style={{
-                      borderRadius: 14, paddingLeft: 16, paddingRight: 40,
-                      paddingTop: 'var(--ol-field-pad-y)', paddingBottom: 'var(--ol-field-pad-y)',
-                      fontSize: 'var(--ol-field-size)', color: '#fff',
-                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                    }} />
-                  <span className="absolute top-1/2 -translate-y-1/2 pointer-events-none"
-                    style={{ right: 14, color: 'rgba(255,51,132,0.6)', fontSize: '1em', display: 'flex' }}>
-                    <PinIcon color="rgba(255,51,132,0.6)" />
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <p style={{ marginTop: 'var(--ol-gap-lf)', color: 'rgba(255,255,255,0.35)', fontSize: 'var(--ol-chip-label-size)', lineHeight: 1.3, display: 'flex', alignItems: 'flex-start', gap: 5 }}>
-              <span style={{ display: 'flex', flexShrink: 0, marginTop: 2, fontSize: '1em' }}>
-                <LockIcon color="rgba(255,255,255,0.35)" />
-              </span>
-              Your precise location is never shown to other users.
+              Pick a few things you're into — it helps us<br />show you more compatible people.
             </p>
           </div>
 
           {/* Interests — multi-select. Tapping a selected chip again
               deselects it; any number (including zero, which simply
               keeps Continue disabled) may be selected. */}
-          <div className="flex-shrink-0" style={{ marginTop: 'var(--ol-gap-fi)' }}>
-            <label className="block font-bold text-white" style={{ fontSize: 'var(--ol-label-size)', marginBottom: 'var(--ol-gap-lf)' }}>
-              Interests (επίλεξε μερικά)
-            </label>
+          <div className="flex-shrink-0" style={{ marginTop: 'var(--ol-gap-sl)' }}>
             <div className="flex flex-col" style={{ gap: 'var(--ol-chip-gap)' }}>
               {[0, 1, 2].map(rowIdx => (
                 <div key={rowIdx} className="flex" style={{ gap: 'var(--ol-chip-gap)' }}>
@@ -797,7 +561,7 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
           )}
 
           {/* CTA — pinned to the bottom of the remaining space, same
-              pattern as Steps 2/3's Continue button. */}
+              pattern as every other onboarding step's Continue button. */}
           <button onClick={handleContinue} disabled={!canContinue}
             className="w-full rounded-2xl font-bold transition-all active:scale-[0.97] cursor-pointer flex-shrink-0 disabled:cursor-not-allowed"
             style={{
@@ -922,13 +686,13 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
       )}
 
       <style>{`
-        /* Same 3-MODE height-responsive philosophy as Steps 1-3: MODE A
-           (>=900px) flat base values, MODE B (700-899px) a fluid
-           clamp(MIN, calc(A+Cdvh), MAX) anchored at 700/860, MODE C
-           (<700px) a second clamp anchored at 600/700 whose ceiling
+        /* Same 3-MODE height-responsive philosophy as the other onboarding
+           screens: MODE A (>=900px) flat base values, MODE B (700-899px)
+           a fluid clamp(MIN, calc(A+Cdvh), MAX) anchored at 700/860, MODE
+           C (<700px) a second clamp anchored at 600/700 whose ceiling
            equals MODE B's own 700px floor for a continuous tier
            boundary. Badge/progress vars reuse the exact same numbers as
-           Steps 1-3. */
+           the other onboarding screens. */
         .dd-onboard-location {
           /* height: prefer svh (small viewport height — assumes the
              browser's toolbar/URL bar IS showing) as the final/winning
@@ -975,11 +739,6 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
           --ol-gap-ts: 8px;
           --ol-sub-size: 15px;
           --ol-gap-sl: 22px;
-          --ol-label-size: 15px;
-          --ol-gap-lf: 8px;
-          --ol-field-pad-y: 16px;
-          --ol-field-size: 15px;
-          --ol-gap-fi: 20px;
           --ol-chip-gap: 10px;
           --ol-chip-pad-y: 14px;
           --ol-chip-icon: 20px;
@@ -1000,11 +759,6 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
             --ol-gap-ts: clamp(6px, calc(-2.75px + 1.25dvh), 8px);
             --ol-sub-size: clamp(13px, calc(6.44px + 0.94dvh), 14.5px);
             --ol-gap-sl: clamp(14px, calc(-3.50px + 2.50dvh), 18px);
-            --ol-label-size: clamp(13px, calc(8.62px + 0.62dvh), 14px);
-            --ol-gap-lf: clamp(6px, calc(-2.75px + 1.25dvh), 8px);
-            --ol-field-pad-y: clamp(11px, calc(-2.12px + 1.88dvh), 14px);
-            --ol-field-size: clamp(13.5px, calc(9.12px + 0.62dvh), 14.5px);
-            --ol-gap-fi: clamp(12px, calc(-5.50px + 2.50dvh), 16px);
             --ol-chip-gap: clamp(7px, calc(-1.75px + 1.25dvh), 9px);
             --ol-chip-pad-y: clamp(9px, calc(-4.12px + 1.88dvh), 12px);
             --ol-chip-icon: clamp(16px, calc(7.25px + 1.25dvh), 18px);
@@ -1028,11 +782,6 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
             --ol-gap-ts: clamp(4px, calc(-8.00px + 2.00dvh), 6px);
             --ol-sub-size: clamp(12px, calc(6.00px + 1.00dvh), 13px);
             --ol-gap-sl: clamp(8px, calc(-28.00px + 6.00dvh), 14px);
-            --ol-label-size: clamp(12px, calc(6.00px + 1.00dvh), 13px);
-            --ol-gap-lf: clamp(5px, calc(-1.00px + 1.00dvh), 6px);
-            --ol-field-pad-y: clamp(9px, calc(-3.00px + 2.00dvh), 11px);
-            --ol-field-size: clamp(13px, calc(10.00px + 0.50dvh), 13.5px);
-            --ol-gap-fi: clamp(8px, calc(-16.00px + 4.00dvh), 12px);
             --ol-chip-gap: clamp(5px, calc(-7.00px + 2.00dvh), 7px);
             --ol-chip-pad-y: clamp(7px, calc(-5.00px + 2.00dvh), 9px);
             --ol-chip-icon: clamp(14px, calc(2.00px + 2.00dvh), 16px);
@@ -1041,11 +790,6 @@ export default function OnboardingLocationInterestsScreen({ onNext }: Props) {
             --ol-cta-pad-y: clamp(10px, calc(-2.00px + 2.00dvh), 12px);
             --ol-cta-size: clamp(13.5px, calc(10.50px + 0.50dvh), 14px);
           }
-        }
-        .ol-spin { animation: ol-spin-rotate 0.9s linear infinite; }
-        @keyframes ol-spin-rotate {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
