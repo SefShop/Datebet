@@ -470,6 +470,18 @@ export default function OnboardingWelcomeScreen({ onNext }: Props) {
                 fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 'var(--ow-brand-size)', marginTop: 'var(--ow-gap-ww)',
                 background: 'linear-gradient(100deg,#ff3384 15%,#c04ee0 55%,#8b7bff 90%)',
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                // FIX (real-device wordmark clipping): Plus Jakarta Sans has no
+                // loaded `ital` axis, so this italic is browser-synthesized
+                // (a paint-time skew of the upright glyph outlines) rather than
+                // a true italic outline. On some renderers (confirmed on a real
+                // Android device) the synthesized skew pushes the trailing "l"
+                // ink past the box the background-clip gradient was computed
+                // against, clipping it. Equal left/right padding gives that
+                // overhang room on both sides — symmetric, so the box simply
+                // grows outward from its own center and the centered text's
+                // visual position does not shift. em-based so the buffer scales
+                // with --ow-brand-size across all three responsive tiers below.
+                paddingLeft: '0.06em', paddingRight: '0.06em',
               }}>
                 DesireDuel
               </h1>

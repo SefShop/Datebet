@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { detectBioLanguage } from '@/lib/langDetect'
 import { compressImage } from '@/lib/photoCompress'
 import PresenceStatusDot from '@/components/ui/PresenceStatusDot'
+import { fetchOwnPrivateProfile } from '@/lib/profiles'
 
 type State = 'loading' | 'ready' | 'saving' | 'error'
 type PhotoState = 'idle' | 'uploading' | 'done' | 'error'
@@ -14,7 +15,7 @@ const ALLOWED = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_PHOTOS = 9
 
 export default function EditProfileScreen() {
-  const { navigate, lang } = useApp()
+  const { navigate, lang, screen } = useApp()
 
   const [name, setName]         = useState('')
   const [age, setAge]           = useState('')
@@ -33,13 +34,48 @@ export default function EditProfileScreen() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploadSlot, setUploadSlot] = useState<number | null>(null)  // which slot the file picker targets
   const [userId, setUserId]     = useState<string|null>(null)
+  // STEP 2B (display-model fix): whether this user has valid stored
+  // latitude+longitude on file, so the UI can distinguish "location is
+  // empty, nothing on file" from "location is empty, but device
+  // coordinates ARE on file" instead of the two looking identical. Only
+  // ever holds a boolean — the actual coordinate numbers are never kept
+  // in component state or rendered (see loadProfile()/privacy note below).
+  const [hasDeviceCoords, setHasDeviceCoords] = useState(false)
 
-  useEffect(() => { loadProfile() }, [])
+  // STEP 2D (post-onboarding stale-hydration fix): every top-level screen
+  // in app/app/page.tsx (including this one) is mounted ONCE per
+  // `authKey` generation and kept mounted thereafter — navigation only
+  // toggles CSS visibility via the `screen` value from AppContext, it
+  // never remounts anything. The former `useEffect(() => { loadProfile()
+  // }, [])` therefore ran exactly once, at that very first mount (often
+  // before onboarding has written anything), and never again for the
+  // rest of the session — only an actual logout/login (which DOES bump
+  // authKey and force a real remount) ever produced a second load. Fix:
+  // reuse the existing, already-global `screen` value this component
+  // already reads via useApp() — no new store, no duplicated onboarding
+  // data, no app-wide refresh system — and simply re-run the SAME
+  // loadProfile() every time `screen` transitions TO 'edit_profile'
+  // (first activation after onboarding, and every later re-visit alike).
+  // Logout/login is untouched by this change: it still forces a full
+  // remount via authKey as before, which still re-runs this effect too.
+  const loadRequestIdRef = useRef(0)
+  useEffect(() => {
+    if (screen !== 'edit_profile') return
+    loadProfile()
+  }, [screen])
 
   async function loadProfile() {
+    // Stale-response guard: if the user leaves and re-opens Edit Profile
+    // quickly enough that a previous, still-in-flight loadProfile() call
+    // resolves AFTER a newer one has already started, the old call's
+    // result must never be allowed to overwrite the newer one's state.
+    // Each call gets its own id; a call only applies what it fetched if
+    // it is still the most recently started one by the time it resumes.
+    const requestId = ++loadRequestIdRef.current
     setState('loading')
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      if (requestId !== loadRequestIdRef.current) return  // superseded while awaiting auth
       if (!user) { setError('Not logged in'); setState('error'); return }
 
       console.log('=== MY PROFILE ===')
@@ -51,8 +87,21 @@ export default function EditProfileScreen() {
       // longitude are revoked at the database level for every role
       // (including a profile's own owner, since no shipped UI ever reads
       // them back), so a wildcard select would fail here.
-      const { data, error: e } = await supabase
-        .from('profiles').select('id, name, age, location, bio, photo, photos, interests').eq('id', user.id).maybeSingle()
+      //
+      // STEP 2B: run alongside the EXISTING owner-private RPC wrapper
+      // (fetchOwnPrivateProfile() -> get_own_private_profile(), already
+      // used by onboarding) in parallel, so both resolve before 'ready'
+      // and the Location field never flashes the wrong placeholder. This
+      // does not widen the privacy surface: the RPC already exists, is
+      // already called elsewhere, is SECURITY DEFINER scoped to
+      // auth.uid() with no id parameter, and we only keep a boolean
+      // (hasDeviceCoords) from its result — never the raw lat/lng.
+      const [{ data, error: e }, { data: priv }] = await Promise.all([
+        supabase.from('profiles').select('id, name, age, location, bio, photo, photos, interests').eq('id', user.id).maybeSingle(),
+        fetchOwnPrivateProfile(),
+      ])
+      if (requestId !== loadRequestIdRef.current) return  // superseded while awaiting the profile/private-profile fetch
+      setHasDeviceCoords(typeof priv?.latitude === 'number' && typeof priv?.longitude === 'number')
 
       if (e && e.code !== 'PGRST116') {
         console.error('PROFILE LOAD ERROR:', e)
@@ -82,6 +131,7 @@ export default function EditProfileScreen() {
       }
       setState('ready')
     } catch (err: any) {
+      if (requestId !== loadRequestIdRef.current) return  // superseded — a newer activation is already in flight/applied
       console.error('PROFILE LOAD CATCH:', err)
       setError(err.message); setState('error')
     }
@@ -263,6 +313,7 @@ export default function EditProfileScreen() {
     name:     lang==='gr' ? 'Όνομα' : 'Name',
     age:      lang==='gr' ? 'Ηλικία' : 'Age',
     location: lang==='gr' ? 'Τοποθεσία' : 'Location',
+    usingDeviceLocation: lang==='gr' ? 'Χρήση τοποθεσίας συσκευής' : 'Using your device location',
     bio:      'Bio',
     photoUrl: lang==='gr' ? 'Ή URL φωτογραφίας' : 'Or paste photo URL',
     upload:   lang==='gr' ? '📷 Ανέβασε φωτογραφία' : '📷 Upload Photo',
@@ -399,12 +450,28 @@ export default function EditProfileScreen() {
               <div className="flex-1">
                 <label className="text-[11px] font-bold text-white/30 uppercase tracking-[1px] mb-1.5 block">{t.location}</label>
                 <input value={location} onChange={e => setLoc(e.target.value)}
-                  placeholder={lang==='gr' ? 'Αθήνα' : 'Athens'}
+                  placeholder={(!location && hasDeviceCoords) ? '' : (lang==='gr' ? 'Αθήνα' : 'Athens')}
                   onFocus={() => setFocus('l')} onBlur={() => setFocus(null)}
                   className="w-full rounded-2xl px-4 py-3.5 text-[14px] outline-none transition-all duration-300"
                   style={inputStyle('l')} />
               </div>
             </div>
+
+            {/* STEP 2B: presentation-only device-location indicator. Shown
+                ONLY when location is empty and valid coordinates are on
+                file — never written into the `location` input value/state,
+                so it can never be persisted by saveProfile() (which only
+                ever sends the `location` state itself). Replaces the
+                previous ambiguous state where an empty input with the
+                "Athens"/"Αθήνα" placeholder could be mistaken for a saved
+                value. */}
+            {!location && hasDeviceCoords && (
+              <div className="text-[11px] flex items-center gap-1"
+                style={{ color: 'rgba(255,255,255,0.45)' }}>
+                <span>📍</span>
+                <span>{t.usingDeviceLocation}</span>
+              </div>
+            )}
 
             <div>
               <label className="text-[11px] font-bold text-white/30 uppercase tracking-[1px] mb-1.5 block">{t.bio}</label>
