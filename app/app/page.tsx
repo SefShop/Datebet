@@ -167,7 +167,52 @@ const SCREENS = {
   waiting:      <WaitingScreen />,
 }
 
-// Create a profile row for a signed-in user if missing (Google OAuth / email)
+// Reconciliation for a profiles row that already exists, whether found by
+// ensureProfileExists's own initial SELECT or discovered via its
+// defense-in-depth duplicate-key recovery below. Factored out so both call
+// sites share exactly one implementation — behavior is unchanged from
+// before Step 3B. Legacy/incomplete accounts only: if the saved name is
+// empty/generic but the auth account has a real name in its metadata (e.g.
+// from an earlier Google sign-in, or from signup metadata set at account
+// creation), safely fill in just the missing field — never touches a
+// genuinely different name the user already has. onboarding_completed is
+// intentionally never written here — only read (via the owner-only RPC).
+// Never reset for a returning user; a legacy row with no value at all is
+// treated as already-completed (an existing account should never be
+// forced through Play Together).
+async function reconcileAndReportCompletion(
+  userId: string,
+  existing: { id: string; name: string | null; age: number | null },
+  existingPriv: { onboarding_completed: boolean | null } | null,
+  metaName: string,
+): Promise<boolean> {
+  const existingIsGeneric = !existing.name || existing.name.trim() === '' || existing.name === 'Player'
+  if (existingIsGeneric && metaName) {
+    console.log('LEGACY PROFILE BACKFILL:', userId, metaName)
+    const { error } = await supabase.from('profiles').update({ name: metaName }).eq('id', userId)
+    if (error) throw error
+    console.log('ONBOARDING PROFILE SAVE SUCCESS:')
+  } else {
+    console.log('PROFILE ENSURE SUCCESS (exists)')
+  }
+  return existingPriv?.onboarding_completed !== false
+}
+
+// Create a profile row for a signed-in user if missing (Google OAuth /
+// email). STEP 3B: this is now the SOLE NORMAL client-side creator of
+// profiles rows — components/screens/AuthScreen.tsx no longer attempts
+// its own competing INSERT (see that file's ensureProfile()), which
+// eliminates the normal-path profiles_pkey race the Step 3A audit proved.
+//
+// DEFENSE IN DEPTH: the Step 3A audit could not prove whether a live
+// database trigger or other external creator exists outside this repo's
+// source. So even as the sole NORMAL creator, this function still handles
+// a duplicate-key error narrowly and safely — the INSERT's error is now
+// captured and checked (previously it was silently discarded, a
+// pre-existing gap this also fixes) rather than assumed to have
+// succeeded. A duplicate-key result is reconciled exactly like an
+// already-existing row; any other error still fails safe via the outer
+// catch, exactly as before.
 async function ensureProfileExists(user: any): Promise<boolean> {
   console.log('PROFILE ENSURE START')
   try {
@@ -180,34 +225,35 @@ async function ensureProfileExists(user: any): Promise<boolean> {
     const metaName = meta.full_name || meta.name || ''
 
     if (existing) {
-      // Legacy/incomplete accounts only: if the saved name is empty/generic
-      // but the auth account has a real name in its metadata (e.g. from an
-      // earlier Google sign-in, or from signup metadata set at account
-      // creation), safely fill in just the missing field — never touches a
-      // genuinely different name the user already has.
-      const existingIsGeneric = !existing.name || existing.name.trim() === '' || existing.name === 'Player'
-      if (existingIsGeneric && metaName) {
-        console.log('LEGACY PROFILE BACKFILL:', user.id, metaName)
-        const { error } = await supabase.from('profiles').update({ name: metaName }).eq('id', user.id)
-        if (error) throw error
-        console.log('ONBOARDING PROFILE SAVE SUCCESS:')
-      } else {
-        console.log('PROFILE ENSURE SUCCESS (exists)')
-      }
-      // onboarding_completed is intentionally never written here — only
-      // read (via the owner-only RPC — see comment above). Never reset it
-      // for a returning user; a legacy row with no value at all is
-      // treated as already-completed (see requirement 7 — an existing
-      // account should never be forced through Play Together).
-      return existingPriv?.onboarding_completed !== false
+      return await reconcileAndReportCompletion(user.id, existing, existingPriv, metaName)
     }
 
-    await supabase.from('profiles').insert({
+    const { error: insertErr } = await supabase.from('profiles').insert({
       id: user.id,
       name: metaName || 'Player',
       age: meta.age || 0, bio: '', photo: meta.avatar_url || meta.picture || '', location: '',
       onboarding_completed: false,
     })
+
+    if (insertErr) {
+      const isDuplicateKey = (insertErr as any).code === '23505'
+        || (typeof insertErr.message === 'string' && insertErr.message.includes('profiles_pkey'))
+      if (!isDuplicateKey) throw insertErr
+
+      // Narrow duplicate-key recovery: some other path (an unproven
+      // external creator — see the comment above) created this row first.
+      // That is not a failure — a profiles row now exists for this user,
+      // which is what this function exists to guarantee. Re-fetch
+      // whatever that other path wrote and reconcile it exactly as the
+      // "already existing" branch above would have.
+      console.warn('PROFILE ENSURE INSERT RACE: row already created by another path, reconciling instead of failing:', insertErr.message)
+      const { data: winner, error: refetchError } = await supabase.from('profiles').select('id, name, age').eq('id', user.id).maybeSingle()
+      if (refetchError) throw refetchError
+      if (!winner) throw insertErr // row vanished between the conflict and the re-fetch — surface the original error rather than guessing
+      const { data: winnerPriv } = await fetchOwnPrivateProfile()
+      return await reconcileAndReportCompletion(user.id, winner, winnerPriv, metaName)
+    }
+
     console.log('PROFILE ENSURE SUCCESS')
     return false
   } catch (e: any) {

@@ -370,93 +370,80 @@ export default function AuthScreen({ onAuth, lang: langProp = 'gr' }: Props) {
     } catch (e: any) { setError(e.message); setLoading(false) }
   }
 
-  // Create or correctly update the profiles row for the authenticated user.
-  // Never creates a duplicate row (keyed by id, one row per user). If a row
-  // already exists (e.g. auto-created by a DB trigger, or by the app-shell's
-  // own ensureProfileExists on the same sign-in event) with a generic/empty
-  // name, this UPDATES it with the real onboarding values instead of
-  // silently leaving the generic name in place — that silent bail-out was
-  // the root cause of profiles permanently showing "Player" after signup.
-  // A genuinely different existing name (set later via Edit Profile) is
-  // never overwritten.
+  // Bounded, deterministic wait for app/app/page.tsx's ensureProfileExists()
+  // (the sole normal row creator — see ensureProfile() below) to have
+  // created this user's row. This is NOT a fixed "hope it's ready" sleep:
+  // every attempt re-checks the real condition (row existence) and returns
+  // the moment it's found, so an existing user's row — already present —
+  // is returned on the very first attempt with no added delay. Only a
+  // brand-new user, racing page.tsx's own in-flight creation, can wait
+  // past the first attempt, and only for a small, bounded number of short
+  // retries (at most maxAttempts * intervalMs ≈ 1.35s total) before giving
+  // up. Never INSERTs, never loops unboundedly, never swallows a genuine
+  // failure — a full timeout returns null and the caller treats that as a
+  // real error, not success.
+  async function pollForProfile(
+    userId: string,
+    maxAttempts = 10,
+    intervalMs = 150,
+  ): Promise<{ id: string; name: string | null; age: number | null } | null> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const { data } = await supabase.from('profiles').select('id, name, age').eq('id', userId).maybeSingle()
+      if (data) return data
+      if (attempt < maxAttempts - 1) {
+        await new Promise(resolve => setTimeout(resolve, intervalMs))
+      }
+    }
+    return null
+  }
+
+  // STEP 3B (profiles_pkey race elimination): app/app/page.tsx's own
+  // ensureProfileExists() — driven by the same onAuthStateChange event
+  // that this screen's signUp()/signInWithPassword() call also triggers —
+  // is now the SOLE NORMAL client-side creator of profiles rows. This
+  // function no longer attempts its own INSERT: that second, independent
+  // SELECT-then-INSERT was the proven root cause of the profiles_pkey
+  // race (Step 3A audit). It now only ever RECONCILES an existing row —
+  // filling in the real signup name over a generic/empty placeholder,
+  // exactly as it already did when its own SELECT found a row — never
+  // touching onboarding_completed, photo, location, bio, or any other
+  // field, and never overwriting a genuinely different existing name.
   //
-  // RACE-CONDITION SAFETY (AUTH ensureProfile race-condition fix): the
-  // SELECT above and the INSERT below are two separate round trips, so
-  // app/app/page.tsx's own onAuthStateChange/ensureProfileExists listener
-  // (or a DB trigger) can create the same profiles row in the gap between
-  // them. Previously that made the INSERT below fail outright with a
-  // "duplicate key value violates unique constraint profiles_pkey" error,
-  // which this function re-threw — turning a harmless race into a hard
-  // signup/login failure. The INSERT below now recovers narrowly from
-  // exactly that one error (Postgres unique-violation code '23505' on
-  // profiles_pkey) by re-fetching the row the other path created and
-  // reconciling it with the exact same logic used for the "already
-  // existing" branch above — never touching onboarding_completed, photo,
-  // location, or bio, and never overwriting a real name with a generic one.
-  // Any other error (network, permissions, an unrelated constraint) is
-  // rethrown unchanged, exactly as before.
+  // For a brand-new user, page.tsx's creator may not have committed its
+  // INSERT yet by the time this runs (the two are still concurrent, only
+  // one of them creates now). pollForProfile() below bounds that wait
+  // deterministically — no arbitrary fixed-delay sleep — by re-checking
+  // the real condition (row existence) a small, bounded number of times.
+  // An existing user's row is already there, so this returns on the
+  // FIRST attempt with zero added latency for login.
   async function ensureProfile(userId: string, fields: { name?: string; age?: number }) {
     console.log('PROFILE ENSURE START')
     console.log('ONBOARDING PROFILE SAVE START:')
     try {
-      const { data: existing } = await supabase.from('profiles').select('id, name, age').eq('id', userId).maybeSingle()
+      const existing = await pollForProfile(userId)
+
+      if (!existing) {
+        // Genuine failure: page.tsx's sole creator did not produce a row
+        // within the bounded wait. This is not a normal-path outcome —
+        // surfaced like any other ensureProfile failure, so submit()'s
+        // own catch shows its existing error message and does not
+        // navigate into the app with incomplete/unsaved data.
+        throw new Error('Profile could not be confirmed after sign-in.')
+      }
 
       const hasRealName = !!fields.name && fields.name.trim().length > 0
-
-      if (existing) {
-        await reconcileExistingProfile(userId, existing, fields, hasRealName)
-        console.log('PROFILE ENSURE SUCCESS (exists)')
-        return
-      }
-
-      // Pull Google metadata only to fill empty profile
-      const { data: { user } } = await supabase.auth.getUser()
-      const meta: any = user?.user_metadata || {}
-      const gName = fields.name || meta.full_name || meta.name || 'Player'
-      const gPhoto = meta.avatar_url || meta.picture || ''
-
-      console.log('ONBOARDING PROFILE UPSERT:', userId)
-      const { error } = await supabase.from('profiles').insert({
-        id: userId,
-        name: gName,
-        age: fields.age || 0,
-        bio: '', photo: gPhoto, location: '',
-        onboarding_completed: false,
-      })
-
-      if (error) {
-        const isDuplicateKey = (error as any).code === '23505'
-          || (typeof error.message === 'string' && error.message.includes('profiles_pkey'))
-        if (!isDuplicateKey) throw error
-
-        // Narrow duplicate-key recovery: another process won the race and
-        // created this row first. That is not a failure — a profiles row
-        // now exists for this user, which is what this function exists to
-        // guarantee. Re-fetch whatever that other path wrote and reconcile
-        // it exactly as the "already existing" branch above would have.
-        console.warn('ONBOARDING PROFILE INSERT RACE: row already created by another path, reconciling instead of failing:', error.message)
-        const { data: winner, error: refetchError } = await supabase.from('profiles').select('id, name, age').eq('id', userId).maybeSingle()
-        if (refetchError) throw refetchError
-        if (!winner) throw error // row vanished between the conflict and the re-fetch — surface the original error rather than guessing
-
-        await reconcileExistingProfile(userId, winner, fields, hasRealName)
-        console.log('PROFILE ENSURE SUCCESS (race-recovered)')
-        return
-      }
-
-      console.log('ONBOARDING PROFILE SAVE SUCCESS:')
-      console.log('PROFILE ENSURE SUCCESS')
+      await reconcileExistingProfile(userId, existing, fields, hasRealName)
+      console.log('PROFILE ENSURE SUCCESS (exists)')
     } catch (e: any) {
       console.error('ONBOARDING PROFILE SAVE ERROR:', e.message)
       throw e
     }
   }
 
-  // Shared reconciliation for a profiles row that already exists, whether
-  // found by ensureProfile's initial SELECT or discovered via the
-  // duplicate-key race recovery above. Only ever writes name/age, and only
-  // when the existing name is genuinely empty/generic ('' or 'Player') AND
-  // a real signup name is available — otherwise it's a no-op. Never resets
+  // Reconciliation for a profiles row found by ensureProfile's bounded
+  // pollForProfile() above. Only ever writes name/age, and only when the
+  // existing name is genuinely empty/generic ('' or 'Player') AND a real
+  // signup name is available — otherwise it's a no-op. Never resets
   // onboarding_completed, photo, location, bio, or any other existing field.
   async function reconcileExistingProfile(
     userId: string,
