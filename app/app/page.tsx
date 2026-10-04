@@ -274,6 +274,11 @@ function AppShell() {
   // can be told apart from an actual sign-in/sign-out/account switch —
   // see the onAuthStateChange handler below.
   const lastAuthUserIdRef = useRef<string | null>(null)
+  // STEP 3C: the authenticated user id established by onAuthStateChange
+  // (from the Supabase session itself, never user input). The global
+  // messages/presence/notifications/invite systems start from THIS instead
+  // of each independently calling supabase.auth.getUser() at login.
+  const [authUserId, setAuthUserId] = useState<string | null>(null)
   useEffect(() => {
     console.log('[TIC_TAC_TOE_REFRESH_TRACE] authKey changed to:', authKey, '— this forces a remount of all game screens')
   }, [authKey])
@@ -351,6 +356,7 @@ function AppShell() {
         return
       }
       lastAuthUserIdRef.current = newUserId
+      setAuthUserId(newUserId)
       if (event === 'SIGNED_OUT' || !session) {
         console.log('AUTH: signed out, clearing profile state')
         clearProfileState()
@@ -423,11 +429,17 @@ function AppShell() {
 
   // Global messages polling — single source of truth for inbox/menu/badge
   useEffect(() => {
-    if (!authed) { stopMessagesPolling(); stopPresence(); stopAutoPresence(); stopNotificationsPolling(); return }
-    startMessagesPolling()
-    startPresence()
-    startAutoPresence()
-    startNotificationsPolling()
+    // STEP 3C: stopNotificationsPolling() runs BEFORE stopMessagesPolling()
+    // so clearing the messages store (which notifies subscribers) cannot
+    // trigger one last refreshNotifications() on a session that's ending.
+    // Starts require the auth session's userId (set by onAuthStateChange);
+    // `authed` alone can be true a moment before that event has delivered it.
+    if (!authed || !authUserId) { stopNotificationsPolling(); stopMessagesPolling(); stopPresence(); stopAutoPresence(); return }
+    const userId = authUserId
+    startMessagesPolling(userId)
+    startPresence(userId)
+    startAutoPresence(userId)
+    startNotificationsPolling(userId)
 
     // Reconciliation: recover a missed "invite accepted" realtime event —
     // e.g. the sender wasn't on WaitingScreen when it happened, or the
@@ -437,7 +449,7 @@ function AppShell() {
     // WaitingScreen's own live listener already handled it).
     const generationAtStart = authKeyRef.current
     const loginStartedAt = new Date().toISOString()
-    reconcilePendingAcceptedInvite(loginStartedAt).then(async (result) => {
+    reconcilePendingAcceptedInvite(loginStartedAt, userId).then(async (result) => {
       if (!result) return
       // Auth changed (logout, or a different account logged in) while this
       // async call was in flight — discard the result rather than resurface
@@ -447,14 +459,20 @@ function AppShell() {
         return
       }
       const { invite } = result
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { return }
-      if (authKeyRef.current !== generationAtStart) return
+      // STEP 3C: reuse the session userId this effect started with instead
+      // of another supabase.auth.getUser() round trip. The authKey
+      // generation check above/below is what proves it's still the active
+      // login; enterAcceptedGame() itself also re-validates the live
+      // authenticated user before it publishes anything.
       // enterAcceptedGame() calls setCurrentSession() internally, which the
       // session subscription below reacts to and performs navigation from
       // — no need to navigate here too (that would be a second navigation
       // implementation for the same event).
-      await enterAcceptedGame(invite, user.id)
+      await enterAcceptedGame(invite, userId)
+    }).catch((e: any) => {
+      // This chain is intentionally fire-and-forget; never leave a floating
+      // rejection (e.g. from enterAcceptedGame) unhandled.
+      console.warn('RECONCILIATION failed:', e?.message)
     })
 
     // ── Single authoritative navigation trigger for entering a game ────
@@ -499,12 +517,12 @@ function AppShell() {
       window.removeEventListener('beforeunload', onLeave)
       window.removeEventListener('pagehide', onLeave)
       unsubscribeSession()
+      stopNotificationsPolling()   // before messages — see note at the top of this effect
       stopMessagesPolling()
       stopPresence()
       stopAutoPresence()
-      stopNotificationsPolling()
     }
-  }, [authed])
+  }, [authed, authUserId])
 
   // ReturnScreen handler removed
 

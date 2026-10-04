@@ -220,20 +220,32 @@ export async function respondInvite(inviteId: string, accept: boolean): Promise<
   } catch (e: any) { return { ok: false, error: e.message } }
 }
 
-export async function getInviteCount(): Promise<number> {
+// Returns the pending-invite count, 0 when there genuinely is none / no
+// user, or null when the count could not be DETERMINED (a transient
+// auth/network/query failure). The distinction matters: the only caller
+// (lib/notificationsState.ts) keeps its previous value on null instead of
+// overwriting a real badge count with 0 because one request dropped.
+// `userId` (STEP 3C): the already-known authenticated user id from the
+// app's auth session — when given, no supabase.auth.getUser() round trip.
+export async function getInviteCount(userId?: string): Promise<number | null> {
   if (!isSupabaseConfigured()) return 0
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return 0
+    let uid = userId ?? null
+    if (!uid) {
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (!user) return (error && (error as any).name !== 'AuthSessionMissingError') ? null : 0
+      uid = user.id
+    }
     const cutoff = new Date(Date.now() - PENDING_INVITE_EXPIRY_MS).toISOString()
-    const { count } = await supabase
+    const { count, error } = await supabase
       .from('game_invites')
       .select('*', { count: 'exact', head: true })
-      .eq('receiver_id', user.id)
+      .eq('receiver_id', uid)
       .eq('status', 'pending')
       .gte('created_at', cutoff)
+    if (error) return null
     return count ?? 0
-  } catch { return 0 }
+  } catch { return null }
 }
 
 // ── Game Sessions ──────────────────────────────────────────────
@@ -583,10 +595,17 @@ export async function restorePersistedActiveSession(currentUserId: string): Prom
   }
 }
 
-export async function reconcilePendingAcceptedInvite(loginStartedAt: string): Promise<{ invite: GameInvite; session: GameSession } | null> {
+// `userId` (STEP 3C): the already-known authenticated user id from the app's
+// auth session (app/app/page.tsx). When omitted, the user is resolved as before.
+export async function reconcilePendingAcceptedInvite(loginStartedAt: string, userId?: string): Promise<{ invite: GameInvite; session: GameSession } | null> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
+    let uid = userId ?? null
+    if (!uid) {
+      const { data: { user } } = await supabase.auth.getUser()
+      uid = user?.id ?? null
+    }
+    if (!uid) return null
+    const user = { id: uid }
 
     // IMPORTANT: this must only ever recover an accept that happened
     // DURING the current login — e.g. the sender wasn't on WaitingScreen

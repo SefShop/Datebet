@@ -92,12 +92,29 @@ export async function setOfflineBeforeLogout(userId: string): Promise<void> {
 
 // Write the CURRENT user's presence_status — internal to the automatic
 // controller below; not exported for arbitrary manual use.
-async function writePresenceStatus(status: 'online' | 'away' | 'offline'): Promise<void> {
+//
+// STEP 3C: `knownUserId` is the authenticated user id app/app/page.tsx
+// handed to startAutoPresence() from the auth session. The online/away
+// writes (startup + every visibility change) pass it, so they no longer
+// each ask supabase.auth.getUser() over the network. The 'offline' write in
+// stopAutoPresence() deliberately passes nothing and still resolves the
+// user via getUser(): at stop time the real question is whether a valid
+// session still exists, so a cached id must not be trusted there. `gen`
+// drops a lookup-based write if the session changed while it was resolving.
+let _userId: string | null = null
+let _gen = 0
+
+async function writePresenceStatus(status: 'online' | 'away' | 'offline', knownUserId?: string | null): Promise<void> {
   if (!isSupabaseConfigured()) return
+  const gen = _gen
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('profiles').update({ presence_status: status }).eq('id', user.id)
+    let id = knownUserId ?? null
+    if (!id) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || gen !== _gen) return
+      id = user.id
+    }
+    await supabase.from('profiles').update({ presence_status: status }).eq('id', id)
     console.log('AUTO PRESENCE STATUS SET:', status)
   } catch (e: any) { console.error('writePresenceStatus:', e.message) }
 }
@@ -110,13 +127,16 @@ async function writePresenceStatus(status: 'online' | 'away' | 'offline'): Promi
 let _visibilityHandler: (() => void) | null = null
 let _started = false
 
-export function startAutoPresence() {
+// userId: the authenticated user id from app/app/page.tsx's auth session.
+export function startAutoPresence(userId: string) {
   if (_started) return
   _started = true
+  _userId = userId
+  _gen++
 
   function apply() {
     const visible = typeof document !== 'undefined' && document.visibilityState === 'visible'
-    writePresenceStatus(visible ? 'online' : 'away')
+    writePresenceStatus(visible ? 'online' : 'away', _userId)
   }
 
   apply()
@@ -127,6 +147,8 @@ export function startAutoPresence() {
 export function stopAutoPresence() {
   if (_visibilityHandler) { document.removeEventListener('visibilitychange', _visibilityHandler); _visibilityHandler = null }
   _started = false
+  _gen++        // before the offline write below, so it captures the new generation
+  _userId = null
   writePresenceStatus('offline')
 }
 

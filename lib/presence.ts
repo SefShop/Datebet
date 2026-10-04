@@ -2,13 +2,32 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 // ── Real online/offline presence ────────────────────────────────
 
+// ── Session identity + generation (STEP 3C) ─────────────────────
+// _userId: the authenticated user id app/app/page.tsx handed to
+// startPresence() from the auth session. setOnline()/heartbeat() reuse it
+// instead of calling supabase.auth.getUser() on every 10s tick (and again
+// concurrently at startup). _gen is bumped on start/stop so a write that
+// had to look the user up itself is dropped if the session changed meanwhile.
+// setOffline() deliberately still resolves the user via getUser(): it runs
+// at logout/leave, where the question really is "is there still a valid
+// session?" — it must not trust a cached id.
+let _userId: string | null = null
+let _gen = 0
+
+async function currentUserId(): Promise<string | null> {
+  if (_userId) return _userId
+  const gen = _gen
+  const { data: { user } } = await supabase.auth.getUser()
+  return gen === _gen ? (user?.id ?? null) : null
+}
+
 // Set current user online + timestamp
 export async function setOnline(): Promise<void> {
   if (!isSupabaseConfigured()) return
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('profiles').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', user.id)
+    const id = await currentUserId()
+    if (!id) return
+    await supabase.from('profiles').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', id)
     console.log('PRESENCE ONLINE SET')
   } catch (e: any) { console.error('setOnline:', e.message) }
 }
@@ -17,9 +36,9 @@ export async function setOnline(): Promise<void> {
 export async function heartbeat(): Promise<void> {
   if (!isSupabaseConfigured()) return
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('profiles').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', user.id)
+    const id = await currentUserId()
+    if (!id) return
+    await supabase.from('profiles').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', id)
     console.log('PRESENCE HEARTBEAT')
   } catch { /* silent */ }
 }
@@ -38,14 +57,19 @@ export async function setOffline(): Promise<void> {
 // ── Heartbeat interval management (single, no duplicates) ────────
 let _hb: any = null
 
-export function startPresence() {
+// userId: the authenticated user id from app/app/page.tsx's auth session.
+export function startPresence(userId: string) {
   if (_hb) return
+  _userId = userId
+  _gen++
   setOnline()
   _hb = setInterval(() => heartbeat(), 10000)  // every 10s — see lib/presenceStatus.ts's offline threshold for why
 }
 
 export function stopPresence() {
   if (_hb) { clearInterval(_hb); _hb = null }
+  _gen++
+  _userId = null
   setOffline()
 }
 
