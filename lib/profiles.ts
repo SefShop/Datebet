@@ -145,6 +145,12 @@ export type OwnPrivateProfile = {
   date_of_birth: string | null
   gender: string | null
   show_me: string | null
+  // Onboarding PROGRESS (not a discovery preference): true once the user has
+  // successfully completed Step 3's Continue save. Lets resume tell an
+  // explicit "Everyone" from the database default 'everyone'. Optional so a
+  // response from a database/RPC that predates the column still type-checks
+  // and is simply read as "not confirmed".
+  show_me_confirmed?: boolean | null
   preferred_age_min: number | null
   preferred_age_max: number | null
   max_distance_km: number | null

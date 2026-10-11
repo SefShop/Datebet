@@ -118,9 +118,15 @@ export default function OnboardingInterestedInScreen({ onNext }: Props) {
 
     // UPDATE only. profiles.show_me is the SAME field Step 7 later reads
     // and can override — never a second, competing field.
+    // show_me_confirmed is onboarding PROGRESS written in the SAME single
+    // UPDATE, only here (a successful Step 3 Continue): it is what lets
+    // resume tell an explicit "Everyone" from the DB default 'everyone'.
+    // ONE update, no fallback: a successful Continue means BOTH values were
+    // persisted. If it fails (including a database without the column), Step 3
+    // reports the error and does NOT advance.
     const { error: updateErr } = await supabase
       .from('profiles')
-      .update({ show_me: selected })
+      .update({ show_me: selected, show_me_confirmed: true })
       .eq('id', user.id)
 
     if (updateErr) {

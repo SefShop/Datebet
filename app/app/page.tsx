@@ -38,6 +38,11 @@ import UserMenu        from '@/components/ui/UserMenu'
 import AuthScreen      from '@/components/screens/AuthScreen'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { clearProfileState, setCurrentMatch, fetchOwnPrivateProfile, signalDiscoveryRefreshNeeded } from '@/lib/profiles'
+import type { OwnPrivateProfile } from '@/lib/profiles'
+import { resolveOnboardingResumeScreen } from '@/lib/onboardingResume'
+import type { OnboardingResumeScreen } from '@/lib/onboardingResume'
+import { createOnboardingHistory, browserHistoryEnv, isOnboardingScreen } from '@/lib/onboardingHistory'
+import type { OnboardingHistory } from '@/lib/onboardingHistory'
 import { reconcilePendingAcceptedInvite, enterAcceptedGame, subscribeCurrentSession, gameScreenFor, getCurrentSession, setCurrentSession, clearGameState, isValidActiveGameSession, isRematchInProgress, isEnteringGame, setEnteringGame, restorePersistedActiveSession } from '@/lib/gameInvites'
 import { isMobileDevice } from '@/lib/deviceGate'
 // SocialPresence removed
@@ -180,14 +185,25 @@ const SCREENS = {
 // Never reset for a returning user; a legacy row with no value at all is
 // treated as already-completed (an existing account should never be
 // forced through Play Together).
+//
+// STEP 5B: besides the completion flag, an INCOMPLETE user also gets the
+// earliest unsatisfied onboarding screen, decided read-only from the same
+// already-fetched own-profile data (lib/onboardingResume.ts). A completed
+// user's result never depends on any of it.
+type ProfileEnsureResult = { completed: boolean; resumeScreen: OnboardingResumeScreen }
+
+const SAFE_PROFILE_COLUMNS = 'id, name, age, location, interests, photos, bio'
+
 async function reconcileAndReportCompletion(
   userId: string,
-  existing: { id: string; name: string | null; age: number | null },
-  existingPriv: { onboarding_completed: boolean | null } | null,
+  existing: { id: string; name: string | null; age: number | null; location?: string | null; interests?: unknown; photos?: unknown; bio?: string | null },
+  existingPriv: OwnPrivateProfile | null,
   metaName: string,
-): Promise<boolean> {
+): Promise<ProfileEnsureResult> {
   const existingIsGeneric = !existing.name || existing.name.trim() === '' || existing.name === 'Player'
+  let effectiveName = existing.name
   if (existingIsGeneric && metaName) {
+    effectiveName = metaName
     console.log('LEGACY PROFILE BACKFILL:', userId, metaName)
     const { error } = await supabase.from('profiles').update({ name: metaName }).eq('id', userId)
     if (error) throw error
@@ -195,7 +211,12 @@ async function reconcileAndReportCompletion(
   } else {
     console.log('PROFILE ENSURE SUCCESS (exists)')
   }
-  return existingPriv?.onboarding_completed !== false
+  const completed = existingPriv?.onboarding_completed !== false
+  if (completed) return { completed: true, resumeScreen: 'onboarding_welcome' }
+  return {
+    completed: false,
+    resumeScreen: resolveOnboardingResumeScreen({ ...existing, name: effectiveName }, existingPriv),
+  }
 }
 
 // Create a profile row for a signed-in user if missing (Google OAuth /
@@ -213,13 +234,15 @@ async function reconcileAndReportCompletion(
 // succeeded. A duplicate-key result is reconciled exactly like an
 // already-existing row; any other error still fails safe via the outer
 // catch, exactly as before.
-async function ensureProfileExists(user: any): Promise<boolean> {
+async function ensureProfileExists(user: any): Promise<ProfileEnsureResult> {
   console.log('PROFILE ENSURE START')
   try {
-    // id/name/age are safe columns (plain select); onboarding_completed
-    // is owner-only-private and revoked at the database level for
-    // direct SELECT, so it's read back via the RPC instead.
-    const { data: existing } = await supabase.from('profiles').select('id, name, age').eq('id', user.id).maybeSingle()
+    // id/name/age (and, for the Step 5B resume decision, location/
+    // interests/photos/bio) are safe columns (plain select);
+    // onboarding_completed is owner-only-private and revoked at the
+    // database level for direct SELECT, so it's read back via the RPC
+    // instead — the same RPC result also feeds the resume decision.
+    const { data: existing } = await supabase.from('profiles').select(SAFE_PROFILE_COLUMNS).eq('id', user.id).maybeSingle()
     const { data: existingPriv } = existing ? await fetchOwnPrivateProfile() : { data: null }
     const meta = user.user_metadata || {}
     const metaName = meta.full_name || meta.name || ''
@@ -247,7 +270,7 @@ async function ensureProfileExists(user: any): Promise<boolean> {
       // whatever that other path wrote and reconcile it exactly as the
       // "already existing" branch above would have.
       console.warn('PROFILE ENSURE INSERT RACE: row already created by another path, reconciling instead of failing:', insertErr.message)
-      const { data: winner, error: refetchError } = await supabase.from('profiles').select('id, name, age').eq('id', user.id).maybeSingle()
+      const { data: winner, error: refetchError } = await supabase.from('profiles').select(SAFE_PROFILE_COLUMNS).eq('id', user.id).maybeSingle()
       if (refetchError) throw refetchError
       if (!winner) throw insertErr // row vanished between the conflict and the re-fetch — surface the original error rather than guessing
       const { data: winnerPriv } = await fetchOwnPrivateProfile()
@@ -255,11 +278,20 @@ async function ensureProfileExists(user: any): Promise<boolean> {
     }
 
     console.log('PROFILE ENSURE SUCCESS')
-    return false
+    // Brand-new row (nothing saved yet) → onboarding starts at Step 1.
+    return { completed: false, resumeScreen: 'onboarding_welcome' }
   } catch (e: any) {
     console.error('ensureProfileExists:', e.message)
-    return true // fail safe: never trap a user on an error, default to Profiles
+    // fail safe: never trap a user on an error, default to Profiles
+    return { completed: true, resumeScreen: 'onboarding_welcome' }
   }
+}
+
+// Lazily creates the one OnboardingHistory for this document (client only —
+// browserHistoryEnv() touches window, so it is never called during render).
+function ensureOnboardingHistory(ref: { current: OnboardingHistory | null }): OnboardingHistory {
+  if (!ref.current) ref.current = createOnboardingHistory(browserHistoryEnv())
+  return ref.current
 }
 
 function AppShell() {
@@ -302,6 +334,38 @@ function AppShell() {
   // them.
   const authKeyRef = useRef(authKey)
   useEffect(() => { authKeyRef.current = authKey }, [authKey])
+
+  // ── Onboarding Back-button support (lib/onboardingHistory.ts) ──
+  // The onboarding steps are React state only, so the real Back button
+  // (Android system Back / browser Back) had no onboarding history entry
+  // to return to. This keeps ONE guard entry in history while a step after
+  // Step 1 is showing, and turns Back-onto-base into "previous step". It
+  // is active ONLY while an onboarding screen is on screen; the profile
+  // row stays the only source of truth for progress (resume logic above is
+  // untouched). onboardingStatus is not reset when Step 7 finishes, so the
+  // visible screen — not the status — is what ends onboarding navigation.
+  const onboardingHistoryRef = useRef<OnboardingHistory | null>(null)
+  const navigateRef = useRef(navigate)
+  useEffect(() => { navigateRef.current = navigate })
+  const onboardingNavActive = authed && onboardingStatus === 'incomplete' && isOnboardingScreen(screen)
+  const wasOnboardingNavActiveRef = useRef(false)
+
+  // Declaration order matters: listeners are attached before sync() runs.
+  useEffect(() => {
+    if (!onboardingNavActive) return
+    const history = ensureOnboardingHistory(onboardingHistoryRef)
+    history.start((s) => navigateRef.current(s))
+    return () => history.stop()   // listeners only — never history (Strict Mode double-run safe)
+  }, [onboardingNavActive])
+  useEffect(() => {
+    if (!onboardingNavActive) return
+    ensureOnboardingHistory(onboardingHistoryRef).sync(screen)
+  }, [onboardingNavActive, screen])
+  useEffect(() => {
+    // Real transition out of onboarding (finished Step 7, or signed out).
+    if (wasOnboardingNavActiveRef.current && !onboardingNavActive) ensureOnboardingHistory(onboardingHistoryRef).leave()
+    wasOnboardingNavActiveRef.current = onboardingNavActive
+  }, [onboardingNavActive])
 
   // ── Safe guard: never leave the user staring at a game screen's own
   // "No game session found" fallback. If the active top-level screen is
@@ -382,7 +446,7 @@ function AppShell() {
       // both here means React batches them into the exact same render —
       // the gate and the correct screen change together, never apart.
       if (session?.user?.id && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        ensureProfileExists(session.user).then(async (completed) => {
+        ensureProfileExists(session.user).then(async ({ completed, resumeScreen }) => {
           if (completed) {
             // Before falling back to Profiles, check whether this user has
             // a persisted active game session (survives page refresh/reload
@@ -409,14 +473,23 @@ function AppShell() {
               navigate('profile')
             }
           } else {
-            // Onboarding STEP 1 (Welcome) is the entry point for a
-            // brand-new incomplete-onboarding user. Welcome's "Let's go!"
-            // now advances to the Step 2 placeholder (see
-            // OnboardingWelcomeStep above) — the old Splash/"Play
-            // Together" screen is no longer part of this path at all,
-            // though it remains unchanged and reachable elsewhere.
-            console.log('ONBOARDING INCOMPLETE — navigating to onboarding welcome (step 1)')
-            navigate('onboarding_welcome')
+            // STEP 5B: an incomplete-onboarding user resumes at the EARLIEST
+            // onboarding screen whose persisted requirement is not yet
+            // satisfied (lib/onboardingResume.ts — pure and read-only). A
+            // brand-new user, or one with nothing usable saved, still lands
+            // on STEP 1 (Welcome) exactly as before. Decided here, in the
+            // same synchronous callback and batch as setOnboardingStatus
+            // below, so the loading gate lifts directly onto the right
+            // screen — no render of Step 1 first. Only the step key is
+            // logged, never any profile value. The old Splash/"Play
+            // Together" screen is not part of this path at all.
+            //
+            // Back-button follow-up: if the user came back into this app's
+            // base history entry after a refresh, show the step before the
+            // resume step (never a later one). See lib/onboardingHistory.ts.
+            const startScreen = ensureOnboardingHistory(onboardingHistoryRef).adjustInitialScreen(resumeScreen)
+            console.log('ONBOARDING INCOMPLETE — resuming at:', startScreen)
+            navigate(startScreen)
           }
           setOnboardingStatus(completed ? 'complete' : 'incomplete')
         })
